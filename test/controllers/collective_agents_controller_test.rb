@@ -174,6 +174,12 @@ class CollectiveAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "#{collective.path}/upgrade"
     assert_not_includes response.body, "Enable Trio"
+    # The plan-gate copy lists the actual paid features (from paid_feature_labels),
+    # not a hardcoded "…and more". On the Agents page the built-in agents are
+    # named "Trio" — the page's own Trio section makes the name self-evident.
+    assert_includes response.body, "unlocks automations and Trio on this collective"
+    assert_not_includes response.body, "the built-in agents (Melody"
+    assert_not_includes response.body, "and more"
   end
 
   test "the paid tier on a billing tenant gets the full page" do
@@ -202,8 +208,10 @@ class CollectiveAgentsControllerTest < ActionDispatch::IntegrationTest
     get "#{collective.path}/agents"
 
     assert_response :success
-    assert_includes response.body, "no open funding pool"
+    # Enabled-without-a-pool is framed as unfinished setup, not "enabled but broken".
+    assert_includes response.body, "needs an open funding pool"
     assert_includes response.body, "#{collective.path}/pool"
+    assert_not_includes response.body, "Trio is on"
   end
 
   test "the cannot-run warning clears once a pool is open" do
@@ -217,10 +225,11 @@ class CollectiveAgentsControllerTest < ActionDispatch::IntegrationTest
     get "#{collective.path}/agents"
 
     assert_response :success
-    assert_not_includes response.body, "no open funding pool"
+    assert_not_includes response.body, "needs an open funding pool"
+    assert_includes response.body, "Trio is on"
   end
 
-  test "the pool summary shows state, enrollment count, and ceiling" do
+  test "the pool summary shows state and enrollment count, without the ceiling detail" do
     collective = create_test_collective
     enable_self_serve_pools!(collective)
     pool = create_pool!(collective)
@@ -231,8 +240,9 @@ class CollectiveAgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_includes response.body, "1 member enrolled"
-    assert_includes response.body, "$5.00"
     assert_includes response.body, "#{collective.path}/pool"
+    # Ceiling detail lives on the pool page, not the agents summary.
+    assert_not_includes response.body, "per member per"
   end
 
   test "agent members list personas and member-added agents alike, with their principals" do

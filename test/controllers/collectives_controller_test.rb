@@ -434,10 +434,11 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "/collectives/#{test_collective.handle}/settings"
 
     assert_response :success
-    assert_includes response.body, "Upgrade to the paid plan"
-    # Banner lists paid features mid-sentence (lowercase common nouns); when the
-    # tenant has only Automations available, the copy says "unlock automations".
-    assert_includes response.body, "unlock automations on this collective"
+    assert_match(%r{Upgrade to .*\$3/month}, response.body)
+    # The Plan section lists paid features mid-sentence (lowercase common
+    # nouns); when the tenant has only Automations available, it reads
+    # "unlock automations".
+    assert_includes response.body, "unlock automations"
     assert_not_includes response.body, "built-in agents"
     assert_not_includes response.body, "file attachments"
   end
@@ -661,26 +662,27 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "Paid plan"
   end
 
-  test "settings page shows Upgrade button on free collective" do
+  test "settings page shows the Plan section with an Upgrade button on a free collective" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.enable_feature_flag!("trio")
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/settings"
     assert_response :success
-    assert_includes response.body, "Paid Plan Features"
+    assert_select "h2.pulse-section-title", text: "Plan"
     assert_match(/Upgrade to Paid/i, response.body)
+    # Paid-feature toggles never render on a free collective — the plan
+    # lifecycle lives in the Plan section, not a "Paid Plan Features" panel.
+    assert_not_includes response.body, "Paid Plan Features"
   end
 
-  test "settings page shows Paid Plan Features even when personas/file_attachments off at tenant level" do
+  test "settings Plan section offers upgrade even when personas/file_attachments off at tenant level" do
     enable_stripe_billing_flag!(@tenant)
     @tenant.set_feature_flag!("trio", false)
     @tenant.set_feature_flag!("file_attachments", false)
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/settings"
     assert_response :success
-    assert_includes response.body, "Paid Plan Features"
-    # On a free collective the section shows the explainer + Upgrade button,
-    # not the Automations panel (that's paid-only).
+    assert_select "h2.pulse-section-title", text: "Plan"
     assert_match(/Upgrade to Paid/i, response.body)
   end
 
@@ -809,6 +811,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_match(%r{\$3/month}, response.body)
+    # The plan vs. prepaid-credits distinction is stated where the two payments meet.
+    assert_match(/separate from the prepaid usage credits/i, response.body)
     # Confirmation form must POST to /upgrade with Turbo opted out
     # (controller may redirect cross-origin to Stripe Checkout).
     assert_match %r{<form[^>]*action="[^"]*#{Regexp.escape(@collective.handle)}/upgrade"[^>]*method="post"[^>]*>}, response.body
@@ -1935,7 +1939,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_not cm.has_role?("representative"), "a non-admin agent must not grant roles"
   end
 
-  test "the markdown settings page points at the pool page without pool state" do
+  test "the markdown settings page no longer carries a pool section" do
     collective = create_test_collective
     enable_stripe_billing_flag!(@tenant)
     FeatureFlagService.config["funding_pools"] ||= {}
@@ -1950,10 +1954,9 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     get "#{collective.path}/settings", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    assert_match(/## Funding Pool/, response.body)
-    assert_includes response.body, "[pool page](#{collective.path}/pool)"
-    assert_no_match(/Pool draw ceiling/, response.body)
-    assert_no_match(/Funded agents/, response.body)
+    # The pool has its own page (linked from the sidebar menu); settings only
+    # keeps the collective's own configuration and plan.
+    assert_no_match(/## Funding Pool/, response.body)
   end
 
   test "internal-only collective types cannot be created through the public path" do
@@ -2001,21 +2004,22 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     @collective.save!
   end
 
-  test "settings page has no trio checkbox and points at the agents page instead" do
+  test "settings page has no trio checkbox" do
     offer_trio!
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/settings"
     assert_response :success
+    # Trio is managed on the Agents page (reached from the sidebar menu); the
+    # settings save form carries no trio toggle.
     assert_select "input#feature_trio", count: 0
-    assert_select "a[href=?]", "#{@collective.path}/agents", minimum: 1
   end
 
-  test "settings markdown points trio at the agents page" do
+  test "settings markdown carries no trio row" do
     offer_trio!
     sign_in_as(@user, tenant: @tenant)
     get "/collectives/#{@collective.handle}/settings", headers: { "Accept" => "text/markdown" }
     assert_response :success
-    assert_includes response.body, "#{@collective.path}/agents"
+    assert_no_match(/^\| Trio \|/, response.body)
   end
 
   test "settings page no longer renders the agent membership section" do
@@ -2173,6 +2177,99 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "Markdown Member"
     assert_includes response.body, agent.name
+  end
+
+  # === Phase 3: post-creation agent-setup pointer ===
+
+  def make_collective_paid!
+    enable_stripe_billing_flag!(@tenant)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+    @collective.update!(tier: Collective::TIER_PAID)
+  end
+
+  def enable_trio_here!
+    offer_trio!
+    @collective.set_feature_flag!("trio", true)
+  end
+
+  def open_pool!
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_draw_cap_cents: 500)
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  test "homepage shows the agent-setup pointer to an admin whose paid collective has Trio off" do
+    make_collective_paid!
+    offer_trio!
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}"
+    assert_response :success
+    assert_select "#agent-setup-pointer"
+    assert_select "#agent-setup-pointer a[href=?]", "#{@collective.path}/agents"
+  end
+
+  test "homepage shows the agent-setup pointer when Trio is on but no pool is open" do
+    make_collective_paid!
+    enable_trio_here!
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}"
+    assert_response :success
+    assert_select "#agent-setup-pointer"
+  end
+
+  test "homepage shows the agent-setup pointer when a pool is open but no one is enrolled" do
+    make_collective_paid!
+    enable_trio_here!
+    open_pool!
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}"
+    assert_response :success
+    assert_select "#agent-setup-pointer"
+  end
+
+  test "homepage hides the agent-setup pointer once the funnel is complete" do
+    make_collective_paid!
+    enable_trio_here!
+    @user.stripe_customer.update!(pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}")
+    pool = open_pool!
+    pool.enroll!(@user, draw_cap_cents: 500)
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}"
+    assert_response :success
+    assert_select "#agent-setup-pointer", count: 0
+  end
+
+  test "homepage hides the agent-setup pointer from non-admins" do
+    make_collective_paid!
+    offer_trio!
+    member = add_member(name: "Plain Member")
+    sign_in_as(member, tenant: @tenant)
+    get "/collectives/#{@collective.handle}"
+    assert_response :success
+    assert_select "#agent-setup-pointer", count: 0
+  end
+
+  test "homepage hides the agent-setup pointer on a free collective" do
+    enable_stripe_billing_flag!(@tenant)
+    offer_trio!
+    sign_in_as(@user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}"
+    assert_response :success
+    assert_select "#agent-setup-pointer", count: 0
+  end
+
+  test "homepage hides the agent-setup pointer after it is dismissed" do
+    make_collective_paid!
+    offer_trio!
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/dismiss-agent-setup"
+    assert_redirected_to @collective.path
+
+    get "/collectives/#{@collective.handle}"
+    assert_response :success
+    assert_select "#agent-setup-pointer", count: 0
   end
 
   private

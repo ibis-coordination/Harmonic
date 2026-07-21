@@ -169,10 +169,9 @@
             FeatureFlagService.flag_metadata(f).fetch("collective_level", false) &&
             !FeatureFlagService.operator_managed?(f)
         }
-        # Trio is managed on the Agents page, not by a checkbox here — settings
-        # only points there. (The update endpoint still accepts the flag, so
-        # saving this form never silently disables Trio.)
-        trio_available = available_flags.include?("trio")
+        # Trio is managed on the Agents page (reachable from the sidebar menu),
+        # not by a checkbox here. The update endpoint still accepts the flag, so
+        # saving this form never silently disables Trio.
         available_flags -= ["trio"]
         tier_in_effect = @current_tenant.feature_enabled?("stripe_billing")
         if tier_in_effect
@@ -206,20 +205,6 @@
         </div>
       <% } %>
 
-      <% render_trio_pointer = -> {
-        %>
-        <div class="pulse-feature-flag-item">
-          <strong>Trio</strong>
-          <p class="pulse-muted" style="margin: 4px 0 6px 0; font-size: 13px;">
-            <%= @current_collective.feature_flag_enabled_locally?("trio") ? "Enabled" : "Not enabled" %> —
-            the built-in agents are managed on the Agents page.
-          </p>
-          <a href="<%= @current_collective.path %>/agents" class="pulse-action-btn pulse-action-btn-sm">
-            <%= octicon 'command-palette', height: 12 %> Manage agents
-          </a>
-        </div>
-      <% } %>
-
       <% render_automations_item = -> {
         %>
         <div class="pulse-feature-flag-item">
@@ -236,67 +221,29 @@
 
       <% show_paid_section = tier_in_effect && !@current_collective.is_main_collective? %>
       <% automations_available = @current_tenant.automations_enabled? %>
+      <%# Paid-feature toggles only render on the paid tier — the plan
+          lifecycle (upgrade, downgrade, billing) is the Plan section's job. %>
+      <% show_paid_features = show_paid_section && @current_collective.paid_tier? %>
       <%# Automations group with the paid features. Where there is no paid
           section (non-billing tenants, main collectives), they group with the
           plain features instead — never a standalone section of their own. %>
       <% automations_with_free = automations_available && !show_paid_section %>
-      <% trio_with_free = trio_available && !show_paid_section %>
-      <% if free_flags.any? || show_paid_section || automations_with_free || trio_with_free %>
+      <% if free_flags.any? || show_paid_features || automations_with_free %>
         <%# Suppress border-bottom; the sticky Save Settings form-actions below %>
         <%# has its own border-top, so keeping both produces two visible lines. %>
         <section class="pulse-settings-section" style="border-bottom: none;">
-          <% if free_flags.any? || automations_with_free || trio_with_free %>
+          <% if free_flags.any? || automations_with_free %>
             <h2 class="pulse-section-title"><%= tier_in_effect ? "Features" : "Features Enabled" %></h2>
             <% free_flags.each { |f| render_flag_item.call(f) } %>
             <% render_automations_item.call if automations_with_free %>
-            <% render_trio_pointer.call if trio_with_free %>
           <% end %>
 
-          <% if show_paid_section %>
+          <% if show_paid_features %>
             <h3 class="pulse-section-title" style="<%= free_flags.any? ? 'margin-top: 24px;' : '' %> font-size: 16px;">
               Paid Plan Features
             </h3>
-
-            <% if @current_collective.paid_tier? %>
-              <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
-                <%= octicon 'credit-card', height: 12 %>
-                This collective is on the paid plan ($3/month).
-              </p>
-
-              <% render_automations_item.call if automations_available %>
-              <% paid_flags.each { |f| render_flag_item.call(f) } %>
-              <% render_trio_pointer.call if trio_available %>
-            <% elsif @current_collective.requires_stripe_billing? %>
-              <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
-                <%= octicon 'alert', height: 12 %>
-                Billing lapsed — paid features are paused. Restore your subscription to resume.
-              </p>
-              <%= button_to "Resume billing", "/billing", method: :get,
-                            class: "pulse-action-btn",
-                            form: { style: "display: inline;" } %>
-            <% else %>
-              <p class="pulse-muted" style="margin-bottom: 12px; font-size: 13px;">
-                <%= octicon 'credit-card', height: 12 %>
-                Upgrade to the paid plan ($3/month) to unlock <%= paid_feature_labels(@current_tenant).to_sentence %> on this collective.
-              </p>
-              <% if @current_user.id == @current_collective.created_by_id %>
-                <%# Links go to the GET upgrade preview, which shows the %>
-                <%# prorated charge (for owners with billing) or the Stripe %>
-                <%# Checkout next step (without) before any charge happens. %>
-                <% if @pending_collective_upgrade_in_session %>
-                  <p class="pulse-muted" style="margin-bottom: 8px; font-size: 13px;">
-                    <em>You started checkout for this collective. Resume to finish.</em>
-                  </p>
-                  <a href="<%= @current_collective.path %>/upgrade" class="pulse-action-btn">Resume checkout</a>
-                <% else %>
-                  <a href="<%= @current_collective.path %>/upgrade" class="pulse-action-btn">Upgrade to Paid ($3/month)</a>
-                <% end %>
-              <% else %>
-                <p class="pulse-muted" style="font-size: 13px;">
-                  <em>Only the collective owner can upgrade.</em>
-                </p>
-              <% end %>
-            <% end %>
+            <% render_automations_item.call if automations_available %>
+            <% paid_flags.each { |f| render_flag_item.call(f) } %>
           <% end %>
         </section>
       <% end %>
@@ -306,65 +253,90 @@
       </div>
     <% end %>
 
-    <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? && @current_collective.paid_tier? && @current_user.id == @current_collective.created_by_id %>
-      <%
-        downgrade_disables = paid_features_to_disable_on_downgrade(@current_collective)
-        n_auto = @enabled_automations_count.to_i
-        # Build two parallel sentences for the section copy and the confirm dialog.
-        # Phrases are conditional so we don't promise to turn off features the
-        # tenant doesn't support.
-        section_phrases = []
-        section_phrases << "disable #{pluralize(n_auto, 'enabled automation')}" if n_auto > 0
-        section_phrases << "turn off #{downgrade_disables.to_sentence}" if downgrade_disables.any?
-
-        confirm_phrases = []
-        confirm_phrases << "#{pluralize(n_auto, 'enabled automation')} will be disabled" if n_auto > 0
-        confirm_phrases << "#{downgrade_disables.to_sentence} will be turned off" if downgrade_disables.any?
-
-        confirm_text = "Downgrade #{@current_collective.name} to the free plan?"
-        confirm_text += " #{sentence_case(confirm_phrases.to_sentence)}." if confirm_phrases.any?
-      %>
+    <%# Plan: the permanent home of the collective's tier lifecycle. Tier
+        status shows to every admin; the upgrade/downgrade controls are the
+        owner's alone. Agents, pool, and members each have their own page
+        (reachable from the sidebar menu), so settings no longer points at them. %>
+    <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? %>
+      <% is_owner = @current_user.id == @current_collective.created_by_id %>
       <section class="pulse-settings-section">
-        <h2 class="pulse-section-title">Downgrade to Free</h2>
-        <p class="pulse-section-description">
-          Move this collective back to the free plan.
-          <% if section_phrases.any? %>
-            This will <%= section_phrases.to_sentence %>.
+        <h2 class="pulse-section-title">Plan</h2>
+
+        <% if @current_collective.paid_tier? %>
+          <p class="pulse-section-description">
+            This collective is on the <strong>paid plan ($3/month)</strong>, billed to the owner's account.
+            The plan turns paid features on; prepaid usage credits — topped up per member — pay for agent activity separately.
+          </p>
+          <p class="pulse-muted" style="margin-bottom: 12px;">
+            <%= octicon 'credit-card', height: 14 %>
+            <% if @current_collective.billing_exempt? %>
+              Billing-exempt by an admin. <%= link_to "View billing", "/billing", class: "pulse-link" %>
+            <% else %>
+              <%= link_to "Manage billing", "/billing", class: "pulse-link" %>
+            <% end %>
+          </p>
+          <% if is_owner %>
+            <%
+              downgrade_disables = paid_features_to_disable_on_downgrade(@current_collective)
+              n_auto = @enabled_automations_count.to_i
+              # Build two parallel sentences for the section copy and the confirm dialog.
+              # Phrases are conditional so we don't promise to turn off features the
+              # tenant doesn't support.
+              section_phrases = []
+              section_phrases << "disable #{pluralize(n_auto, 'enabled automation')}" if n_auto > 0
+              section_phrases << "turn off #{downgrade_disables.to_sentence}" if downgrade_disables.any?
+
+              confirm_phrases = []
+              confirm_phrases << "#{pluralize(n_auto, 'enabled automation')} will be disabled" if n_auto > 0
+              confirm_phrases << "#{downgrade_disables.to_sentence} will be turned off" if downgrade_disables.any?
+
+              confirm_text = "Downgrade #{@current_collective.name} to the free plan?"
+              confirm_text += " #{sentence_case(confirm_phrases.to_sentence)}." if confirm_phrases.any?
+            %>
+            <p class="pulse-section-description">
+              Move this collective back to the free plan.
+              <% if section_phrases.any? %>This will <%= section_phrases.to_sentence %>.<% end %>
+            </p>
+            <%= button_to "Downgrade to Free",
+                          "#{@current_collective.path}/downgrade",
+                          method: :post,
+                          class: "pulse-action-btn-danger",
+                          form: { style: "display: inline;" },
+                          data: { turbo_confirm: confirm_text } %>
           <% end %>
-        </p>
-        <%= button_to "Downgrade to Free",
-                      "#{@current_collective.path}/downgrade",
-                      method: :post,
-                      class: "pulse-action-btn-danger",
-                      form: { style: "display: inline;" },
-                      data: { turbo_confirm: confirm_text } %>
+
+        <% elsif @current_collective.requires_stripe_billing? %>
+          <p class="pulse-section-description">
+            <%= octicon 'alert', height: 14 %>
+            Billing lapsed — paid features are paused. Restore your subscription to resume.
+          </p>
+          <%= button_to "Resume billing", "/billing", method: :get,
+                        class: "pulse-action-btn",
+                        form: { style: "display: inline;" } %>
+
+        <% else %>
+          <p class="pulse-section-description">
+            This collective is on the <strong>free plan</strong>. Upgrade to <strong>$3/month</strong> to unlock <%= paid_feature_labels(@current_tenant).to_sentence %>.
+            The plan is separate from prepaid usage credits, which fund agent activity.
+          </p>
+          <% if is_owner %>
+            <%# Links go to the GET upgrade preview, which shows the prorated %>
+            <%# charge (for owners with billing) or the Stripe Checkout next %>
+            <%# step (without) before any charge happens. %>
+            <% if @pending_collective_upgrade_in_session %>
+              <p class="pulse-muted" style="margin-bottom: 8px; font-size: 13px;">
+                <em>You started checkout for this collective. Resume to finish.</em>
+              </p>
+              <a href="<%= @current_collective.path %>/upgrade" class="pulse-action-btn">Resume checkout</a>
+            <% else %>
+              <a href="<%= @current_collective.path %>/upgrade" class="pulse-action-btn">Upgrade to Paid ($3/month)</a>
+            <% end %>
+          <% else %>
+            <p class="pulse-muted" style="font-size: 13px;"><em>Only the collective owner can upgrade.</em></p>
+          <% end %>
+        <% end %>
       </section>
     <% end %>
-
-    <% if @current_collective.standard? && @current_tenant.feature_enabled?("stripe_billing") && (@funding_pools_enabled || @funding_pool) %>
-      <section class="pulse-settings-section">
-        <h2 class="pulse-section-title">Agent Funding Pool</h2>
-        <p class="pulse-section-description">
-          A funding pool lets members fund this collective's agents together: each
-          LLM call an attached agent makes is billed to one enrolled member's own
-          prepaid balance. The pool is managed on the
-          <a href="<%= @current_collective.path %>/pool" class="pulse-link">pool page</a><%= @funding_pool ? "." : ", where an admin can open one." %>
-        </p>
-      </section>
-    <% end %>
-
-    <% unless @current_collective.private_workspace? %>
-      <section class="pulse-settings-section">
-        <h2 class="pulse-section-title">Agent Members</h2>
-        <p class="pulse-section-description">
-          Agents are members. See who runs here on the
-          <a href="<%= @current_collective.path %>/agents" class="pulse-link">Agents page</a>;
-          add or remove agents on the
-          <a href="<%= @current_collective.path %>/members" class="pulse-link">Members page</a>.
-        </p>
-      </section>
-    <% end %>
-
 
       <% if @current_tenant.feature_enabled?("collective_export") %>
         <section class="pulse-settings-section">
@@ -375,19 +347,6 @@
           <a href="<%= @current_collective.path %>/exports" class="pulse-action-btn">
             <%= octicon 'download', height: 14 %> Export Data
           </a>
-        </section>
-      <% end %>
-
-      <% if @current_tenant.feature_enabled?("stripe_billing") && !@current_collective.is_main_collective? && @current_collective.paid_tier? %>
-        <section class="pulse-settings-section">
-          <p class="pulse-muted">
-            <%= octicon 'credit-card', height: 14 %>
-            <% if @current_collective.billing_exempt? %>
-              Billing-exempt by an admin. <%= link_to "View billing", "/billing", class: "pulse-link" %>
-            <% else %>
-              <%= link_to "Manage billing", "/billing", class: "pulse-link" %>
-            <% end %>
-          </p>
         </section>
       <% end %>
 

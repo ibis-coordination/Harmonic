@@ -290,7 +290,22 @@ class ApplicationController < ActionController::Base
                     end
   end
 
+  # dismissed_notices key for the post-creation agent-setup pointer.
+  AGENT_SETUP_NOTICE_ID = "agent-setup-pointer"
+
   private
+
+  # The agent-setup funnel step to surface on the collective's landing pages,
+  # or nil to show nothing. Gated on admin standing and prior dismissal before
+  # touching the collective's pool/enrollment state, so the common member path
+  # stays cheap.
+  def agent_setup_pointer_step
+    member = @current_user&.collective_member
+    return nil unless member&.is_admin?
+    return nil if member.dismissed_notices.include?(AGENT_SETUP_NOTICE_ID)
+
+    @current_collective.agent_setup_step
+  end
 
   # Resolves user identity for API token-authenticated requests.
   #

@@ -583,6 +583,7 @@ Rails.application.routes.draw do
     post "#{prefix}/downgrade" => 'collectives#downgrade'
     post "#{prefix}/archive" => 'collectives#archive'
     post "#{prefix}/unarchive" => 'collectives#unarchive'
+    post "#{prefix}/dismiss-agent-setup" => 'collectives#dismiss_agent_setup'
     # The pool page owns every pool operation — page, form endpoints, and
     # described actions all live under the pool prefix.
     get "#{prefix}/pool" => 'funding_pools#show'

@@ -16,16 +16,11 @@
   </header>
 
   <div class="pulse-resource-body">
-    <% if flash[:notice] %>
-      <div class="pulse-notice pulse-notice-success" style="margin-bottom: 20px;"><%= flash[:notice] %></div>
-    <% end %>
-    <% if flash[:alert] %>
-      <div class="pulse-notice pulse-notice-danger" style="margin-bottom: 20px;"><%= flash[:alert] %></div>
-    <% end %>
-
+    <%# Flash is rendered once, by the layout, with markdown_inline — so link
+        pointers in a notice (e.g. the pool page) render as links. %>
     <% if @plan_gated %>
       <div class="pulse-notice" style="margin-bottom: 20px;">
-        This collective is on the free plan. The paid plan unlocks Trio, automations, file attachments, and more.
+        This collective is on the free plan. The paid plan unlocks <%= paid_feature_labels(@current_tenant, trio_label: "Trio").to_sentence %> on this collective.
         <% if @current_user&.id == @current_collective.created_by_id %>
           <a href="<%= @current_collective.path %>/upgrade" class="pulse-action-btn pulse-action-btn-sm">Upgrade</a>
         <% else %>
@@ -37,19 +32,22 @@
     <% if @trio_offered %>
       <section class="pulse-settings-section" id="trio-card">
         <h2 class="pulse-section-title">Trio</h2>
-        <% if @trio_enabled %>
+        <% if @trio_enabled && @trio_cannot_run %>
           <p>
-            Trio is enabled<% if @personas.any? %> —
+            Trio's personas have joined<% if @personas.any? %> —
+              <%= safe_join(@personas.map { |agent| link_to(agent.name, agent.path) }, " · ") %><% end %>, but Trio isn't running yet.
+          </p>
+          <div class="pulse-notice pulse-notice-warning">
+            One step left: Trio needs an open funding pool before it can run.
+            <a href="<%= @current_collective.path %>/pool">Open one on the pool page</a> to finish enabling it.
+          </div>
+        <% elsif @trio_enabled %>
+          <p>
+            Trio is on<% if @personas.any? %> —
               <%= safe_join(@personas.map { |agent| link_to(agent.name, agent.path) }, " · ") %><% end %>.
           </p>
-          <% if @trio_cannot_run %>
-            <div class="pulse-notice pulse-notice-danger">
-              Trio can't run: this collective has no open funding pool.
-              <a href="<%= @current_collective.path %>/pool">Open one on the pool page</a>.
-            </div>
-          <% end %>
         <% else %>
-          <p>Trio is not enabled.</p>
+          <p>Trio is off.</p>
         <% end %>
         <% if @is_agents_admin && !@plan_gated %>
           <% if @trio_enabled %>
@@ -70,9 +68,7 @@
         <p>
           <% if @pool_open %>
             The <a href="<%= @current_collective.path %>/pool">funding pool</a> is open —
-            <%= pluralize(@pool_enrolled_count, "member") %> enrolled,
-            ceiling <%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %>
-            per member per <%= @funding_pool.member_draw_cap_period %>.
+            <%= pluralize(@pool_enrolled_count, "member") %> enrolled.
           <% elsif @funding_pool %>
             The <a href="<%= @current_collective.path %>/pool">funding pool</a> is closed, so agents on its payroll cannot run.
           <% else %>

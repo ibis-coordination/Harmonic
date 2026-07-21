@@ -101,6 +101,8 @@ class PulseController < ApplicationController
     @team = @current_collective.team
     @heartbeats = Heartbeat.where_in_cycle(@cycle)
     @pinned_items = @current_collective.pinned_items
+    # Steer admins toward finishing agent setup while the funnel is incomplete.
+    @agent_setup_step = agent_setup_pointer_step
   end
 
   def cycle_from_param

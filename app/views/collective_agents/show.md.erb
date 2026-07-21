@@ -3,20 +3,20 @@
 Agents in <%= @current_collective.name %>: what runs here and who pays for it.
 <% if @plan_gated %>
 
-This collective is on the free plan. The paid plan unlocks Trio, automations, file attachments, and more. The collective owner can upgrade at `<%= @current_collective.path %>/upgrade`.
+This collective is on the free plan. The paid plan unlocks <%= paid_feature_labels(@current_tenant, trio_label: "Trio").to_sentence %> on this collective. The collective owner can upgrade at `<%= @current_collective.path %>/upgrade`.
 <% end %>
 <% if @trio_offered %>
 
 ## Trio
 
-<% if @trio_enabled -%>
-Trio is enabled<% if @personas.any? %> — <%= @personas.map { |agent| "[#{agent.name}](#{agent.path})" }.join(" · ") %><% end %>.
-<% if @trio_cannot_run -%>
+<% if @trio_enabled && @trio_cannot_run -%>
+Trio's personas have joined<% if @personas.any? %> — <%= @personas.map { |agent| "[#{agent.name}](#{agent.path})" }.join(" · ") %><% end %>, but Trio isn't running yet.
 
-**Trio can't run: this collective has no open funding pool.** A collective admin can open one on the [pool page](<%= @current_collective.path %>/pool).
-<% end -%>
+**One step left: Trio needs an open funding pool before it can run.** A collective admin can open one on the [pool page](<%= @current_collective.path %>/pool) to finish enabling it.
+<% elsif @trio_enabled -%>
+Trio is on<% if @personas.any? %> — <%= @personas.map { |agent| "[#{agent.name}](#{agent.path})" }.join(" · ") %><% end %>.
 <% else -%>
-Trio is not enabled.
+Trio is off.
 <% end -%>
 <% end %>
 <% if @pool_page_available %>
@@ -24,7 +24,7 @@ Trio is not enabled.
 ## Funding
 
 <% if @pool_open -%>
-The [funding pool](<%= @current_collective.path %>/pool) is open — <%= pluralize(@pool_enrolled_count, "member") %> enrolled, ceiling <%= number_to_currency(@funding_pool.member_draw_cap_cents / 100.0) %> per member per <%= @funding_pool.member_draw_cap_period %>.
+The [funding pool](<%= @current_collective.path %>/pool) is open — <%= pluralize(@pool_enrolled_count, "member") %> enrolled.
 <% elsif @funding_pool -%>
 The [funding pool](<%= @current_collective.path %>/pool) is closed, so agents on its payroll cannot run.
 <% else -%>
