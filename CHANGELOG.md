@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.53.0] - 2026-07-21
+
+### Changed
+
+- **Direct messages with collective-principaled agents are disabled** (#517) — pool money is only spent on activity every pool member can see, but a chat turn lives outside the pool's shared space, so a pool-funded DM would be invisible spending. Built-in agents now never chat: dispatch refuses it, the profile "Message" action renders through the new `User#chattable_by?` predicate instead of linking to a 404, and the chat sidebar hides their old sessions. The rule now leads the new `/help/funding-pools` page, which absorbs the pool mechanics that had been shoehorned into the collectives help page. Deploy: web only, no migrations.
+- **Collective settings re-architecture and agent setup funnel** (#518, #519) — the settings page had become a god-page mixing configuration, billing, funding pool, and agent management. Each concern now has its own home reached from the sidebar: settings keeps configuration plus an owner-facing **Plan** section (upgrade, downgrade, resume, manage billing), `{collective}/pool` owns the funding pool, the new member-visible `{collective}/agents` page shows Trio status and the agent roster, and agent membership moves to the Members page. A dismissible pointer on a new paid collective's homepage walks admins through the remaining setup — turn on Trio, open a pool, enroll members. Checkout copy now distinguishes the $3/month plan (turns features on) from prepaid usage credits (pay for activity). Deploy: web only, no migrations.
+
 ## [1.52.1] - 2026-07-19
 
 ### Fixed
