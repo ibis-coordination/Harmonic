@@ -630,4 +630,109 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_equal "failed", @task_run.status
     assert_match(/Billing is not set up/, @task_run.error)
   end
+
+  # === Enabled-but-unfunded mention notification ===
+
+  # A trio run as a mention produces it: triggered through an event-driven
+  # automation rule, with the mentioner as the event actor.
+  def create_unfunded_mention_run!(mentioner:)
+    task_run = create_trio_task_run!
+    event = Event.create!(tenant: @tenant, collective: @collective, event_type: "note.created", actor: mentioner)
+    rule = AutomationRule.create!(
+      tenant: @tenant, collective: @collective, name: "Cadence mention rule",
+      trigger_type: "event", trigger_config: {}, actions: [], created_by: @user,
+    )
+    AutomationRuleRun.create!(
+      tenant: @tenant, collective: @collective, automation_rule: rule,
+      trigger_source: "event", status: "pending",
+      triggered_by_event: event, ai_agent_task_run: task_run,
+    )
+    task_run
+  end
+
+  # The unfunded hint shares the persona_unavailable type with the
+  # not-enabled hint; the pool-page URL is what distinguishes it.
+  def unfunded_notifications_for(user)
+    Notification.where(notification_type: "persona_unavailable", url: "#{@collective.path}/pool")
+      .joins(:notification_recipients).where(notification_recipients: { user_id: user.id })
+  end
+
+  test "an unfunded mention notifies the mentioner with the pool link" do
+    enable_stripe_billing_flag!(@tenant)
+    task_run = create_unfunded_mention_run!(mentioner: @user)
+
+    AgentRunnerDispatchService.dispatch(task_run)
+
+    assert_equal "failed", task_run.reload.status
+    notification = unfunded_notifications_for(@user).first
+    assert notification, "the mentioner should be told why nothing happened"
+    assert_equal "#{@collective.path}/pool", notification.url
+    assert_match(/funding pool/i, notification.body)
+  end
+
+  test "a second unfunded mention does not re-notify" do
+    enable_stripe_billing_flag!(@tenant)
+
+    AgentRunnerDispatchService.dispatch(create_unfunded_mention_run!(mentioner: @user))
+    AgentRunnerDispatchService.dispatch(create_unfunded_mention_run!(mentioner: @user))
+
+    assert_equal 1, unfunded_notifications_for(@user).count
+  end
+
+  test "different mentioners are each notified once" do
+    enable_stripe_billing_flag!(@tenant)
+    other = create_user(name: "Other Mentioner")
+    @tenant.add_user!(other)
+    @collective.add_user!(other)
+
+    AgentRunnerDispatchService.dispatch(create_unfunded_mention_run!(mentioner: @user))
+    AgentRunnerDispatchService.dispatch(create_unfunded_mention_run!(mentioner: other))
+
+    assert_equal 1, unfunded_notifications_for(@user).count
+    assert_equal 1, unfunded_notifications_for(other).count
+  end
+
+  test "the notification re-arms after a pool was opened and later closed" do
+    enable_stripe_billing_flag!(@tenant)
+    AgentRunnerDispatchService.dispatch(create_unfunded_mention_run!(mentioner: @user))
+    assert_equal 1, unfunded_notifications_for(@user).count
+
+    # A pool opened and then closed marks a new unfunded spell.
+    FundingPool.create!(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      member_draw_cap_cents: 500, archived_at: Time.current,
+    )
+
+    AgentRunnerDispatchService.dispatch(create_unfunded_mention_run!(mentioner: @user))
+
+    assert_equal 2, unfunded_notifications_for(@user).count
+  end
+
+  test "a prior not-enabled hint does not suppress the unfunded hint" do
+    enable_stripe_billing_flag!(@tenant)
+    # The not-enabled variant of the same notification type links settings,
+    # not the pool page.
+    earlier_event = Event.create!(tenant: @tenant, collective: @collective, event_type: "note.created", actor: @user)
+    NotificationService.create_and_deliver!(
+      event: earlier_event,
+      recipient: @user,
+      notification_type: "persona_unavailable",
+      title: "@cadence isn't enabled in #{@collective.name}",
+      url: "#{@collective.path}/settings",
+    )
+
+    AgentRunnerDispatchService.dispatch(create_unfunded_mention_run!(mentioner: @user))
+
+    assert_equal 1, unfunded_notifications_for(@user).count
+  end
+
+  test "a manually-triggered unfunded run does not notify" do
+    enable_stripe_billing_flag!(@tenant)
+    task_run = create_trio_task_run!
+
+    AgentRunnerDispatchService.dispatch(task_run)
+
+    assert_equal "failed", task_run.reload.status
+    assert_equal 0, unfunded_notifications_for(@user).count
+  end
 end
