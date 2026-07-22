@@ -51,33 +51,41 @@ module Commentable
     comments.includes(:created_by).order(created_at: :asc)
   end
 
-  # Returns top-level comments with their descendants preloaded
-  # Returns a hash with :top_level array and :threads hash mapping comment_id => descendants
-  def comments_with_threads
-    top_level = chronological_comments.to_a
-
-    # Build a hash of comment_id => descendants for efficient lookup
-    threads = {}
-    top_level.each do |comment|
-      descendants = comment.all_descendants
-      Note.preload_for_display(descendants)
-      threads[comment.id] = descendants
-    end
-
-    # Every comment returned here has `self` as its root commentable.
-    # Inject it so render-time calls to `comment.path` /
-    # `comment.root_commentable` don't walk the polymorphic chain.
-    (top_level + threads.values.flatten).each { |c| c.root_commentable = self }
-
-    { top_level: top_level, threads: threads }
+  # Every comment on this resource — top-level and replies of any depth —
+  # flattened into a single chronological list, fetched in one query. This is
+  # the flat "chat" rendering of a thread; reply relationships are still
+  # carried on each comment's `commentable` pointer for "Replying to…" context.
+  def all_comments_chronological
+    comments = Note.comment_tree_for(self)
+    Note.preload_for_display(comments)
+    # Every comment here has `self` as its root commentable. Inject it so
+    # render-time `comment.path` / `comment.root_commentable` don't walk the
+    # polymorphic chain.
+    comments.each { |c| c.root_commentable = self }
+    comments
   end
 
-  # Every comment on this resource — top-level and replies of any depth —
-  # flattened into a single chronological list. This is the flat "chat"
-  # rendering of a thread; reply relationships are still carried on each
-  # comment's `commentable` pointer for "Replying to…" context.
-  def all_comments_chronological
-    data = comments_with_threads
-    (data[:top_level] + data[:threads].values.flatten).sort_by(&:created_at)
+  # Returns top-level comments with their descendants, grouped for threaded
+  # rendering. Built from the single flat fetch above (no per-thread queries):
+  # :top_level is the chronological top-level comments and :threads maps each
+  # top-level comment's id to its descendants (of any depth), chronologically.
+  def comments_with_threads
+    all = all_comments_chronological
+    by_id = all.index_by(&:id)
+    is_top_level = ->(c) { c.commentable_id == id && c.commentable_type == self.class.name }
+
+    top_level = all.select { |c| is_top_level.call(c) }
+    threads = top_level.each_with_object({}) { |c, h| h[c.id] = [] }
+
+    all.each do |comment|
+      next if is_top_level.call(comment)
+
+      # Walk up to the top-level ancestor through the already-loaded set.
+      ancestor = comment
+      ancestor = by_id[ancestor.commentable_id] until ancestor.nil? || is_top_level.call(ancestor)
+      threads[ancestor.id] << comment if ancestor
+    end
+
+    { top_level: top_level, threads: threads }
   end
 end

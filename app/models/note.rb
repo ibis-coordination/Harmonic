@@ -443,6 +443,52 @@ class Note < ApplicationRecord
     Note.find_by_sql(sanitized_sql)
   end
 
+  # Every comment on `commentable` — top-level and replies of any depth —
+  # fetched chronologically in a single recursive CTE (instead of one query per
+  # top-level comment). Behavior matches the old chronological_comments +
+  # all_descendants pair exactly: soft-deleted TOP-LEVEL comments are excluded
+  # (the `comments` association is not_deleted-scoped), while soft-deleted
+  # replies are kept so they can render as [deleted] tombstones.
+  # IMPORTANT: find_by_sql bypasses default_scope, so filter tenant/collective.
+  sig { params(commentable: T.untyped).returns(T::Array[Note]) }
+  def self.comment_tree_for(commentable)
+    return [] unless commentable.persisted?
+
+    sql = <<~SQL.squish
+      WITH RECURSIVE comment_tree AS (
+        SELECT notes.*
+        FROM notes
+        WHERE notes.commentable_id = :root_id
+          AND notes.commentable_type = :root_type
+          AND notes.deleted_at IS NULL
+          AND notes.tenant_id = :tenant_id
+          AND notes.collective_id = :collective_id
+
+        UNION ALL
+
+        SELECT n.*
+        FROM notes n
+        INNER JOIN comment_tree t ON n.commentable_id = t.id
+          AND n.commentable_type = 'Note'
+        WHERE n.tenant_id = :tenant_id
+          AND n.collective_id = :collective_id
+      )
+      SELECT * FROM comment_tree
+      ORDER BY created_at ASC
+    SQL
+
+    sanitized_sql = Note.sanitize_sql_array([
+      sql,
+      {
+        root_id: commentable.id,
+        root_type: commentable.class.name,
+        tenant_id: commentable.tenant_id,
+        collective_id: commentable.collective_id,
+      },
+    ])
+    Note.find_by_sql(sanitized_sql)
+  end
+
   # Broadcast a lightweight "comments changed" signal to the root resource's
   # channel. The payload is intentionally minimal — subscribers re-fetch the
   # rendered list — so this stays agnostic to how any given client displays it.

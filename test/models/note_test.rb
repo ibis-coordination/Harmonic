@@ -1043,7 +1043,53 @@ class NoteTest < ActiveSupport::TestCase
     )
 
     result = note.all_comments_chronological
-    assert result.all? { |c| c.root_commentable == note }
+    assert(result.all? { |c| c.root_commentable == note })
+  end
+
+  test "all_comments_chronological query count does not grow with the number of top-level comments" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "flat-perf-#{SecureRandom.hex(4)}")
+
+    build_resource = lambda do |top_count|
+      note = Note.create!(
+        tenant: tenant, collective: collective, created_by: user, updated_by: user,
+        title: "R", text: "root"
+      )
+      top_count.times do
+        top = note.comments.create!(
+          tenant: tenant, collective: collective, created_by: user, updated_by: user,
+          text: "top", subtype: "comment"
+        )
+        top.comments.create!(
+          tenant: tenant, collective: collective, created_by: user, updated_by: user,
+          text: "reply", subtype: "comment"
+        )
+      end
+      note
+    end
+
+    count_queries = lambda do |resource|
+      n = 0
+      callback = lambda do |_name, _start, _finish, _id, payload|
+        next if payload[:name] == "SCHEMA" || payload[:cached]
+
+        n += 1 if payload[:sql] =~ /\ASELECT/i
+      end
+      ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+        resource.all_comments_chronological
+      end
+      n
+    end
+
+    small = build_resource.call(2)
+    large = build_resource.call(6)
+
+    # A single recursive-CTE fetch plus a fixed set of preload queries — the
+    # count must not scale with breadth (the old code ran one query per
+    # top-level comment).
+    assert_equal count_queries.call(small), count_queries.call(large),
+                 "query count must not grow with the number of top-level comments"
   end
 
   # === comment broadcast Tests (realtime updates) ===
