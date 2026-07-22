@@ -7,17 +7,15 @@ class CommentComponent < ViewComponent::Base
     params(
       comment: Note,
       show_reply_context: T::Boolean,
-      root_comment_id: String,
       show_reply_button: T::Boolean,
       current_user: T.nilable(User),
       blocked_user_ids: T::Set[String]
     ).void
   end
-  def initialize(comment:, show_reply_context:, root_comment_id:, show_reply_button: true, current_user: nil, blocked_user_ids: Set.new)
+  def initialize(comment:, show_reply_context:, show_reply_button: true, current_user: nil, blocked_user_ids: Set.new)
     super()
     @comment = comment
     @show_reply_context = show_reply_context
-    @root_comment_id = root_comment_id
     @show_reply_button = show_reply_button
     @current_user = current_user
     @blocked_user_ids = blocked_user_ids

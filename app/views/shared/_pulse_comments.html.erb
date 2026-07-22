@@ -2,7 +2,9 @@
 <%# Usage: render 'shared/pulse_comments', commentable: @note %>
 <div class="pulse-comments-section"
      data-controller="comments"
-     data-comments-refresh-url-value="<%= commentable.path %>/comments.html">
+     data-comments-refresh-url-value="<%= commentable.path %>/comments.html"
+     data-comments-commentable-type-value="<%= commentable.class.name %>"
+     data-comments-commentable-id-value="<%= commentable.id %>">
   <div class="pulse-section-label">
     <%= octicon 'comment', height: 12 %>
     Comments (<%= commentable.comment_count %>)
@@ -21,6 +23,13 @@
     </p>
   <% elsif @current_user %>
     <div class="pulse-comment-form">
+      <div class="pulse-reply-context-bar" data-comments-target="replyContext" hidden>
+        <%= octicon 'reply', height: 12 %>
+        <span>Replying to <strong data-comments-target="replyContextAuthor"></strong></span>
+        <button type="button" class="pulse-reply-context-cancel" data-action="click->comments#cancelReply" aria-label="Cancel reply">
+          <%= octicon 'x', height: 12 %>
+        </button>
+      </div>
       <%= form_with url: "#{commentable.path}/comments", method: :post, local: true, class: "pulse-new-comment-form", data: { comments_target: "form", action: "submit->comments#submit", turbo: "false" } do |form| %>
         <%= render 'shared/markdown_editor', form: form, field: :text, inline: true, rows: 3,
               textarea_class: "pulse-form-textarea",

@@ -520,13 +520,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert commitment.comments.exists?, "Comment should have been created on commitment"
   end
 
-  test "HTML inline reply form on a comment posts to the bare /n/<id>/comments endpoint" do
+  test "HTML reply button on a comment targets the bare /n/<id> path so the composer posts to /n/<id>/comments" do
     # Regression guard: if Note#path ever silently shifts to a query-decorated
-    # URL again, the inline reply form's action becomes
-    # `/d/<id>?comment_id=<x>/comments` — malformed; submitting POSTs to
-    # `/d/<id>` with a garbage query and 404s the reply. Inspecting the
-    # rendered form action and round-tripping a submit catches that
-    # silently-broken case.
+    # URL again, the reply button's data-comment-path becomes
+    # `/d/<id>?comment_id=<x>`; the composer appends `/comments`, producing a
+    # malformed action that POSTs to `/d/<id>` with a garbage query and 404s
+    # the reply. Inspecting the rendered button and round-tripping a submit
+    # catches that silently-broken case.
     decision = create_decision(collective: @collective, created_by: @user, question: "Test?")
     comment = decision.add_comment(text: "the original", created_by: @user)
 
@@ -536,15 +536,15 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert response.content_type.starts_with?("text/html"), "Should be the HTML view, not markdown"
 
-    expected_action = "#{@collective.path}/n/#{comment.truncated_id}/comments"
-    assert_match(
-      %r{<form\b[^>]*\bclass="pulse-reply-form"[^>]*\baction="#{Regexp.escape(expected_action)}"|<form\b[^>]*\baction="#{Regexp.escape(expected_action)}"[^>]*\bclass="pulse-reply-form"}m,
-      response.body,
-      "HTML reply form's action must be the bare comment-note /comments endpoint — " \
-        "if it includes ?comment_id=, comment.path has wrongly shifted to display semantics",
-    )
+    expected_comment_path = "#{@collective.path}/n/#{comment.truncated_id}"
+    assert_includes response.body, "pulse-comment-reply-btn",
+      "The comment should render a reply button"
+    assert_includes response.body, %(data-comment-path="#{expected_comment_path}"),
+      "Reply button's data-comment-path must be the bare comment-note path — " \
+        "if it includes ?comment_id=, comment.path has wrongly shifted to display semantics"
 
-    # Round-trip: post a reply to that exact URL and verify the threading.
+    # Round-trip: the composer posts to `<data-comment-path>/comments`.
+    expected_action = "#{expected_comment_path}/comments"
     post expected_action, params: { text: "html reply works" }
     assert response.successful? || response.redirect?,
       "POST to the form action should succeed; got #{response.status}"

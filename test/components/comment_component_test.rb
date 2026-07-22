@@ -30,7 +30,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: @comment,
                     show_reply_context: false,
-                    root_comment_id: "root123"
                   ))
     assert_selector ".pulse-comment"
     assert_selector ".pulse-comment-author", text: "Alice"
@@ -40,7 +39,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: @comment,
                     show_reply_context: false,
-                    root_comment_id: "root123"
                   ))
     assert_selector "#n-abc12345"
   end
@@ -49,7 +47,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: @comment,
                     show_reply_context: false,
-                    root_comment_id: "root123"
                   ))
     assert_text "Hello world"
   end
@@ -67,7 +64,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: comment,
                     show_reply_context: false,
-                    root_comment_id: "root123"
                   ))
     # Block rendering keeps each paragraph in its own <p>, so the author's
     # blank line survives instead of collapsing "line 1" and "line 2" together.
@@ -80,7 +76,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: @comment,
                     show_reply_context: false,
-                    root_comment_id: "root123"
                   ))
     assert_selector "a.pulse-comment-timestamp[href='/n/abc12345']"
   end
@@ -89,7 +84,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: @comment,
                     show_reply_context: false,
-                    root_comment_id: "root123",
                     current_user: nil
                   ))
     assert_selector ".pulse-comment-confirm-display"
@@ -100,7 +94,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: @comment,
                     show_reply_context: false,
-                    root_comment_id: "root123",
                     current_user: @user
                   ))
     assert_selector "button.pulse-comment-confirm-btn"
@@ -110,7 +103,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: @comment,
                     show_reply_context: false,
-                    root_comment_id: "root123",
                     show_reply_button: true,
                     current_user: @user
                   ))
@@ -121,7 +113,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: @comment,
                     show_reply_context: false,
-                    root_comment_id: "root123",
                     show_reply_button: false,
                     current_user: @user
                   ))
@@ -132,7 +123,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: @comment,
                     show_reply_context: false,
-                    root_comment_id: "root123",
                     show_reply_button: true,
                     current_user: nil
                   ))
@@ -155,7 +145,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: comment,
                     show_reply_context: false,
-                    root_comment_id: "root123"
                   ))
     assert_selector ".pulse-comment-author", text: "Bob"
     assert_selector ".pulse-representation-label", text: /on behalf of/
@@ -176,7 +165,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: comment,
                     show_reply_context: false,
-                    root_comment_id: "root123"
                   ))
     assert_selector ".pulse-ai-agent-label", text: /agent of/
   end
@@ -196,7 +184,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: reply,
                     show_reply_context: true,
-                    root_comment_id: "root123"
                   ))
     assert_selector ".pulse-comment-reply-context"
     assert_text "Replying to"
@@ -218,7 +205,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
                     comment: reply,
                     show_reply_context: false,
-                    root_comment_id: "root123"
                   ))
     assert_no_selector ".pulse-comment-reply-context"
   end
@@ -232,7 +218,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
       comment: comment,
       show_reply_context: false,
-      root_comment_id: "root123",
       current_user: build_user(display_name: "Viewer", handle: "viewer"),
       blocked_user_ids: Set.new([author.id]),
     ))
@@ -249,7 +234,6 @@ class CommentComponentTest < ViewComponent::TestCase
     render_inline(CommentComponent.new(
       comment: comment,
       show_reply_context: false,
-      root_comment_id: "root123",
       current_user: build_user(display_name: "Viewer", handle: "viewer"),
       blocked_user_ids: Set.new,
     ))

@@ -93,6 +93,11 @@ class Note < ApplicationRecord
     )
   end
 
+  # Notify open comment threads when a comment is added or changed, so other
+  # viewers see it live. Broadcasts to the root resource (the Note / Decision /
+  # Commitment the thread hangs off), which is what clients subscribe to.
+  after_commit :broadcast_comment_change, on: [:create, :update], if: :is_comment?
+
   sig { returns(T::Boolean) }
   def is_post?
     subtype == "post"
@@ -283,9 +288,9 @@ class Note < ApplicationRecord
   sig { params(user: User).returns(ActiveRecord::Relation) }
   def self.where_user_has_read(user:)
     joins(:note_history_events).where(note_history_events: {
-                                        user: user,
-                                        event_type: "read_confirmation",
-                                      })
+      user: user,
+      event_type: "read_confirmation",
+    })
   end
 
   sig { params(user: User).returns(T::Boolean) }
@@ -432,10 +437,23 @@ class Note < ApplicationRecord
     SQL
 
     sanitized_sql = Note.sanitize_sql_array([
-                                              sql,
-                                              { note_id: id, tenant_id: tenant_id, collective_id: collective_id },
-                                            ])
+      sql,
+      { note_id: id, tenant_id: tenant_id, collective_id: collective_id },
+    ])
     Note.find_by_sql(sanitized_sql)
+  end
+
+  # Broadcast a lightweight "comments changed" signal to the root resource's
+  # channel. The payload is intentionally minimal — subscribers re-fetch the
+  # rendered list — so this stays agnostic to how any given client displays it.
+  sig { void }
+  def broadcast_comment_change
+    root = root_commentable
+    return if root.nil? || root == self
+
+    CommentsChannel.broadcast_to(root, { action: "changed" })
+  rescue StandardError => e
+    Rails.logger.warn("CommentsChannel broadcast failed for note #{id}: #{e.message}")
   end
 
   # Preload associations for a collection of notes (avoids N+1)

@@ -18,104 +18,78 @@ class CommentsListComponentTest < ViewComponent::TestCase
     Current.reset
   end
 
+  # A commentable (Decision) whose flat comment list is `comments`.
+  def build_commentable(comments)
+    commentable = build_decision
+    commentable.define_singleton_method(:all_comments_chronological) { comments }
+    commentable
+  end
+
+  # A top-level comment on the commentable (parent is the root resource).
+  def build_top_level(truncated_id:, text:, created_by: nil)
+    comment = build_note(truncated_id: truncated_id, text: text, created_by: created_by || @user, created_at: 2.hours.ago)
+    comment.define_singleton_method(:commentable_type) { "Decision" }
+    comment.define_singleton_method(:commentable_id) { nil }
+    comment.define_singleton_method(:commentable) { nil }
+    comment
+  end
+
+  # A reply to another comment (parent is a Note).
+  def build_reply(truncated_id:, text:, parent:)
+    reply = build_note(truncated_id: truncated_id, text: text, created_by: @user, created_at: 1.hour.ago)
+    reply.define_singleton_method(:commentable_type) { "Note" }
+    reply.define_singleton_method(:commentable_id) { 999 }
+    reply.define_singleton_method(:commentable) { parent }
+    reply
+  end
+
   test "renders empty state when no comments" do
-    commentable = build_note(text: "commentable")
-    commentable.define_singleton_method(:comments_with_threads) { { top_level: [], threads: {} } }
-    render_inline(CommentsListComponent.new(commentable: commentable))
+    render_inline(CommentsListComponent.new(commentable: build_commentable([])))
     assert_selector ".pulse-comments-empty", text: "No comments yet."
   end
 
   test "renders comment-thread Stimulus controller" do
-    commentable = build_note(text: "commentable")
-    commentable.define_singleton_method(:comments_with_threads) { { top_level: [], threads: {} } }
-    render_inline(CommentsListComponent.new(commentable: commentable))
+    render_inline(CommentsListComponent.new(commentable: build_commentable([])))
     assert_selector "[data-controller='comment-thread']"
   end
 
-  test "renders top-level comments" do
-    comment = build_note(truncated_id: "abc12345", text: "Top level", created_by: @user, created_at: 1.hour.ago)
-    comment.define_singleton_method(:id) { 1 }
-    comment.define_singleton_method(:commentable_type) { "Decision" }
-    comment.define_singleton_method(:commentable) { nil }
-    comment.define_singleton_method(:commentable_id) { nil }
+  test "renders every comment flat in one list" do
+    top = build_top_level(truncated_id: "top12345", text: "Top level")
+    reply = build_reply(truncated_id: "rep12345", text: "A reply", parent: top)
 
-    commentable = build_note(text: "commentable")
-    commentable.define_singleton_method(:comments_with_threads) { { top_level: [comment], threads: {} } }
-
-    render_inline(CommentsListComponent.new(commentable: commentable))
-    assert_selector ".pulse-comment", count: 1
+    render_inline(CommentsListComponent.new(commentable: build_commentable([top, reply])))
+    assert_selector ".pulse-comment", count: 2
     assert_text "Top level"
+    assert_text "A reply"
+    # Flat list — no nested replies container or collapse toggle.
+    assert_no_selector ".pulse-comment-replies"
+    assert_no_selector ".pulse-replies-toggle"
   end
 
-  test "renders replies toggle when thread has descendants" do
-    top_comment = build_note(truncated_id: "top12345", text: "Top comment", created_by: @user, created_at: 2.hours.ago)
-    top_comment.define_singleton_method(:id) { 1 }
-    top_comment.define_singleton_method(:commentable_type) { "Decision" }
-    top_comment.define_singleton_method(:commentable) { nil }
-    top_comment.define_singleton_method(:commentable_id) { nil }
+  test "shows reply context for replies but not for top-level comments" do
+    top = build_top_level(truncated_id: "top12345", text: "Top level")
+    parent_author = build_user(display_name: "Dan", handle: "dan")
+    parent = build_note(truncated_id: "par12345", text: "Parent comment", created_by: parent_author)
+    reply = build_reply(truncated_id: "rep12345", text: "A reply", parent: parent)
 
-    reply = build_note(truncated_id: "rep12345", text: "Reply comment", created_by: @user, created_at: 1.hour.ago)
-    reply.define_singleton_method(:id) { 2 }
-    reply.define_singleton_method(:commentable_type) { "Note" }
-    reply.define_singleton_method(:commentable) { nil }
-    reply.define_singleton_method(:commentable_id) { 1 }
-
-    commentable = build_note(text: "commentable")
-    commentable.define_singleton_method(:comments_with_threads) { { top_level: [top_comment], threads: { 1 => [reply] } } }
-
-    render_inline(CommentsListComponent.new(commentable: commentable))
-    assert_selector ".pulse-replies-toggle"
-    assert_text "1 reply"
+    render_inline(CommentsListComponent.new(commentable: build_commentable([top, reply])))
+    assert_selector ".pulse-comment-reply-context", count: 1
+    assert_text "Replying to"
+    assert_text "@dan"
   end
 
-  test "renders reply form when current_user present" do
-    comment = build_note(truncated_id: "abc12345", text: "Comment", created_by: @user, created_at: 1.hour.ago)
-    comment.define_singleton_method(:id) { 1 }
-    comment.define_singleton_method(:commentable_type) { "Decision" }
-    comment.define_singleton_method(:commentable) { nil }
-    comment.define_singleton_method(:commentable_id) { nil }
+  test "renders reply button that targets the composer when current_user present" do
+    comment = build_top_level(truncated_id: "abc12345", text: "Comment")
 
-    commentable = build_note(text: "commentable")
-    commentable.define_singleton_method(:comments_with_threads) { { top_level: [comment], threads: {} } }
-
-    render_inline(CommentsListComponent.new(
-                    commentable: commentable,
-                    current_user: @user,
-                    collective_path: "/s/my-collective"
-                  ))
-    assert_selector ".pulse-reply-form-container", visible: :all
-    assert_selector "textarea", visible: :all
+    render_inline(CommentsListComponent.new(commentable: build_commentable([comment]), current_user: @user))
+    assert_selector ".pulse-comment-reply-btn[data-action='click->comments#startReply']", text: "Reply"
+    assert_selector ".pulse-comment-reply-btn[data-comment-path='/n/abc12345']"
   end
 
-  test "does not render reply form when no current_user" do
-    comment = build_note(truncated_id: "abc12345", text: "Comment", created_by: @user, created_at: 1.hour.ago)
-    comment.define_singleton_method(:id) { 1 }
-    comment.define_singleton_method(:commentable_type) { "Decision" }
-    comment.define_singleton_method(:commentable) { nil }
-    comment.define_singleton_method(:commentable_id) { nil }
+  test "does not render reply button when no current_user" do
+    comment = build_top_level(truncated_id: "abc12345", text: "Comment")
 
-    commentable = build_note(text: "commentable")
-    commentable.define_singleton_method(:comments_with_threads) { { top_level: [comment], threads: {} } }
-
-    render_inline(CommentsListComponent.new(commentable: commentable, current_user: nil))
-    assert_no_selector ".pulse-reply-form-container", visible: :all
-  end
-
-  test "passes collective_path to mention autocomplete" do
-    comment = build_note(truncated_id: "abc12345", text: "Comment", created_by: @user, created_at: 1.hour.ago)
-    comment.define_singleton_method(:id) { 1 }
-    comment.define_singleton_method(:commentable_type) { "Decision" }
-    comment.define_singleton_method(:commentable) { nil }
-    comment.define_singleton_method(:commentable_id) { nil }
-
-    commentable = build_note(text: "commentable")
-    commentable.define_singleton_method(:comments_with_threads) { { top_level: [comment], threads: {} } }
-
-    render_inline(CommentsListComponent.new(
-                    commentable: commentable,
-                    current_user: @user,
-                    collective_path: "/s/my-collective"
-                  ))
-    assert_selector "[data-mention-autocomplete-collective-path-value='/s/my-collective']", visible: :all
+    render_inline(CommentsListComponent.new(commentable: build_commentable([comment]), current_user: nil))
+    assert_no_selector ".pulse-comment-reply-btn"
   end
 end

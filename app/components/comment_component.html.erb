@@ -79,9 +79,9 @@
     <% if @show_reply_button && @current_user && !@comment.deleted? %>
       <button type="button"
               class="pulse-comment-reply-btn"
-              data-action="click->comment-thread#showReplyForm"
-              data-comment-id="<%= @comment.truncated_id %>"
-              data-root-comment-id="<%= @root_comment_id %>">
+              data-action="click->comments#startReply"
+              data-comment-path="<%= @comment.path %>"
+              data-comment-author="<%= display_author&.display_name %>">
         Reply
       </button>
     <% end %>

@@ -2,11 +2,12 @@ import { Controller } from "@hotwired/stimulus"
 import { getCsrfToken } from "../utils/csrf"
 
 /**
- * Handles inline reply forms within comment threads.
- * - Shows/hides reply forms
- * - Updates the reply target when replying to nested comments
- * - Submits replies via AJAX and refreshes the thread
- * - On page load, scrolls to and highlights the comment in `?comment_id=` if present
+ * Per-comment actions within the flat comment list:
+ * - Confirms reads (the book icon).
+ * - On page load, scrolls to and highlights the comment in `?comment_id=` if present.
+ *
+ * Replying and composing live in the `comments` controller (the single
+ * composer at the bottom of the section).
  */
 export default class CommentThreadController extends Controller {
   connect(): void {
@@ -21,28 +22,7 @@ export default class CommentThreadController extends Controller {
     const target = document.getElementById(`n-${commentId}`)
     if (!target) return
 
-    // If the target is inside a collapsed replies group, expand it first so
-    // the scroll lands on a visible element.
-    const collapsedReplies = target.closest(".pulse-comment-replies[hidden]") as HTMLElement | null
-    if (collapsedReplies) {
-      collapsedReplies.hidden = false
-      const toggleButton = document.querySelector(
-        `.pulse-replies-toggle[aria-controls="${collapsedReplies.id}"]`
-      ) as HTMLElement | null
-      if (toggleButton) {
-        toggleButton.classList.remove("is-collapsed")
-        toggleButton.setAttribute("aria-expanded", "true")
-        const textSpan = toggleButton.querySelector(".pulse-replies-toggle-text") as HTMLElement | null
-        const replyCount = toggleButton.dataset.replyCount
-        if (textSpan && replyCount) {
-          const count = parseInt(replyCount, 10)
-          const replyWord = count === 1 ? "reply" : "replies"
-          textSpan.textContent = `Hide ${replyWord}`
-        }
-      }
-    }
-
-    // Run after layout so smooth-scroll picks up the now-visible element.
+    // Run after layout so smooth-scroll picks up the element.
     requestAnimationFrame(() => {
       target.scrollIntoView({ behavior: "smooth", block: "center" })
       target.classList.add("pulse-comment-highlighted")
@@ -63,155 +43,6 @@ export default class CommentThreadController extends Controller {
     const query = url.searchParams.toString()
     const newUrl = `${url.pathname}${query ? `?${query}` : ""}${url.hash}`
     window.history.replaceState(window.history.state, "", newUrl)
-  }
-
-  private async refreshCommentsList(): Promise<void> {
-    // Find the parent comments section and get the refresh URL
-    const commentsSection = this.element.closest(".pulse-comments-section")
-    if (!commentsSection) return
-
-    const refreshUrl = (commentsSection as HTMLElement).dataset.commentsRefreshUrlValue
-    if (!refreshUrl) return
-
-    // Save expanded thread state before refresh
-    const expandedThreadIds = this.getExpandedThreadIds()
-
-    try {
-      const response = await fetch(refreshUrl, {
-        headers: {
-          Accept: "text/html",
-        },
-      })
-
-      if (response.ok) {
-        const html = await response.text()
-
-        // Find and replace the list element
-        const listElement = commentsSection.querySelector(".pulse-comments-list")
-        if (listElement) {
-          const template = document.createElement("template")
-          template.innerHTML = html.trim()
-          const newElement = template.content.firstElementChild as HTMLElement
-          if (newElement) {
-            listElement.replaceWith(newElement)
-          }
-        }
-
-        // Restore expanded thread state after refresh
-        this.restoreExpandedThreads(expandedThreadIds)
-      }
-    } catch (error) {
-      console.error("Error refreshing comments:", error)
-    }
-  }
-
-  private getExpandedThreadIds(): Set<string> {
-    const expandedIds = new Set<string>()
-    const commentsSection = this.element.closest(".pulse-comments-section")
-    if (!commentsSection) return expandedIds
-
-    commentsSection.querySelectorAll(".pulse-replies-toggle:not(.is-collapsed)").forEach((btn) => {
-      const threadId = (btn as HTMLElement).dataset.threadId
-      if (threadId) {
-        expandedIds.add(threadId)
-      }
-    })
-    return expandedIds
-  }
-
-  private restoreExpandedThreads(expandedIds: Set<string>): void {
-    expandedIds.forEach((threadId) => {
-      const repliesContainer = document.getElementById(`replies-${threadId}`)
-      const toggleButton = document.querySelector(
-        `.pulse-replies-toggle[data-thread-id="${threadId}"]`
-      ) as HTMLElement
-
-      if (repliesContainer && toggleButton) {
-        repliesContainer.hidden = false
-        toggleButton.classList.remove("is-collapsed")
-        toggleButton.setAttribute("aria-expanded", "true")
-
-        const textSpan = toggleButton.querySelector(".pulse-replies-toggle-text") as HTMLElement
-        const replyCount = toggleButton.dataset.replyCount
-        if (textSpan && replyCount) {
-          const count = parseInt(replyCount, 10)
-          const replyWord = count === 1 ? "reply" : "replies"
-          textSpan.textContent = `Hide ${replyWord}`
-        }
-      }
-    })
-  }
-
-  showReplyForm(event: Event): void {
-    const button = event.currentTarget as HTMLElement
-    const commentId = button.dataset.commentId
-    const rootCommentId = button.dataset.rootCommentId
-
-    // Hide any other open reply forms
-    this.element.querySelectorAll(".pulse-reply-form-container").forEach((el) => {
-      ;(el as HTMLElement).hidden = true
-    })
-
-    // Show the reply form for this thread
-    const formContainer = document.getElementById(`reply-form-${rootCommentId}`)
-    if (formContainer) {
-      formContainer.hidden = false
-
-      // Update the form action to reply to the correct comment
-      const form = formContainer.querySelector("form") as HTMLFormElement
-      if (form && commentId) {
-        // Update form action to point to the comment being replied to
-        // Extract the base path and update with the correct comment ID
-        const currentAction = form.action
-        const match = currentAction.match(/(.*)\/n\/[^/]+\/comments/)
-        if (match) {
-          form.action = `${match[1]}/n/${commentId}/comments`
-        }
-
-        // Update hidden field
-        const hiddenInput = formContainer.querySelector(
-          `#reply-to-${rootCommentId}`
-        ) as HTMLInputElement
-        if (hiddenInput) {
-          hiddenInput.value = commentId
-        }
-      }
-
-      formContainer.querySelector("textarea")?.focus()
-    }
-  }
-
-  hideReplyForm(event: Event): void {
-    const formContainer = (event.currentTarget as HTMLElement).closest(
-      ".pulse-reply-form-container"
-    ) as HTMLElement
-    if (formContainer) {
-      formContainer.hidden = true
-      // Clear the textarea
-      const textarea = formContainer.querySelector("textarea") as HTMLTextAreaElement
-      if (textarea) textarea.value = ""
-    }
-  }
-
-  toggleReplies(event: Event): void {
-    const button = event.currentTarget as HTMLElement
-    const threadId = button.dataset.threadId
-    const replyCount = button.dataset.replyCount
-    const repliesContainer = document.getElementById(`replies-${threadId}`)
-    const textSpan = button.querySelector(".pulse-replies-toggle-text") as HTMLElement
-
-    if (!repliesContainer) return
-
-    const isCollapsed = repliesContainer.hidden
-    repliesContainer.hidden = !isCollapsed
-    button.classList.toggle("is-collapsed", !isCollapsed)
-    button.setAttribute("aria-expanded", isCollapsed ? "true" : "false")
-
-    if (textSpan && replyCount) {
-      const count = parseInt(replyCount, 10)
-      const replyWord = count === 1 ? "reply" : "replies"
-      textSpan.textContent = isCollapsed ? `Hide ${replyWord}` : `${count} ${replyWord}`
-    }
   }
 
   async confirmRead(event: Event): Promise<void> {
@@ -245,87 +76,6 @@ export default class CommentThreadController extends Controller {
       console.error("Error confirming read:", error)
     } finally {
       button.classList.remove("is-loading")
-    }
-  }
-
-  async submitReply(event: Event): Promise<void> {
-    event.preventDefault()
-    const form = event.currentTarget as HTMLFormElement
-    const formData = new FormData(form)
-    const formContainer = form.closest(
-      ".pulse-reply-form-container"
-    ) as HTMLElement
-
-    // Check if the reply text is empty
-    const text = formData.get("text") as string
-    if (!text || text.trim() === "") {
-      return
-    }
-
-    const submitButton = form.querySelector(
-      'button[type="submit"], input[type="submit"]'
-    ) as HTMLButtonElement
-    const cancelButton = form.querySelector(
-      'button[type="button"]'
-    ) as HTMLButtonElement
-    const textarea = form.querySelector("textarea") as HTMLTextAreaElement
-
-    // Show loading state - keep form visible but disabled
-    if (formContainer) {
-      formContainer.classList.add("is-loading")
-    }
-    if (submitButton) {
-      submitButton.disabled = true
-      submitButton.textContent = "Posting..."
-    }
-    if (cancelButton) {
-      cancelButton.disabled = true
-    }
-    if (textarea) {
-      textarea.disabled = true
-    }
-
-    try {
-      const response = await fetch(form.action, {
-        method: "POST",
-        headers: {
-          "X-CSRF-Token": getCsrfToken(),
-          Accept: "application/json",
-        },
-        body: formData,
-      })
-
-      if (response.ok) {
-        await this.refreshCommentsList()
-      } else {
-        // On error, restore form to usable state
-        this.resetFormState(formContainer, submitButton, cancelButton, textarea)
-      }
-    } catch (error) {
-      console.error("Error submitting reply:", error)
-      // On error, restore form to usable state
-      this.resetFormState(formContainer, submitButton, cancelButton, textarea)
-    }
-  }
-
-  private resetFormState(
-    formContainer: HTMLElement | null,
-    submitButton: HTMLButtonElement | null,
-    cancelButton: HTMLButtonElement | null,
-    textarea: HTMLTextAreaElement | null
-  ): void {
-    if (formContainer) {
-      formContainer.classList.remove("is-loading")
-    }
-    if (submitButton) {
-      submitButton.disabled = false
-      submitButton.textContent = "Reply"
-    }
-    if (cancelButton) {
-      cancelButton.disabled = false
-    }
-    if (textarea) {
-      textarea.disabled = false
     }
   }
 }

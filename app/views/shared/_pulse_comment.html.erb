@@ -4,7 +4,6 @@
 <%= render CommentComponent.new(
   comment: comment,
   show_reply_context: show_reply_context,
-  root_comment_id: root_comment_id,
   show_reply_button: local_assigns.fetch(:show_reply_button, true),
   current_user: @current_user,
   blocked_user_ids: blocked_user_ids,

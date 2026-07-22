@@ -784,37 +784,40 @@
   margin-top: 16px;
 }
 
-/* Comment threading */
-.pulse-replies-toggle {
+/* "Replying to…" bar above the composer when replying to a specific comment */
+.pulse-reply-context-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--color-fg-muted);
+  background: var(--color-canvas-subtle);
+  border-radius: 6px;
+}
+
+/* Author `display: flex` beats the UA `[hidden]` rule, so the bar would show
+   at page load and ignore `hidden = true` from cancelReply — restore it. */
+.pulse-reply-context-bar[hidden] {
+  display: none;
+}
+
+.pulse-reply-context-cancel {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-  font-size: 12px;
+  margin-left: auto;
+  padding: 2px;
   color: var(--color-fg-muted);
   background: transparent;
   border: none;
   cursor: pointer;
-  margin-top: 4px;
+  border-radius: 4px;
 }
 
-.pulse-replies-toggle:hover {
-  color: var(--color-accent-fg);
-}
-
-.pulse-replies-toggle .octicon {
-  transition: transform 0.15s ease;
-}
-
-.pulse-replies-toggle.is-collapsed .octicon {
-  transform: rotate(-90deg);
-}
-
-.pulse-comment-replies {
-  padding-left: 16px;
-  border-left: 2px solid var(--color-border-default);
-  margin-top: 4px;
-  margin-bottom: 4px;
+.pulse-reply-context-cancel:hover {
+  color: var(--color-fg-default);
+  background: var(--color-canvas-default);
 }
 
 .pulse-comment-reply-context {
@@ -917,55 +920,6 @@
 .pulse-comment-reply-btn:hover {
   color: var(--color-fg-default);
   background: var(--color-canvas-subtle);
-}
-
-.pulse-reply-form-container {
-  padding-left: 16px;
-  border-left: 2px solid var(--color-border-default);
-  margin-top: 8px;
-  margin-bottom: 8px;
-}
-
-.pulse-reply-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.pulse-reply-form-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-/* Reply form loading state */
-.pulse-reply-form-container.is-loading {
-  position: relative;
-  opacity: 0.7;
-}
-
-.pulse-reply-form-container.is-loading::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 20px;
-  height: 20px;
-  margin: -10px 0 0 -10px;
-  border: 2px solid var(--color-border-default);
-  border-top-color: var(--color-accent-fg);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.pulse-reply-form-container.is-loading .pulse-form-textarea {
-  cursor: not-allowed;
 }
 
 .pulse-btn-secondary {

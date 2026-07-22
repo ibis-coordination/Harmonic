@@ -2,13 +2,12 @@
 
 class ChatSessionChannel < ApplicationCable::Channel
   def subscribed
-    chat_session = ChatSession.find_by(id: params[:session_id])
+    stream_for_authorized(find_session) { |session| session.participant?(current_user) }
+  end
 
-    if chat_session.nil? || !chat_session.participant?(current_user)
-      reject
-      return
-    end
+  private
 
-    stream_for chat_session
+  def find_session
+    ChatSession.find_by(id: params[:session_id])
   end
 end

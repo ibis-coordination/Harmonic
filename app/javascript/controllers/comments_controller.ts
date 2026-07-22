@@ -1,27 +1,104 @@
 import { Controller } from "@hotwired/stimulus"
+import { createConsumer } from "@rails/actioncable"
 import { getCsrfToken } from "../utils/csrf"
 
 /**
- * Handles inline comment submission and refreshing.
- * Intercepts form submission to prevent page redirect and refreshes
- * the comments section after a successful submission.
+ * Handles inline comment submission and refreshing for a flat comment thread.
+ *
+ * Comments render as one chronological list. Replying to a specific comment
+ * retargets this single composer at that comment (posting to its `/comments`
+ * endpoint makes the new note a reply) and shows a "Replying to…" bar; the
+ * reply relationship then surfaces as a "Replying to…" context line on the
+ * rendered comment. After a successful submit the composer resets to a
+ * top-level comment on the root resource.
+ *
+ * Subscribes to the resource's CommentsChannel so comments from other users
+ * appear live: on a broadcast, the list re-fetches (the same refresh used
+ * after a local submit).
  */
 export default class CommentsController extends Controller {
-  static targets = ["form", "list", "textarea", "submitButton"]
+  static targets = ["form", "list", "textarea", "submitButton", "replyContext", "replyContextAuthor"]
   static values = {
     refreshUrl: String,
+    commentableType: String,
+    commentableId: String,
   }
 
   declare readonly formTarget: HTMLFormElement
   declare readonly listTarget: HTMLElement
   declare readonly textareaTarget: HTMLTextAreaElement
   declare readonly submitButtonTarget: HTMLButtonElement
+  declare readonly replyContextTarget: HTMLElement
+  declare readonly replyContextAuthorTarget: HTMLElement
   declare readonly refreshUrlValue: string
+  declare readonly commentableTypeValue: string
+  declare readonly commentableIdValue: string
   declare readonly hasListTarget: boolean
   declare readonly hasTextareaTarget: boolean
   declare readonly hasSubmitButtonTarget: boolean
+  declare readonly hasReplyContextTarget: boolean
+  declare readonly hasReplyContextAuthorTarget: boolean
 
   private isSubmitting = false
+  // The composer's default action: a top-level comment on the root resource.
+  private rootAction = ""
+  private subscription: ReturnType<ReturnType<typeof createConsumer>["subscriptions"]["create"]> | null = null
+
+  connect(): void {
+    this.rootAction = this.formTarget.action
+    this.subscribeToChannel()
+  }
+
+  disconnect(): void {
+    this.subscription?.unsubscribe()
+    this.subscription = null
+  }
+
+  // Live updates: refresh the list whenever the server signals a change.
+  private subscribeToChannel(): void {
+    if (!this.commentableTypeValue || !this.commentableIdValue) return
+
+    const controller = this
+    this.subscription = createConsumer().subscriptions.create(
+      {
+        channel: "CommentsChannel",
+        commentable_type: this.commentableTypeValue,
+        commentable_id: this.commentableIdValue,
+      },
+      {
+        received() {
+          controller.refreshComments()
+        },
+      }
+    )
+  }
+
+  // Retarget the composer at a specific comment and show the "Replying to" bar.
+  startReply(event: Event): void {
+    const button = event.currentTarget as HTMLElement
+    const commentPath = button.dataset.commentPath
+    if (!commentPath) return
+
+    this.formTarget.action = `${commentPath}/comments`
+
+    if (this.hasReplyContextAuthorTarget) {
+      this.replyContextAuthorTarget.textContent = button.dataset.commentAuthor || "comment"
+    }
+    if (this.hasReplyContextTarget) {
+      this.replyContextTarget.hidden = false
+    }
+    if (this.hasTextareaTarget) {
+      this.textareaTarget.focus()
+    }
+  }
+
+  // Reset the composer back to a top-level comment on the root resource.
+  cancelReply(): void {
+    this.formTarget.action = this.rootAction
+    if (this.hasReplyContextTarget) {
+      this.replyContextTarget.hidden = true
+    }
+  }
 
   async submit(event: Event): Promise<void> {
     event.preventDefault()
@@ -61,6 +138,9 @@ export default class CommentsController extends Controller {
         // Reset it to Write mode so the next comment opens ready to type.
         this.resetPreviewToWrite()
 
+        // Drop any reply target so the next comment is top-level again.
+        this.cancelReply()
+
         // Refresh the comments list
         await this.refreshComments()
       } else {
@@ -81,9 +161,6 @@ export default class CommentsController extends Controller {
     const listElement = this.element.querySelector(".pulse-comments-list")
     if (!listElement) return
 
-    // Save expanded thread state before refresh
-    const expandedThreadIds = this.getExpandedThreadIds()
-
     try {
       const response = await fetch(this.refreshUrlValue, {
         headers: {
@@ -102,50 +179,10 @@ export default class CommentsController extends Controller {
         if (newElement) {
           listElement.replaceWith(newElement)
         }
-
-        // Restore expanded thread state after refresh
-        this.restoreExpandedThreads(expandedThreadIds)
       }
     } catch (error) {
       console.error("Error refreshing comments:", error)
     }
-  }
-
-  private getExpandedThreadIds(): Set<string> {
-    const expandedIds = new Set<string>()
-    // Find all toggle buttons that are NOT collapsed (i.e., thread is expanded)
-    this.element.querySelectorAll(".pulse-replies-toggle:not(.is-collapsed)").forEach((btn) => {
-      const threadId = (btn as HTMLElement).dataset.threadId
-      if (threadId) {
-        expandedIds.add(threadId)
-      }
-    })
-    return expandedIds
-  }
-
-  private restoreExpandedThreads(expandedIds: Set<string>): void {
-    expandedIds.forEach((threadId) => {
-      const repliesContainer = document.getElementById(`replies-${threadId}`)
-      const toggleButton = document.querySelector(
-        `.pulse-replies-toggle[data-thread-id="${threadId}"]`
-      ) as HTMLElement
-
-      if (repliesContainer && toggleButton) {
-        // Expand the thread
-        repliesContainer.hidden = false
-        toggleButton.classList.remove("is-collapsed")
-        toggleButton.setAttribute("aria-expanded", "true")
-
-        // Update button text
-        const textSpan = toggleButton.querySelector(".pulse-replies-toggle-text") as HTMLElement
-        const replyCount = toggleButton.dataset.replyCount
-        if (textSpan && replyCount) {
-          const count = parseInt(replyCount, 10)
-          const replyWord = count === 1 ? "reply" : "replies"
-          textSpan.textContent = `Hide ${replyWord}`
-        }
-      }
-    })
   }
 
   // Return the markdown editor (if any) to Write mode after a submit, so a

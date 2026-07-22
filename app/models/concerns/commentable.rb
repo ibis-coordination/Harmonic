@@ -71,4 +71,13 @@ module Commentable
 
     { top_level: top_level, threads: threads }
   end
+
+  # Every comment on this resource — top-level and replies of any depth —
+  # flattened into a single chronological list. This is the flat "chat"
+  # rendering of a thread; reply relationships are still carried on each
+  # comment's `commentable` pointer for "Replying to…" context.
+  def all_comments_chronological
+    data = comments_with_threads
+    (data[:top_level] + data[:threads].values.flatten).sort_by(&:created_at)
+  end
 end
