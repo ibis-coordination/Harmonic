@@ -17,7 +17,7 @@ import { getCsrfToken } from "../utils/csrf"
  * after a local submit).
  */
 export default class CommentsController extends Controller {
-  static targets = ["form", "list", "textarea", "submitButton", "replyContext", "replyContextAuthor"]
+  static targets = ["form", "list", "textarea", "submitButton", "replyContext", "replyContextAuthor", "count"]
   static values = {
     refreshUrl: String,
     commentableType: String,
@@ -30,6 +30,8 @@ export default class CommentsController extends Controller {
   declare readonly submitButtonTarget: HTMLButtonElement
   declare readonly replyContextTarget: HTMLElement
   declare readonly replyContextAuthorTarget: HTMLElement
+  declare readonly countTarget: HTMLElement
+  declare readonly hasCountTarget: boolean
   declare readonly refreshUrlValue: string
   declare readonly commentableTypeValue: string
   declare readonly commentableIdValue: string
@@ -196,6 +198,7 @@ export default class CommentsController extends Controller {
 
         if (newElement) {
           listElement.replaceWith(newElement)
+          this.updateCount(newElement)
         }
       }
     } catch (error) {
@@ -206,6 +209,16 @@ export default class CommentsController extends Controller {
         this.refreshQueued = false
         await this.refreshComments()
       }
+    }
+  }
+
+  // Keep the section header's count in sync with the refreshed list, which
+  // carries the current count as a data attribute.
+  private updateCount(listElement: HTMLElement): void {
+    if (!this.hasCountTarget) return
+    const count = listElement.dataset.commentCount
+    if (count !== undefined) {
+      this.countTarget.textContent = count
     }
   }
 

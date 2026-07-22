@@ -36,7 +36,8 @@ describe("CommentsController", () => {
            data-comments-refresh-url-value="/test-resource/comments.html"
            data-comments-commentable-type-value="Note"
            data-comments-commentable-id-value="resource-1">
-        <div class="pulse-comments-list" data-comments-target="list">
+        <div class="pulse-section-label">Comments (<span data-comments-target="count">1</span>)</div>
+        <div class="pulse-comments-list" data-comments-target="list" data-comment-count="1">
           <div class="pulse-comment" id="n-cmt789">
             Existing comment
             <button class="pulse-comment-reply-btn"
@@ -141,6 +142,21 @@ describe("CommentsController", () => {
       await vi.waitFor(() => {
         expect(mockFetch).toHaveBeenCalled()
         expect(mockFetch.mock.calls[0][0]).toContain("/test-resource/comments.html")
+      })
+    })
+
+    it("updates the header count from the refreshed list", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<div class="pulse-comments-list" data-comment-count="5">Live</div>'),
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      mockSubscription?.received?.()
+
+      await vi.waitFor(() => {
+        const count = document.querySelector('[data-comments-target="count"]')
+        expect(count?.textContent).toBe("5")
       })
     })
 

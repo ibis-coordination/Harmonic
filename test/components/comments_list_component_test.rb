@@ -19,9 +19,10 @@ class CommentsListComponentTest < ViewComponent::TestCase
   end
 
   # A commentable (Decision) whose flat comment list is `comments`.
-  def build_commentable(comments)
+  def build_commentable(comments, count: comments.size)
     commentable = build_decision
     commentable.define_singleton_method(:all_comments_chronological) { comments }
+    commentable.define_singleton_method(:comment_count) { count }
     commentable
   end
 
@@ -51,6 +52,12 @@ class CommentsListComponentTest < ViewComponent::TestCase
   test "renders comment-thread Stimulus controller" do
     render_inline(CommentsListComponent.new(commentable: build_commentable([])))
     assert_selector "[data-controller='comment-thread']"
+  end
+
+  test "renders the comment count as a data attribute so the header can resync after refresh" do
+    comment = build_top_level(truncated_id: "abc12345", text: "Hi")
+    render_inline(CommentsListComponent.new(commentable: build_commentable([comment], count: 7)))
+    assert_selector ".pulse-comments-list[data-comment-count='7']"
   end
 
   test "renders every comment flat in one list" do
