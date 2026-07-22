@@ -1,6 +1,7 @@
 require "test_helper"
 
 class NoteTest < ActiveSupport::TestCase
+  include ActionCable::TestHelper
   # NOTE: create_tenant, create_user, create_collective helpers are inherited from test_helper.rb
 
   test "Note.create works" do
@@ -961,6 +962,237 @@ class NoteTest < ActiveSupport::TestCase
 
     result = note.comments_with_threads
     assert_equal [comment1.id, comment2.id, comment3.id], result[:top_level].map(&:id)
+  end
+
+  # === all_comments_chronological Tests (Commentable concern) ===
+
+  test "all_comments_chronological returns empty array for resource with no comments" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "flat-empty-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Note with no comments",
+      text: "This note has no comments"
+    )
+
+    assert_equal [], note.all_comments_chronological
+  end
+
+  test "all_comments_chronological flattens replies of every depth into one chronological list" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "flat-nested-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Note with threaded comments",
+      text: "This note has threaded comments"
+    )
+
+    # Interleave depths so chronological order differs from tree order:
+    # top_a (t0) -> reply_a (t2), and top_b (t1) between them.
+    top_a = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "Top A", subtype: "comment", commentable: note, created_at: 4.hours.ago
+    )
+    top_b = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "Top B", subtype: "comment", commentable: note, created_at: 3.hours.ago
+    )
+    reply_a = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "Reply to A", subtype: "comment", commentable: top_a, created_at: 2.hours.ago
+    )
+    nested = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "Reply to reply", subtype: "comment", commentable: reply_a, created_at: 1.hour.ago
+    )
+
+    result = note.all_comments_chronological
+    assert_equal [top_a.id, top_b.id, reply_a.id, nested.id], result.map(&:id)
+  end
+
+  test "all_comments_chronological sets root_commentable so replies resolve without a polymorphic walk" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "flat-root-#{SecureRandom.hex(4)}")
+
+    note = Note.create!(
+      tenant: tenant,
+      collective: collective,
+      created_by: user,
+      updated_by: user,
+      title: "Root note",
+      text: "Root"
+    )
+    top = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "Top", subtype: "comment", commentable: note
+    )
+    Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "Reply", subtype: "comment", commentable: top
+    )
+
+    result = note.all_comments_chronological
+    assert(result.all? { |c| c.root_commentable == note })
+  end
+
+  test "all_comments_chronological hides soft-deleted comments but keeps their non-deleted replies" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "flat-del-#{SecureRandom.hex(4)}")
+    note = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "R", text: "root"
+    )
+
+    kept_top = note.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "kept top", subtype: "comment"
+    )
+    kept_reply = kept_top.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "kept reply", subtype: "comment"
+    )
+    deleted_reply = kept_top.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "deleted reply", subtype: "comment"
+    )
+    deleted_top = note.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "deleted top", subtype: "comment"
+    )
+    reply_under_deleted = deleted_top.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "reply under deleted top", subtype: "comment"
+    )
+
+    deleted_reply.soft_delete!(by: user)
+    deleted_top.soft_delete!(by: user)
+
+    displayed = note.all_comments_chronological
+    ids = displayed.map(&:id)
+    assert_includes ids, kept_top.id
+    assert_includes ids, kept_reply.id
+    assert_includes ids, reply_under_deleted.id, "a non-deleted reply to a deleted comment stays visible"
+    assert_not_includes ids, deleted_reply.id, "the deleted reply itself is hidden"
+    assert_not_includes ids, deleted_top.id, "the deleted top-level comment itself is hidden"
+
+    # The surviving reply can still resolve its now-deleted parent for context.
+    survivor = displayed.find { |c| c.id == reply_under_deleted.id }
+    assert survivor.thread_parent.present?, "reply resolves its parent from the loaded tree"
+    assert survivor.thread_parent.deleted?, "the resolved parent is the deleted comment"
+    assert_equal deleted_top.id, survivor.thread_parent.id
+  end
+
+  test "all_comments_chronological query count does not grow with the number of top-level comments" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "flat-perf-#{SecureRandom.hex(4)}")
+
+    build_resource = lambda do |top_count|
+      note = Note.create!(
+        tenant: tenant, collective: collective, created_by: user, updated_by: user,
+        title: "R", text: "root"
+      )
+      top_count.times do
+        top = note.comments.create!(
+          tenant: tenant, collective: collective, created_by: user, updated_by: user,
+          text: "top", subtype: "comment"
+        )
+        top.comments.create!(
+          tenant: tenant, collective: collective, created_by: user, updated_by: user,
+          text: "reply", subtype: "comment"
+        )
+      end
+      note
+    end
+
+    count_queries = lambda do |resource|
+      n = 0
+      callback = lambda do |_name, _start, _finish, _id, payload|
+        next if payload[:name] == "SCHEMA" || payload[:cached]
+
+        n += 1 if payload[:sql] =~ /\ASELECT/i
+      end
+      ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+        resource.all_comments_chronological
+      end
+      n
+    end
+
+    small = build_resource.call(2)
+    large = build_resource.call(6)
+
+    # A single recursive-CTE fetch plus a fixed set of preload queries — the
+    # count must not scale with breadth (the old code ran one query per
+    # top-level comment).
+    assert_equal count_queries.call(small), count_queries.call(large),
+                 "query count must not grow with the number of top-level comments"
+  end
+
+  # === comment broadcast Tests (realtime updates) ===
+
+  test "creating a comment broadcasts a change on the root resource's comments channel" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "bcast-#{SecureRandom.hex(4)}")
+    note = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "Root", text: "root"
+    )
+
+    assert_broadcasts(CommentsChannel.broadcasting_for(note), 1) do
+      note.comments.create!(
+        tenant: tenant, collective: collective, created_by: user, updated_by: user,
+        text: "Hello", subtype: "comment"
+      )
+    end
+  end
+
+  test "replying to a comment broadcasts on the root resource, not the parent comment" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "bcast-reply-#{SecureRandom.hex(4)}")
+    note = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "Root", text: "root"
+    )
+    top = note.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "Top", subtype: "comment"
+    )
+
+    assert_broadcasts(CommentsChannel.broadcasting_for(note), 1) do
+      assert_no_broadcasts(CommentsChannel.broadcasting_for(top)) do
+        top.comments.create!(
+          tenant: tenant, collective: collective, created_by: user, updated_by: user,
+          text: "Reply", subtype: "comment"
+        )
+      end
+    end
+  end
+
+  test "creating a non-comment note does not broadcast a comment change" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "bcast-none-#{SecureRandom.hex(4)}")
+
+    assert_no_broadcasts(CommentsChannel.broadcasting_for(collective)) do
+      Note.create!(
+        tenant: tenant, collective: collective, created_by: user, updated_by: user,
+        title: "Standalone", text: "not a comment"
+      )
+    end
   end
 
   # === preload_for_display Tests ===

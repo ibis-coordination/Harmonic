@@ -93,6 +93,11 @@ class Note < ApplicationRecord
     )
   end
 
+  # Notify open comment threads when a comment is added or changed, so other
+  # viewers see it live. Broadcasts to the root resource (the Note / Decision /
+  # Commitment the thread hangs off), which is what clients subscribe to.
+  after_commit :broadcast_comment_change, on: [:create, :update], if: :is_comment?
+
   sig { returns(T::Boolean) }
   def is_post?
     subtype == "post"
@@ -283,9 +288,9 @@ class Note < ApplicationRecord
   sig { params(user: User).returns(ActiveRecord::Relation) }
   def self.where_user_has_read(user:)
     joins(:note_history_events).where(note_history_events: {
-                                        user: user,
-                                        event_type: "read_confirmation",
-                                      })
+      user: user,
+      event_type: "read_confirmation",
+    })
   end
 
   sig { params(user: User).returns(T::Boolean) }
@@ -375,6 +380,19 @@ class Note < ApplicationRecord
     @root_commentable = cur
   end
 
+  # The in-thread parent comment, resolved from the loaded thread set by
+  # Commentable#all_comments_chronological. Unlike the `commentable`
+  # association (not_deleted-scoped, so nil for a soft-deleted parent), this
+  # still points at a deleted parent so a surviving reply can render
+  # "Replying to @handle [deleted]".
+  sig { params(thread_parent: T.untyped).void }
+  attr_writer :thread_parent
+
+  sig { returns(T.untyped) }
+  def thread_parent
+    @thread_parent if defined?(@thread_parent)
+  end
+
   # The URL to link to when surfacing this note in a display context —
   # comment lists, mention notifications, agent task prompts. For comments,
   # returns the root commentable's path with `?comment_id=<truncated_id>` so
@@ -432,10 +450,72 @@ class Note < ApplicationRecord
     SQL
 
     sanitized_sql = Note.sanitize_sql_array([
-                                              sql,
-                                              { note_id: id, tenant_id: tenant_id, collective_id: collective_id },
-                                            ])
+      sql,
+      { note_id: id, tenant_id: tenant_id, collective_id: collective_id },
+    ])
     Note.find_by_sql(sanitized_sql)
+  end
+
+  # Every comment on `commentable` — top-level and replies of any depth —
+  # fetched chronologically in a single recursive CTE (instead of one query per
+  # top-level comment). Returns the WHOLE tree, soft-deleted comments included,
+  # so a surviving reply can still resolve its deleted parent for
+  # "Replying to @handle [deleted]" context. Callers hide the deleted rows
+  # themselves (see Commentable#all_comments_chronological).
+  # IMPORTANT: find_by_sql bypasses default_scope, so filter tenant/collective.
+  sig { params(commentable: T.untyped).returns(T::Array[Note]) }
+  def self.comment_tree_for(commentable)
+    return [] unless commentable.persisted?
+
+    sql = <<~SQL.squish
+      WITH RECURSIVE comment_tree AS (
+        SELECT notes.*
+        FROM notes
+        WHERE notes.commentable_id = :root_id
+          AND notes.commentable_type = :root_type
+          AND notes.tenant_id = :tenant_id
+          AND notes.collective_id = :collective_id
+
+        UNION ALL
+
+        SELECT n.*
+        FROM notes n
+        INNER JOIN comment_tree t ON n.commentable_id = t.id
+          AND n.commentable_type = 'Note'
+        WHERE n.tenant_id = :tenant_id
+          AND n.collective_id = :collective_id
+      )
+      SELECT * FROM comment_tree
+      ORDER BY created_at ASC
+    SQL
+
+    sanitized_sql = Note.sanitize_sql_array([
+      sql,
+      {
+        root_id: commentable.id,
+        root_type: commentable.class.name,
+        tenant_id: commentable.tenant_id,
+        collective_id: commentable.collective_id,
+      },
+    ])
+    Note.find_by_sql(sanitized_sql)
+  end
+
+  # Broadcast a lightweight "comments changed" signal to the root resource's
+  # channel. The payload is intentionally minimal — subscribers re-fetch the
+  # rendered list — so this stays agnostic to how any given client displays it.
+  sig { void }
+  def broadcast_comment_change
+    # A comment's root_commentable is always a non-comment ancestor. It's only
+    # nil if the ancestor chain is broken (a data-integrity edge — normal
+    # deletes soft-delete, and hard deletes cascade the whole subtree), in
+    # which case there's nothing to notify.
+    root = root_commentable
+    return if root.nil?
+
+    CommentsChannel.broadcast_to(root, { action: "changed" })
+  rescue StandardError => e
+    Rails.logger.warn("CommentsChannel broadcast failed for note #{id}: #{e.message}")
   end
 
   # Preload associations for a collection of notes (avoids N+1)

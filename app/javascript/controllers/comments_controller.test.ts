@@ -3,6 +3,23 @@ import { Application } from "@hotwired/stimulus"
 import CommentsController from "./comments_controller"
 import MarkdownPreviewController from "./markdown_preview_controller"
 
+// Capture the channel subscription callbacks so tests can simulate a
+// server broadcast without a real websocket.
+let mockSubscription: { received?: () => void; unsubscribe: () => void } | null = null
+let subscribeParams: Record<string, unknown> | null = null
+
+vi.mock("@rails/actioncable", () => ({
+  createConsumer: () => ({
+    subscriptions: {
+      create: (params: Record<string, unknown>, callbacks: { received?: () => void }) => {
+        subscribeParams = params
+        mockSubscription = { ...callbacks, unsubscribe: vi.fn() }
+        return mockSubscription
+      },
+    },
+  }),
+}))
+
 describe("CommentsController", () => {
   let application: Application
 
@@ -16,9 +33,22 @@ describe("CommentsController", () => {
     document.body.innerHTML = `
       <div class="pulse-comments-section"
            data-controller="comments"
-           data-comments-refresh-url-value="/test-resource/comments.html">
-        <div class="pulse-comments-list" data-comments-target="list">
-          <div class="pulse-comment">Existing comment</div>
+           data-comments-refresh-url-value="/test-resource/comments.html"
+           data-comments-commentable-type-value="Note"
+           data-comments-commentable-id-value="resource-1">
+        <div class="pulse-section-label">Comments (<span data-comments-target="count">1</span>)</div>
+        <div class="pulse-comments-list" data-comments-target="list" data-comment-count="1">
+          <div class="pulse-comment" id="n-cmt789">
+            Existing comment
+            <button class="pulse-comment-reply-btn"
+                    data-action="click->comments#startReply"
+                    data-comment-path="/n/cmt789"
+                    data-comment-author="Bob">Reply</button>
+          </div>
+        </div>
+        <div class="pulse-reply-context-bar" data-comments-target="replyContext" hidden>
+          Replying to <strong data-comments-target="replyContextAuthor"></strong>
+          <button type="button" data-action="click->comments#cancelReply">x</button>
         </div>
         <form data-comments-target="form"
               action="/test-resource/comments"
@@ -38,6 +68,130 @@ describe("CommentsController", () => {
     application.stop()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
+    mockSubscription = null
+    subscribeParams = null
+  })
+
+  describe("when no composer form is rendered (anonymous or blocked viewer)", () => {
+    beforeEach(() => {
+      application.stop()
+      // Reset state the outer beforeEach set (with a form present), so this
+      // block genuinely reflects the new, form-less controller connecting.
+      subscribeParams = null
+      mockSubscription = null
+      // The section still renders with data-controller="comments", but the
+      // composer form is absent (logged-out or blocked user).
+      document.body.innerHTML = `
+        <div class="pulse-comments-section"
+             data-controller="comments"
+             data-comments-refresh-url-value="/test-resource/comments.html"
+             data-comments-commentable-type-value="Note"
+             data-comments-commentable-id-value="resource-1">
+          <div class="pulse-comments-list" data-comments-target="list">
+            <div class="pulse-comment" id="n-cmt789">Existing comment</div>
+          </div>
+        </div>
+      `
+      application = Application.start()
+      application.register("comments", CommentsController)
+    })
+
+    it("connects without throwing and still subscribes for live updates", () => {
+      // If connect() read this.formTarget unconditionally it would throw
+      // "Missing target element" here and never reach subscribeToChannel.
+      expect(subscribeParams).toEqual({
+        channel: "CommentsChannel",
+        commentable_type: "Note",
+        commentable_id: "resource-1",
+      })
+    })
+
+    it("refreshes on a broadcast even without a composer", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<div class="pulse-comments-list">Live</div>'),
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      mockSubscription?.received?.()
+
+      await vi.waitFor(() => {
+        expect(mockFetch.mock.calls[0][0]).toContain("/test-resource/comments.html")
+      })
+    })
+  })
+
+  describe("live updates via CommentsChannel", () => {
+    it("subscribes to the resource's channel on connect", () => {
+      expect(subscribeParams).toEqual({
+        channel: "CommentsChannel",
+        commentable_type: "Note",
+        commentable_id: "resource-1",
+      })
+    })
+
+    it("refreshes the list when the server broadcasts a change", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<div class="pulse-comments-list">Live</div>'),
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      mockSubscription?.received?.()
+
+      await vi.waitFor(() => {
+        expect(mockFetch).toHaveBeenCalled()
+        expect(mockFetch.mock.calls[0][0]).toContain("/test-resource/comments.html")
+      })
+    })
+
+    it("updates the header count from the refreshed list", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<div class="pulse-comments-list" data-comment-count="5">Live</div>'),
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      mockSubscription?.received?.()
+
+      await vi.waitFor(() => {
+        const count = document.querySelector('[data-comments-target="count"]')
+        expect(count?.textContent).toBe("5")
+      })
+    })
+
+    it("serializes overlapping refreshes instead of fetching concurrently", async () => {
+      let resolveFirst!: (value: unknown) => void
+      const firstResponse = new Promise((resolve) => {
+        resolveFirst = resolve
+      })
+      const mockFetch = vi
+        .fn()
+        .mockReturnValueOnce(firstResponse)
+        .mockResolvedValue({
+          ok: true,
+          text: () => Promise.resolve('<div class="pulse-comments-list">catch-up</div>'),
+        })
+      vi.stubGlobal("fetch", mockFetch)
+
+      // Two broadcasts arrive back-to-back while the first refresh is in flight.
+      mockSubscription?.received?.()
+      mockSubscription?.received?.()
+
+      // Only the first refresh has fired; the second is queued, not racing.
+      await Promise.resolve()
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+
+      // Completing the first refresh runs exactly one catch-up refresh.
+      resolveFirst({
+        ok: true,
+        text: () => Promise.resolve('<div class="pulse-comments-list">first</div>'),
+      })
+
+      await vi.waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledTimes(2)
+      })
+    })
   })
 
   it("initializes with form and list targets", () => {
@@ -264,67 +418,66 @@ describe("CommentsController", () => {
     })
   })
 
-  describe("getExpandedThreadIds and restoreExpandedThreads", () => {
-    beforeEach(() => {
-      document.body.innerHTML = `
-        <div class="pulse-comments-section"
-             data-controller="comments"
-             data-comments-refresh-url-value="/test-resource/comments.html">
-          <div class="pulse-comments-list" data-comments-target="list">
-            <button class="pulse-replies-toggle" data-thread-id="abc123" data-reply-count="2">
-              <span class="pulse-replies-toggle-text">2 replies</span>
-            </button>
-            <div id="replies-abc123" hidden>Replies here</div>
-            <button class="pulse-replies-toggle is-collapsed" data-thread-id="def456" data-reply-count="1">
-              <span class="pulse-replies-toggle-text">1 reply</span>
-            </button>
-            <div id="replies-def456" hidden>Replies here</div>
-          </div>
-          <form data-comments-target="form" action="/test-resource/comments" method="post">
-            <textarea name="text" data-comments-target="textarea"></textarea>
-            <button type="submit" data-comments-target="submitButton">Add Comment</button>
-          </form>
-        </div>
-      `
-      application = Application.start()
-      application.register("comments", CommentsController)
+  describe("startReply and cancelReply", () => {
+    it("retargets the composer at the replied-to comment and shows the reply bar", () => {
+      const replyBtn = document.querySelector(".pulse-comment-reply-btn") as HTMLElement
+      const form = document.querySelector("form") as HTMLFormElement
+      const bar = document.querySelector(".pulse-reply-context-bar") as HTMLElement
+      const author = document.querySelector("[data-comments-target='replyContextAuthor']") as HTMLElement
+
+      replyBtn.click()
+
+      expect(form.action).toContain("/n/cmt789/comments")
+      expect(bar.hidden).toBe(false)
+      expect(author.textContent).toBe("Bob")
     })
 
-    it("preserves expanded threads after refresh", async () => {
-      // First, manually expand thread abc123
-      const toggleBtn = document.querySelector('.pulse-replies-toggle[data-thread-id="abc123"]') as HTMLElement
-      toggleBtn.classList.remove("is-collapsed")
-      const repliesContainer = document.getElementById("replies-abc123") as HTMLElement
-      repliesContainer.hidden = false
+    it("cancelReply resets the composer to a top-level comment and hides the bar", () => {
+      const replyBtn = document.querySelector(".pulse-comment-reply-btn") as HTMLElement
+      const form = document.querySelector("form") as HTMLFormElement
+      const bar = document.querySelector(".pulse-reply-context-bar") as HTMLElement
+      const cancelBtn = bar.querySelector("button") as HTMLElement
 
-      // Mock fetch for refresh
+      replyBtn.click()
+      expect(form.action).toContain("/n/cmt789/comments")
+
+      cancelBtn.click()
+
+      expect(form.action).toContain("/test-resource/comments")
+      expect(form.action).not.toContain("/n/cmt789/comments")
+      expect(bar.hidden).toBe(true)
+    })
+
+    it("resets the reply target back to top-level after a successful submit", async () => {
+      const replyBtn = document.querySelector(".pulse-comment-reply-btn") as HTMLElement
+      const form = document.querySelector("form") as HTMLFormElement
+      const bar = document.querySelector(".pulse-reply-context-bar") as HTMLElement
+      const textarea = document.querySelector("textarea") as HTMLTextAreaElement
+
+      replyBtn.click()
+      expect(form.action).toContain("/n/cmt789/comments")
+
       const mockFetch = vi.fn()
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ success: true }) })
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ success: true }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          text: () => Promise.resolve(`
-            <div class="pulse-comments-list">
-              <button class="pulse-replies-toggle is-collapsed" data-thread-id="abc123" data-reply-count="3">
-                <span class="pulse-replies-toggle-text">3 replies</span>
-              </button>
-              <div id="replies-abc123" hidden>New replies</div>
-            </div>
-          `),
+          text: () => Promise.resolve('<div class="pulse-comments-list"></div>'),
         })
       vi.stubGlobal("fetch", mockFetch)
 
-      const form = document.querySelector("form") as HTMLFormElement
-      const textarea = document.querySelector("textarea") as HTMLTextAreaElement
-      textarea.value = "New comment"
+      textarea.value = "My reply"
       form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))
 
+      // The POST goes to the reply target...
       await vi.waitFor(() => {
-        // After refresh, the thread should still be expanded
-        const newRepliesContainer = document.getElementById("replies-abc123") as HTMLElement
-        expect(newRepliesContainer.hidden).toBe(false)
+        expect(mockFetch.mock.calls[0][0]).toContain("/n/cmt789/comments")
+      })
+
+      // ...then the composer resets to a top-level comment.
+      await vi.waitFor(() => {
+        expect(bar.hidden).toBe(true)
+        expect(form.action).toContain("/test-resource/comments")
+        expect(form.action).not.toContain("/n/cmt789/comments")
       })
     })
   })

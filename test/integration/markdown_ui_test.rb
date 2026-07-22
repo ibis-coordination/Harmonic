@@ -520,13 +520,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert commitment.comments.exists?, "Comment should have been created on commitment"
   end
 
-  test "HTML inline reply form on a comment posts to the bare /n/<id>/comments endpoint" do
+  test "HTML reply button on a comment targets the bare /n/<id> path so the composer posts to /n/<id>/comments" do
     # Regression guard: if Note#path ever silently shifts to a query-decorated
-    # URL again, the inline reply form's action becomes
-    # `/d/<id>?comment_id=<x>/comments` — malformed; submitting POSTs to
-    # `/d/<id>` with a garbage query and 404s the reply. Inspecting the
-    # rendered form action and round-tripping a submit catches that
-    # silently-broken case.
+    # URL again, the reply button's data-comment-path becomes
+    # `/d/<id>?comment_id=<x>`; the composer appends `/comments`, producing a
+    # malformed action that POSTs to `/d/<id>` with a garbage query and 404s
+    # the reply. Inspecting the rendered button and round-tripping a submit
+    # catches that silently-broken case.
     decision = create_decision(collective: @collective, created_by: @user, question: "Test?")
     comment = decision.add_comment(text: "the original", created_by: @user)
 
@@ -536,15 +536,15 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert response.content_type.starts_with?("text/html"), "Should be the HTML view, not markdown"
 
-    expected_action = "#{@collective.path}/n/#{comment.truncated_id}/comments"
-    assert_match(
-      %r{<form\b[^>]*\bclass="pulse-reply-form"[^>]*\baction="#{Regexp.escape(expected_action)}"|<form\b[^>]*\baction="#{Regexp.escape(expected_action)}"[^>]*\bclass="pulse-reply-form"}m,
-      response.body,
-      "HTML reply form's action must be the bare comment-note /comments endpoint — " \
-        "if it includes ?comment_id=, comment.path has wrongly shifted to display semantics",
-    )
+    expected_comment_path = "#{@collective.path}/n/#{comment.truncated_id}"
+    assert_includes response.body, "pulse-comment-reply-btn",
+      "The comment should render a reply button"
+    assert_includes response.body, %(data-comment-path="#{expected_comment_path}"),
+      "Reply button's data-comment-path must be the bare comment-note path — " \
+        "if it includes ?comment_id=, comment.path has wrongly shifted to display semantics"
 
-    # Round-trip: post a reply to that exact URL and verify the threading.
+    # Round-trip: the composer posts to `<data-comment-path>/comments`.
+    expected_action = "#{expected_comment_path}/comments"
     post expected_action, params: { text: "html reply works" }
     assert response.successful? || response.redirect?,
       "POST to the form action should succeed; got #{response.status}"
@@ -2400,7 +2400,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     note&.destroy
   end
 
-  test "note with threaded comments shows replies indented in markdown" do
+  test "note with threaded comments shows all comments flat and chronological in markdown" do
     note = create_note(collective: @collective, created_by: @user, title: "Note with threaded comments")
     top_level_comment = note.add_comment(text: "Top level comment", created_by: @user)
     reply = top_level_comment.add_comment(text: "Reply to top level", created_by: @user)
@@ -2408,9 +2408,14 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     get note.path, headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-    assert_match(/## Comments \(1\)/, response.body, "Should show Comments section with top-level count")
-    assert_match(/\* .+Top level comment/, response.body, "Should show top-level comment as main bullet")
-    assert_match(/  \* .+Reply to top level/, response.body, "Should show reply indented with two spaces")
+    assert_match(/## Comments \(2\)/, response.body, "Count reflects all displayed comments (top-level + reply)")
+    # Flat like the HTML view: every comment is a top-level bullet, none indented.
+    assert_match(/^\* .+Top level comment/, response.body, "Top-level comment renders as a flat bullet")
+    assert_match(/^\* .+Reply to top level/, response.body, "Reply renders as a flat bullet, not indented")
+    assert_no_match(/^  \* /, response.body, "No indented replies in the flat list")
+    # The reply carries its "Replying to" context so the thread stays legible flat.
+    assert_match(/↳ Replying to `#{top_level_comment.truncated_id}`/, response.body,
+      "Reply shows which comment it answers")
   ensure
     reply&.destroy
     top_level_comment&.destroy
@@ -2435,6 +2440,28 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     nested_reply&.destroy
     first_reply&.destroy
     top_level_comment&.destroy
+    note&.destroy
+  end
+
+  test "soft-deleted comment is hidden but its non-deleted reply remains with [deleted] context in markdown" do
+    note = create_note(collective: @collective, created_by: @user, title: "Note with a deleted parent")
+    top = note.add_comment(text: "Original top comment", created_by: @user)
+    reply = top.add_comment(text: "Reply that survives", created_by: @user)
+    top.soft_delete!(by: @user)
+
+    get note.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_no_match(/Original top comment/, response.body, "the deleted parent's text is hidden")
+    assert_match(/Reply that survives/, response.body, "the non-deleted reply remains visible")
+    assert_match(/↳ Replying to \[deleted\]/, response.body,
+      "the surviving reply marks its parent as deleted")
+    assert_no_match(/Replying to @\S+ \[deleted\]/, response.body,
+      "a deleted parent must not leak its author's handle")
+    assert_match(/## Comments \(1\)/, response.body, "count reflects only the visible comment")
+  ensure
+    reply&.destroy
+    top&.destroy
     note&.destroy
   end
 

@@ -7,17 +7,15 @@ class CommentComponent < ViewComponent::Base
     params(
       comment: Note,
       show_reply_context: T::Boolean,
-      root_comment_id: String,
       show_reply_button: T::Boolean,
       current_user: T.nilable(User),
       blocked_user_ids: T::Set[String]
     ).void
   end
-  def initialize(comment:, show_reply_context:, root_comment_id:, show_reply_button: true, current_user: nil, blocked_user_ids: Set.new)
+  def initialize(comment:, show_reply_context:, show_reply_button: true, current_user: nil, blocked_user_ids: Set.new)
     super()
     @comment = comment
     @show_reply_context = show_reply_context
-    @root_comment_id = root_comment_id
     @show_reply_button = show_reply_button
     @current_user = current_user
     @blocked_user_ids = blocked_user_ids
@@ -65,9 +63,21 @@ class CommentComponent < ViewComponent::Base
     AiAgentTaskRunResource.task_run_for(@comment)
   end
 
+  # The comment this one replies to. Prefer the thread-loaded parent (which
+  # includes soft-deleted parents) over the not_deleted-scoped association.
+  sig { returns(T.untyped) }
+  def reply_parent
+    @comment.thread_parent || @comment.commentable
+  end
+
+  sig { returns(T::Boolean) }
+  def reply_parent_deleted?
+    !!reply_parent&.deleted?
+  end
+
   sig { returns(T::Boolean) }
   def has_reply_context?
-    @show_reply_context && @comment.commentable_type == "Note" && @comment.commentable.present?
+    @show_reply_context && @comment.commentable_type == "Note" && reply_parent.present?
   end
 
   sig { returns(T::Boolean) }
