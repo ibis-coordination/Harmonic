@@ -2400,7 +2400,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     note&.destroy
   end
 
-  test "note with threaded comments shows replies indented in markdown" do
+  test "note with threaded comments shows all comments flat and chronological in markdown" do
     note = create_note(collective: @collective, created_by: @user, title: "Note with threaded comments")
     top_level_comment = note.add_comment(text: "Top level comment", created_by: @user)
     reply = top_level_comment.add_comment(text: "Reply to top level", created_by: @user)
@@ -2409,8 +2409,13 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert is_markdown?
     assert_match(/## Comments \(1\)/, response.body, "Should show Comments section with top-level count")
-    assert_match(/\* .+Top level comment/, response.body, "Should show top-level comment as main bullet")
-    assert_match(/  \* .+Reply to top level/, response.body, "Should show reply indented with two spaces")
+    # Flat like the HTML view: every comment is a top-level bullet, none indented.
+    assert_match(/^\* .+Top level comment/, response.body, "Top-level comment renders as a flat bullet")
+    assert_match(/^\* .+Reply to top level/, response.body, "Reply renders as a flat bullet, not indented")
+    assert_no_match(/^  \* /, response.body, "No indented replies in the flat list")
+    # The reply carries its "Replying to" context so the thread stays legible flat.
+    assert_match(/↳ Replying to `#{top_level_comment.truncated_id}`/, response.body,
+      "Reply shows which comment it answers")
   ensure
     reply&.destroy
     top_level_comment&.destroy
