@@ -41,6 +41,11 @@ export default class CommentsController extends Controller {
   declare readonly hasReplyContextAuthorTarget: boolean
 
   private isSubmitting = false
+  // Serialize refreshes: a broadcast arriving mid-refresh (or during a submit's
+  // own refresh) must not run a second fetch/replaceWith concurrently — the two
+  // would race on the list node and one would replaceWith a detached element.
+  private isRefreshing = false
+  private refreshQueued = false
   // The composer's default action: a top-level comment on the root resource.
   private rootAction = ""
   private subscription: ReturnType<ReturnType<typeof createConsumer>["subscriptions"]["create"]> | null = null
@@ -162,11 +167,19 @@ export default class CommentsController extends Controller {
   async refreshComments(): Promise<void> {
     if (!this.refreshUrlValue) return
 
-    // Find the list element directly (don't rely on cached target)
-    const listElement = this.element.querySelector(".pulse-comments-list")
-    if (!listElement) return
+    // Coalesce concurrent refreshes: run one at a time, and if more arrive
+    // while one is in flight, do a single catch-up refresh at the end.
+    if (this.isRefreshing) {
+      this.refreshQueued = true
+      return
+    }
+    this.isRefreshing = true
 
     try {
+      // Find the list element directly (don't rely on cached target)
+      const listElement = this.element.querySelector(".pulse-comments-list")
+      if (!listElement) return
+
       const response = await fetch(this.refreshUrlValue, {
         headers: {
           Accept: "text/html",
@@ -187,6 +200,12 @@ export default class CommentsController extends Controller {
       }
     } catch (error) {
       console.error("Error refreshing comments:", error)
+    } finally {
+      this.isRefreshing = false
+      if (this.refreshQueued) {
+        this.refreshQueued = false
+        await this.refreshComments()
+      }
     }
   }
 

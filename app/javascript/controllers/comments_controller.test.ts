@@ -143,6 +143,39 @@ describe("CommentsController", () => {
         expect(mockFetch.mock.calls[0][0]).toContain("/test-resource/comments.html")
       })
     })
+
+    it("serializes overlapping refreshes instead of fetching concurrently", async () => {
+      let resolveFirst!: (value: unknown) => void
+      const firstResponse = new Promise((resolve) => {
+        resolveFirst = resolve
+      })
+      const mockFetch = vi
+        .fn()
+        .mockReturnValueOnce(firstResponse)
+        .mockResolvedValue({
+          ok: true,
+          text: () => Promise.resolve('<div class="pulse-comments-list">catch-up</div>'),
+        })
+      vi.stubGlobal("fetch", mockFetch)
+
+      // Two broadcasts arrive back-to-back while the first refresh is in flight.
+      mockSubscription?.received?.()
+      mockSubscription?.received?.()
+
+      // Only the first refresh has fired; the second is queued, not racing.
+      await Promise.resolve()
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+
+      // Completing the first refresh runs exactly one catch-up refresh.
+      resolveFirst({
+        ok: true,
+        text: () => Promise.resolve('<div class="pulse-comments-list">first</div>'),
+      })
+
+      await vi.waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledTimes(2)
+      })
+    })
   })
 
   it("initializes with form and list targets", () => {
