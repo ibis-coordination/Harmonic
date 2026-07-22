@@ -1046,6 +1046,54 @@ class NoteTest < ActiveSupport::TestCase
     assert(result.all? { |c| c.root_commentable == note })
   end
 
+  test "all_comments_chronological hides soft-deleted comments but keeps their non-deleted replies" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user, handle: "flat-del-#{SecureRandom.hex(4)}")
+    note = Note.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "R", text: "root"
+    )
+
+    kept_top = note.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "kept top", subtype: "comment"
+    )
+    kept_reply = kept_top.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "kept reply", subtype: "comment"
+    )
+    deleted_reply = kept_top.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "deleted reply", subtype: "comment"
+    )
+    deleted_top = note.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "deleted top", subtype: "comment"
+    )
+    reply_under_deleted = deleted_top.comments.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      text: "reply under deleted top", subtype: "comment"
+    )
+
+    deleted_reply.soft_delete!(by: user)
+    deleted_top.soft_delete!(by: user)
+
+    displayed = note.all_comments_chronological
+    ids = displayed.map(&:id)
+    assert_includes ids, kept_top.id
+    assert_includes ids, kept_reply.id
+    assert_includes ids, reply_under_deleted.id, "a non-deleted reply to a deleted comment stays visible"
+    assert_not_includes ids, deleted_reply.id, "the deleted reply itself is hidden"
+    assert_not_includes ids, deleted_top.id, "the deleted top-level comment itself is hidden"
+
+    # The surviving reply can still resolve its now-deleted parent for context.
+    survivor = displayed.find { |c| c.id == reply_under_deleted.id }
+    assert survivor.thread_parent.present?, "reply resolves its parent from the loaded tree"
+    assert survivor.thread_parent.deleted?, "the resolved parent is the deleted comment"
+    assert_equal deleted_top.id, survivor.thread_parent.id
+  end
+
   test "all_comments_chronological query count does not grow with the number of top-level comments" do
     tenant = create_tenant
     user = create_user

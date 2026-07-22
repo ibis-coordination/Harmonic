@@ -58,15 +58,25 @@ module Commentable
   #
   # Memoized per instance so a single render (section header count + list) does
   # one fetch, not two.
+  #
+  # A soft-deleted comment is hidden, but its non-deleted replies are kept —
+  # they surface with a "Replying to @handle [deleted]" context line. So we
+  # fetch the whole tree (deleted included) to resolve parents, then return
+  # only the non-deleted comments for display.
   def all_comments_chronological
     @all_comments_chronological ||= begin
-      comments = Note.comment_tree_for(self)
-      Note.preload_for_display(comments)
-      # Every comment here has `self` as its root commentable. Inject it so
-      # render-time `comment.path` / `comment.root_commentable` don't walk the
-      # polymorphic chain.
-      comments.each { |c| c.root_commentable = self }
-      comments
+      tree = Note.comment_tree_for(self)
+      Note.preload_for_display(tree)
+      by_id = tree.index_by(&:id)
+      tree.each do |c|
+        # Inject the root so render-time `comment.path` / `comment.root_commentable`
+        # don't walk the polymorphic chain.
+        c.root_commentable = self
+        # Resolve the parent from the loaded set (incl. deleted parents, which
+        # the not_deleted-scoped `commentable` association can't return).
+        c.thread_parent = by_id[c.commentable_id] if c.commentable_type == "Note"
+      end
+      tree.reject(&:deleted?)
     end
   end
 

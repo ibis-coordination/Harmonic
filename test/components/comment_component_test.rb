@@ -190,6 +190,27 @@ class CommentComponentTest < ViewComponent::TestCase
     assert_text "@dan"
   end
 
+  test "renders reply context as just [deleted] (no author) when the parent comment is deleted" do
+    parent_author = build_user(display_name: "Dan", handle: "dan")
+    deleted_parent = build_note(truncated_id: "parent1", text: "[deleted]", created_by: parent_author)
+    deleted_parent.define_singleton_method(:deleted?) { true }
+
+    reply = build_note(truncated_id: "reply123", text: "Reply text", created_at: 1.hour.ago, created_by: @user)
+    reply.define_singleton_method(:commentable_type) { "Note" }
+    # The association is not_deleted-scoped and returns nil for a deleted parent;
+    # thread_parent (set from the loaded thread) is how the reply resolves it.
+    reply.define_singleton_method(:commentable) { nil }
+    reply.define_singleton_method(:thread_parent) { deleted_parent }
+
+    render_inline(CommentComponent.new(comment: reply, show_reply_context: true))
+    assert_selector ".pulse-comment-reply-context"
+    assert_text "Replying to"
+    assert_text "[deleted]"
+    # A deleted comment must not leak its author's identity, and isn't linked.
+    assert_no_text "@dan"
+    assert_no_selector ".pulse-comment-reply-context a"
+  end
+
   test "does not render reply context when show_reply_context is false" do
     parent_author = build_user(display_name: "Dan", handle: "dan")
     parent_comment = build_note(truncated_id: "parent1", text: "Original", created_by: parent_author)

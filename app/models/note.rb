@@ -380,6 +380,19 @@ class Note < ApplicationRecord
     @root_commentable = cur
   end
 
+  # The in-thread parent comment, resolved from the loaded thread set by
+  # Commentable#all_comments_chronological. Unlike the `commentable`
+  # association (not_deleted-scoped, so nil for a soft-deleted parent), this
+  # still points at a deleted parent so a surviving reply can render
+  # "Replying to @handle [deleted]".
+  sig { params(thread_parent: T.untyped).void }
+  attr_writer :thread_parent
+
+  sig { returns(T.untyped) }
+  def thread_parent
+    @thread_parent if defined?(@thread_parent)
+  end
+
   # The URL to link to when surfacing this note in a display context —
   # comment lists, mention notifications, agent task prompts. For comments,
   # returns the root commentable's path with `?comment_id=<truncated_id>` so
@@ -445,10 +458,10 @@ class Note < ApplicationRecord
 
   # Every comment on `commentable` — top-level and replies of any depth —
   # fetched chronologically in a single recursive CTE (instead of one query per
-  # top-level comment). Behavior matches the old chronological_comments +
-  # all_descendants pair exactly: soft-deleted TOP-LEVEL comments are excluded
-  # (the `comments` association is not_deleted-scoped), while soft-deleted
-  # replies are kept so they can render as [deleted] tombstones.
+  # top-level comment). Returns the WHOLE tree, soft-deleted comments included,
+  # so a surviving reply can still resolve its deleted parent for
+  # "Replying to @handle [deleted]" context. Callers hide the deleted rows
+  # themselves (see Commentable#all_comments_chronological).
   # IMPORTANT: find_by_sql bypasses default_scope, so filter tenant/collective.
   sig { params(commentable: T.untyped).returns(T::Array[Note]) }
   def self.comment_tree_for(commentable)
@@ -460,7 +473,6 @@ class Note < ApplicationRecord
         FROM notes
         WHERE notes.commentable_id = :root_id
           AND notes.commentable_type = :root_type
-          AND notes.deleted_at IS NULL
           AND notes.tenant_id = :tenant_id
           AND notes.collective_id = :collective_id
 

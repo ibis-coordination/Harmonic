@@ -2443,6 +2443,28 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     note&.destroy
   end
 
+  test "soft-deleted comment is hidden but its non-deleted reply remains with [deleted] context in markdown" do
+    note = create_note(collective: @collective, created_by: @user, title: "Note with a deleted parent")
+    top = note.add_comment(text: "Original top comment", created_by: @user)
+    reply = top.add_comment(text: "Reply that survives", created_by: @user)
+    top.soft_delete!(by: @user)
+
+    get note.path, headers: @headers
+    assert_equal 200, response.status
+    assert is_markdown?
+    assert_no_match(/Original top comment/, response.body, "the deleted parent's text is hidden")
+    assert_match(/Reply that survives/, response.body, "the non-deleted reply remains visible")
+    assert_match(/↳ Replying to \[deleted\]/, response.body,
+      "the surviving reply marks its parent as deleted")
+    assert_no_match(/Replying to @\S+ \[deleted\]/, response.body,
+      "a deleted parent must not leak its author's handle")
+    assert_match(/## Comments \(1\)/, response.body, "count reflects only the visible comment")
+  ensure
+    reply&.destroy
+    top&.destroy
+    note&.destroy
+  end
+
   test "decision with threaded comments shows them in markdown" do
     decision = create_decision(collective: @collective, created_by: @user, question: "Decision with comments?")
     comment = decision.add_comment(text: "Comment on decision", created_by: @user)

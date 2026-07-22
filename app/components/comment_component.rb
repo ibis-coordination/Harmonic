@@ -63,9 +63,21 @@ class CommentComponent < ViewComponent::Base
     AiAgentTaskRunResource.task_run_for(@comment)
   end
 
+  # The comment this one replies to. Prefer the thread-loaded parent (which
+  # includes soft-deleted parents) over the not_deleted-scoped association.
+  sig { returns(T.untyped) }
+  def reply_parent
+    @comment.thread_parent || @comment.commentable
+  end
+
+  sig { returns(T::Boolean) }
+  def reply_parent_deleted?
+    !!reply_parent&.deleted?
+  end
+
   sig { returns(T::Boolean) }
   def has_reply_context?
-    @show_reply_context && @comment.commentable_type == "Note" && @comment.commentable.present?
+    @show_reply_context && @comment.commentable_type == "Note" && reply_parent.present?
   end
 
   sig { returns(T::Boolean) }

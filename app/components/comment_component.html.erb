@@ -38,20 +38,21 @@
     <div class="pulse-comment-reply-context">
       <%= helpers.octicon "reply", height: 12 %>
       Replying to
-      <a href="#n-<%= @comment.commentable.truncated_id %>">@<%= @comment.commentable.created_by&.handle || "unknown" %></a>
-      <span class="pulse-reply-quote"><%= helpers.truncate(@comment.commentable.text, length: 60) %></span>
+      <% if reply_parent_deleted? %>
+        <%# The parent is hidden from the thread — don't reveal its author. %>
+        <span class="pulse-reply-quote">[deleted]</span>
+      <% else %>
+        <a href="#n-<%= reply_parent.truncated_id %>">@<%= reply_parent.created_by&.handle || "unknown" %></a>
+        <span class="pulse-reply-quote"><%= helpers.truncate(reply_parent.text, length: 60) %></span>
+      <% end %>
     </div>
   <% end %>
 
-  <% if @comment.deleted? %>
-    <div class="pulse-comment-body markdown-body pulse-body-text-muted">
-      <em>[deleted]</em>
-    </div>
-  <% else %>
-    <div class="pulse-comment-body markdown-body">
-      <%= helpers.markdown(@comment.text) %>
-    </div>
-  <% end %>
+  <%# Deleted comments are excluded from the thread (see Note.comment_tree_for);
+      the [deleted] placeholder is only for a comment's own show page. %>
+  <div class="pulse-comment-body markdown-body">
+    <%= helpers.markdown(@comment.text) %>
+  </div>
 
   <div class="pulse-comment-actions">
     <% if @current_user %>
