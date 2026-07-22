@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.54.0] - 2026-07-22
+
+### Changed
+
+- **Comments render as a flat chat thread with live updates** (#520) — comment sections now show one flat chronological list instead of a nested tree, in both the HTML and markdown/agent views. Replies keep their context with a "Replying to @handle" line and a Reply button that retargets the composer, and new or edited comments appear in real time over a new `CommentsChannel`. A soft-deleted comment is hidden from the thread while its non-deleted replies survive, showing "Replying to [deleted]" with no author handle. The thread loads via a single recursive query, and both counts reflect the comments actually displayed. Deploy: web only, no migrations.
+
 ## [1.53.0] - 2026-07-21
 
 ### Changed
