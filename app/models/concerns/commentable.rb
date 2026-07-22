@@ -3,7 +3,23 @@
 module Commentable
   extend ActiveSupport::Concern
 
+  # Registry of models that can host comments, populated as each includes the
+  # concern. Lets an untrusted `commentable_type` (e.g. a channel subscription
+  # param) resolve to a model via a plain lookup — no reflection on user input.
+  @models = {}
+
+  # Resolve a commentable_type name to its model, or nil if it isn't a
+  # commentable model.
+  def self.model_for(type_name)
+    @models[type_name.to_s]
+  end
+
+  def self.register_model(model)
+    @models[model.name] = model
+  end
+
   included do
+    Commentable.register_model(self)
     has_many :comments,
              class_name: "Note",
              as: :commentable,

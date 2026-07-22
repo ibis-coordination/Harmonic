@@ -16,21 +16,15 @@ class CommentsChannel < ApplicationCable::Channel
   private
 
   def find_resource
-    klass = commentable_class
-    return nil unless klass
+    # Resolve the type via the Commentable registry (a plain lookup, so the
+    # untrusted param never reaches a reflection method); only models that
+    # include the concern are registered.
+    klass = Commentable.model_for(params[:commentable_type])
+    id = params[:commentable_id]
+    return nil unless klass && id.present?
 
     # IDs are globally-unique UUIDs, so a bare lookup is unambiguous; the
     # collective membership check is what actually authorizes access.
-    klass.find_by(id: params[:commentable_id])
-  end
-
-  # Resolve the subscription's commentable_type to a model, allowing only
-  # models that opt into comments via the Commentable concern — the same
-  # source of truth `is_commentable?` reflects.
-  def commentable_class
-    klass = params[:commentable_type].to_s.safe_constantize
-    return nil unless klass.is_a?(Class) && klass < ApplicationRecord && klass.include?(Commentable)
-
-    klass
+    klass.find_by(id: id)
   end
 end
