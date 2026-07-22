@@ -564,7 +564,7 @@
 .pulse-feed-media-overflow {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.55); /* styleguide-ok: overlay scrim, not a design token */
   color: var(--color-fg-on-emphasis);
   display: flex;
   align-items: center;
@@ -577,7 +577,7 @@
 .lightbox-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.86);
+  background: rgba(0, 0, 0, 0.86); /* styleguide-ok: overlay scrim, not a design token */
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -688,7 +688,7 @@
   position: absolute;
   top: 4px;
   right: 4px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.6); /* styleguide-ok: overlay scrim, not a design token */
   color: var(--color-fg-on-emphasis);
   border: none;
   border-radius: 999px;
@@ -702,7 +702,7 @@
 .note-media-uploader-item .progress-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.4); /* styleguide-ok: overlay scrim, not a design token */
   color: var(--color-fg-on-emphasis);
   display: flex;
   align-items: center;
@@ -736,15 +736,15 @@
 }
 
 .pulse-comment-highlighted {
-  background-color: var(--color-attention-subtle, #fff8c5);
-  border-left: 3px solid var(--color-attention-emphasis, #d4a72c);
+  background-color: var(--color-attention-subtle);
+  border-left: 3px solid var(--color-attention-emphasis);
   padding-left: 8px;
   animation: pulse-comment-flash 1.5s ease-out;
 }
 
 @keyframes pulse-comment-flash {
-  0% { background-color: var(--color-attention-emphasis, #d4a72c); }
-  100% { background-color: var(--color-attention-subtle, #fff8c5); }
+  0% { background-color: var(--color-attention-emphasis); }
+  100% { background-color: var(--color-attention-subtle); }
 }
 
 .pulse-comment-header {
@@ -875,8 +875,8 @@
 }
 
 /* Unconfirmed: the clickable read-confirm control takes the primary (filled)
-   button color to invite the confirmation, matching the Confirm Read button
-   on feed item notes (#335). */
+ * button color to invite the confirmation, matching the Confirm Read button
+ * on feed item notes (#335). */
 .pulse-comment-confirm-btn:not(.is-confirmed) {
   color: var(--color-canvas-default);
   background: var(--color-fg-default);
@@ -3964,7 +3964,7 @@ dialog.pulse-dialog {
 }
 
 dialog.pulse-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.5); /* styleguide-ok: overlay scrim, not a design token */
 }
 
 dialog.pulse-dialog form {
