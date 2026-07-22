@@ -71,6 +71,55 @@ describe("CommentsController", () => {
     subscribeParams = null
   })
 
+  describe("when no composer form is rendered (anonymous or blocked viewer)", () => {
+    beforeEach(() => {
+      application.stop()
+      // Reset state the outer beforeEach set (with a form present), so this
+      // block genuinely reflects the new, form-less controller connecting.
+      subscribeParams = null
+      mockSubscription = null
+      // The section still renders with data-controller="comments", but the
+      // composer form is absent (logged-out or blocked user).
+      document.body.innerHTML = `
+        <div class="pulse-comments-section"
+             data-controller="comments"
+             data-comments-refresh-url-value="/test-resource/comments.html"
+             data-comments-commentable-type-value="Note"
+             data-comments-commentable-id-value="resource-1">
+          <div class="pulse-comments-list" data-comments-target="list">
+            <div class="pulse-comment" id="n-cmt789">Existing comment</div>
+          </div>
+        </div>
+      `
+      application = Application.start()
+      application.register("comments", CommentsController)
+    })
+
+    it("connects without throwing and still subscribes for live updates", () => {
+      // If connect() read this.formTarget unconditionally it would throw
+      // "Missing target element" here and never reach subscribeToChannel.
+      expect(subscribeParams).toEqual({
+        channel: "CommentsChannel",
+        commentable_type: "Note",
+        commentable_id: "resource-1",
+      })
+    })
+
+    it("refreshes on a broadcast even without a composer", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('<div class="pulse-comments-list">Live</div>'),
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      mockSubscription?.received?.()
+
+      await vi.waitFor(() => {
+        expect(mockFetch.mock.calls[0][0]).toContain("/test-resource/comments.html")
+      })
+    })
+  })
+
   describe("live updates via CommentsChannel", () => {
     it("subscribes to the resource's channel on connect", () => {
       expect(subscribeParams).toEqual({

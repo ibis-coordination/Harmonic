@@ -33,6 +33,7 @@ export default class CommentsController extends Controller {
   declare readonly refreshUrlValue: string
   declare readonly commentableTypeValue: string
   declare readonly commentableIdValue: string
+  declare readonly hasFormTarget: boolean
   declare readonly hasListTarget: boolean
   declare readonly hasTextareaTarget: boolean
   declare readonly hasSubmitButtonTarget: boolean
@@ -45,7 +46,11 @@ export default class CommentsController extends Controller {
   private subscription: ReturnType<ReturnType<typeof createConsumer>["subscriptions"]["create"]> | null = null
 
   connect(): void {
-    this.rootAction = this.formTarget.action
+    // The composer is absent for logged-out and blocked viewers; the section
+    // (and its live-update subscription) still renders for them.
+    if (this.hasFormTarget) {
+      this.rootAction = this.formTarget.action
+    }
     this.subscribeToChannel()
   }
 
