@@ -2408,7 +2408,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     get note.path, headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
-    assert_match(/## Comments \(1\)/, response.body, "Should show Comments section with top-level count")
+    assert_match(/## Comments \(2\)/, response.body, "Count reflects all displayed comments (top-level + reply)")
     # Flat like the HTML view: every comment is a top-level bullet, none indented.
     assert_match(/^\* .+Top level comment/, response.body, "Top-level comment renders as a flat bullet")
     assert_match(/^\* .+Reply to top level/, response.body, "Reply renders as a flat bullet, not indented")

@@ -22,11 +22,12 @@ class CommentsListComponent < ViewComponent::Base
     @comments ||= @commentable.all_comments_chronological
   end
 
-  # Rendered onto the list root so the section header's count can be kept in
-  # sync after a refresh without re-rendering the whole section.
+  # The number of comments displayed in the flat list. Rendered onto the list
+  # root so the section header's count can be kept in sync after a refresh
+  # without re-rendering the whole section.
   sig { returns(Integer) }
-  def comment_count
-    @commentable.comment_count
+  def displayed_count
+    comments.size
   end
 
   # True when the comment replies to another comment (rather than the root

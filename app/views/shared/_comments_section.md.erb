@@ -1,6 +1,6 @@
 <%# Flat chronological comments section for markdown views %>
 <%# Usage: render 'shared/comments_section', resource: @note %>
-## Comments (<%= resource.comments_count %>)
+## Comments (<%= resource.all_comments_chronological.size %>)
 
 <% if resource.comments.empty? -%>
 No comments yet.

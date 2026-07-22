@@ -7,7 +7,7 @@
      data-comments-commentable-id-value="<%= commentable.id %>">
   <div class="pulse-section-label">
     <%= octicon 'comment', height: 12 %>
-    Comments (<span data-comments-target="count"><%= commentable.comment_count %></span>)
+    Comments (<span data-comments-target="count"><%= commentable.all_comments_chronological.size %></span>)
   </div>
 
   <%= render 'shared/pulse_comments_list', commentable: commentable %>

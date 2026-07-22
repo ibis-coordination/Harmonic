@@ -55,14 +55,19 @@ module Commentable
   # flattened into a single chronological list, fetched in one query. This is
   # the flat "chat" rendering of a thread; reply relationships are still
   # carried on each comment's `commentable` pointer for "Replying to…" context.
+  #
+  # Memoized per instance so a single render (section header count + list) does
+  # one fetch, not two.
   def all_comments_chronological
-    comments = Note.comment_tree_for(self)
-    Note.preload_for_display(comments)
-    # Every comment here has `self` as its root commentable. Inject it so
-    # render-time `comment.path` / `comment.root_commentable` don't walk the
-    # polymorphic chain.
-    comments.each { |c| c.root_commentable = self }
-    comments
+    @all_comments_chronological ||= begin
+      comments = Note.comment_tree_for(self)
+      Note.preload_for_display(comments)
+      # Every comment here has `self` as its root commentable. Inject it so
+      # render-time `comment.path` / `comment.root_commentable` don't walk the
+      # polymorphic chain.
+      comments.each { |c| c.root_commentable = self }
+      comments
+    end
   end
 
   # Returns top-level comments with their descendants, grouped for threaded
