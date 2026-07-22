@@ -448,8 +448,12 @@ class Note < ApplicationRecord
   # rendered list — so this stays agnostic to how any given client displays it.
   sig { void }
   def broadcast_comment_change
+    # A comment's root_commentable is always a non-comment ancestor. It's only
+    # nil if the ancestor chain is broken (a data-integrity edge — normal
+    # deletes soft-delete, and hard deletes cascade the whole subtree), in
+    # which case there's nothing to notify.
     root = root_commentable
-    return if root.nil? || root == self
+    return if root.nil?
 
     CommentsChannel.broadcast_to(root, { action: "changed" })
   rescue StandardError => e
