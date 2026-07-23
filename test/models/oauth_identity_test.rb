@@ -104,4 +104,42 @@ class OauthIdentityTest < ActiveSupport::TestCase
       OauthIdentity.find_or_create_from_auth(auth)
     end
   end
+
+  # === Redteam: OAuth must resolve only to human accounts ===
+
+  test "an OAuth login never links to or takes over a non-human account sharing the email" do
+    # Non-human users (agents, collective identities) never log in and never
+    # hold a browser session. Today their emails are synthetic and can't
+    # collide with a real OAuth email, but that invariant lives in the creation
+    # sites — the lookup must not depend on it. Email is globally unique, so the
+    # only safe outcomes are "link a HUMAN with this email" or "fail"; never
+    # "attach the login to the agent's account".
+    shared_email = "shared-#{SecureRandom.hex(6)}@example.com"
+    non_human = User.create!(email: shared_email, name: "Collective Identity", user_type: "collective_identity")
+
+    begin
+      OauthIdentity.find_or_create_from_auth(fake_auth(provider: "github", email: shared_email))
+    rescue ActiveRecord::RecordNotUnique
+      # Expected once the lookup is human-scoped: no human owns the email, and
+      # a new human can't be minted because the address is globally taken.
+    end
+
+    non_human.reload
+    assert_equal "collective_identity", non_human.user_type, "the non-human account's type must be untouched"
+    assert_nil OauthIdentity.find_by(user_id: non_human.id),
+               "an OAuth identity must never be attached to a non-human account"
+    assert_nil non_human.omni_auth_identity,
+               "an email/password identity must never be attached to a non-human account"
+  end
+
+  test "an OAuth login still links to an existing HUMAN account sharing the email" do
+    # Regression guard: human-scoping the lookup must not break the normal
+    # account-linking path.
+    human_email = "human-#{SecureRandom.hex(6)}@example.com"
+    human = User.create!(email: human_email, name: "Real Person", user_type: "human")
+
+    identity = OauthIdentity.find_or_create_from_auth(fake_auth(provider: "github", email: human_email))
+
+    assert_equal human.id, identity.user_id, "the OAuth identity must link to the existing human account"
+  end
 end

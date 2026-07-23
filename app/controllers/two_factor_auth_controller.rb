@@ -27,7 +27,7 @@ class TwoFactorAuthController < ApplicationController
   # POST /login/verify-2fa
   def verify_submit
     @identity = pending_identity
-    code = params[:code]&.strip
+    code = submitted_code
 
     if @identity.otp_locked?
       SecurityAuditLog.log_2fa_lockout(identity: @identity, ip: request.remote_ip)
@@ -93,7 +93,7 @@ class TwoFactorAuthController < ApplicationController
   # POST /settings/two-factor/confirm
   def confirm_setup
     identity = current_identity
-    code = params[:code]&.strip
+    code = submitted_code
 
     if identity.verify_otp(code || "")
       identity.enable_otp!
@@ -148,7 +148,7 @@ class TwoFactorAuthController < ApplicationController
     end
 
     identity = current_identity
-    code = params[:code]&.strip
+    code = submitted_code
 
     # Verify code before disabling
     is_recovery_code = code.present? && code.gsub(/\s/, "").length > 6
@@ -173,7 +173,7 @@ class TwoFactorAuthController < ApplicationController
   # POST /settings/two-factor/regenerate-codes
   def regenerate_codes
     identity = current_identity
-    code = params[:code]&.strip
+    code = submitted_code
 
     # Verify code before regenerating
     if identity.verify_otp(code || "")
@@ -195,6 +195,15 @@ class TwoFactorAuthController < ApplicationController
 
   def is_auth_controller?
     true
+  end
+
+  # Submitted OTP / recovery code as a stripped string. params[:code] can arrive
+  # as an Array (`code[]=x`) or be absent; treat anything non-String as no code
+  # rather than calling String methods on it (NoMethodError -> 500). An empty
+  # result flows through as an invalid code, which every caller already handles.
+  def submitted_code
+    raw = params[:code]
+    raw.is_a?(String) ? raw.strip : nil
   end
 
   def require_pending_2fa

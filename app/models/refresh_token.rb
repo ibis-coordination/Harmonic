@@ -24,9 +24,13 @@ class RefreshToken < ApplicationRecord
   # benign in-flight race (e.g. two tabs refreshing concurrently).
   REPLAY_GRACE_WINDOW = 30.seconds
 
-  # How recently the user must have passed 2FA on this device for silent
-  # refresh to skip the 2FA re-prompt.
-  TWO_FACTOR_TRUST_WINDOW = 30.days
+  # Absolute cap on how long a device stays silently trusted, matching the
+  # 1-year maximum lifetime of an API token. Anchored to `two_factor_at` (the
+  # establishing 2FA login), which is preserved across rotation — so unlike the
+  # sliding LIFETIME above, ordinary use does NOT extend it. Once exceeded, the
+  # user must complete a fresh full login (re-entering 2FA) rather than being
+  # silently re-authenticated forever.
+  MAX_TRUST_LIFETIME = 1.year
 
   # How stale `last_used_at` must be before ordinary request activity refreshes
   # it. Rotation stamps `last_used_at` exactly, but a live session never
@@ -43,6 +47,7 @@ class RefreshToken < ApplicationRecord
     "admin",
     "password_change",
     "two_factor_disabled",
+    "trust_expired",
   ].freeze
 
   class AlreadyRotated < StandardError; end
@@ -138,6 +143,19 @@ class RefreshToken < ApplicationRecord
   sig { returns(T::Boolean) }
   def expired?
     expires_at < Time.current
+  end
+
+  # True when the device's trust has outlived MAX_TRUST_LIFETIME. `two_factor_at`
+  # marks the establishing 2FA login and is preserved across rotation, so this is
+  # a true absolute cap: ordinary use doesn't extend it, and only a fresh full
+  # login resets it. Tokens with no recorded 2FA (not issued by the current login
+  # paths) are not aged out here; the eligibility checks upstream govern them.
+  sig { returns(T::Boolean) }
+  def trust_expired?
+    established_at = two_factor_at
+    return false if established_at.nil?
+
+    established_at < MAX_TRUST_LIFETIME.ago
   end
 
   sig { returns(T::Boolean) }

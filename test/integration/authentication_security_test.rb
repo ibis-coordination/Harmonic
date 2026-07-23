@@ -695,4 +695,38 @@ class AuthenticationSecurityTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/login"
     assert_match(/revoked/i, flash[:alert])
   end
+
+  # ==========================================
+  # Non-human account tests
+  # ==========================================
+  # Only human users may hold a browser session (load_session_user filters
+  # user_type: "human"). Agents and collective identities act via API tokens,
+  # never the browser session, so a non-human id must never resolve to a
+  # logged-in current_user even if it lands in session[:user_id].
+
+  test "a non-human user id in a valid login token never yields an authenticated session" do
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+
+    # An AI agent, even one made a member of the tenant.
+    agent = User.create!(
+      email: "agent-#{SecureRandom.hex(4)}@example.com",
+      name: "Redteam Agent",
+      user_type: "ai_agent",
+      parent_id: @user.id,
+    )
+    @tenant.add_user!(agent)
+
+    # Forge a cross-subdomain login token for the agent (same construction as
+    # the real auth-domain handoff) and drive the tenant login callback.
+    derived_key = ActiveSupport::KeyGenerator.new(Rails.application.secret_key_base)
+                    .generate_key("cross_subdomain_token", 32)
+    crypt = ActiveSupport::MessageEncryptor.new(derived_key)
+    cookies[:token] = crypt.encrypt_and_sign("#{@tenant.id}:#{agent.id}:#{Time.current.to_i}")
+    get "/login/callback"
+
+    # No matter what the callback stashed, the next request must resolve to no
+    # authenticated user — the agent id cannot become a browser session.
+    get "/"
+    assert_redirected_to "/login"
+  end
 end

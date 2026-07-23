@@ -182,6 +182,25 @@ class TwoFactorAuthControllerTest < ActionDispatch::IntegrationTest
            "expected 2FA to remain enabled — the tenant requires it"
   end
 
+  test "POST disable with an array-valued code param is rejected cleanly, not a 500" do
+    @tenant.update!(main_collective_id: @collective.id)
+    @tenant.settings["require_2fa"] = "false"
+    @tenant.save!
+    user = create_user(email: "arraycode-#{SecureRandom.hex(4)}@example.com", name: "Array Code")
+    identity = user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+    sign_in_as(user, tenant: @tenant)
+
+    # Rails turns code[]=x into an Array; params[:code]&.strip would raise
+    # NoMethodError (500). It must be treated as an invalid code instead.
+    post two_factor_disable_path, params: { code: ["x"] }
+
+    assert_redirected_to two_factor_settings_path
+    assert_match(/invalid/i, flash[:alert].to_s)
+    assert identity.reload.otp_enabled, "2FA must remain enabled after an invalid disable attempt"
+  end
+
   test "post-setup Continue button defaults to the user's settings page" do
     # The shared setup uses create_tenant_collective_user, which doesn't set
     # main_collective_id — sign_in_as needs it to resolve current_collective.

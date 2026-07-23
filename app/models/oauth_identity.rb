@@ -13,9 +13,13 @@ class OauthIdentity < ApplicationRecord
       uid: auth.uid
     )
 
-    # If identity isn't linked to a user, check for an existing user with the same email
+    # If identity isn't linked to a user, check for an existing HUMAN with the
+    # same email. Scoped to humans so an OAuth login can never attach to (or
+    # take over) a non-human account — agents and collective identities never
+    # log in. Email is globally unique, so a non-human squatting the address
+    # surfaces as a create failure below rather than a silent mis-link.
     if identity.user_id.nil? && auth.info.email
-      user = User.find_by(email: auth.info.email)
+      user = User.find_by(email: auth.info.email, user_type: "human")
     end
 
     # Local + explicit signup flag: more durable than later asking the user

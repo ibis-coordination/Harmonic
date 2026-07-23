@@ -217,6 +217,20 @@ class TenantTest < ActiveSupport::TestCase
     assert_not tenant.valid_auth_provider?("invalid")
   end
 
+  test "Tenant.valid_auth_provider? fails loudly on a corrupted (unset) auth_providers" do
+    # Every tenant gets auth_providers written at creation (set_defaults), so a
+    # nil here is a data-integrity bug, not a legitimate default. This gates the
+    # OAuth callback, so it must fail loudly rather than silently fall back to a
+    # provider set that could admit the wrong provider. The raise carries a
+    # meaningful message instead of a bare nil dereference.
+    tenant = create_tenant
+    tenant.settings.delete("auth_providers")
+    tenant.save!
+
+    error = assert_raises(RuntimeError) { tenant.valid_auth_provider?("github") }
+    assert_match(/auth_providers/, error.message)
+  end
+
   # === Thread Scope Tests ===
 
   test "Tenant.scope_thread_to_tenant sets thread variables" do

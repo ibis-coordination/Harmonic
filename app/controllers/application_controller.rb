@@ -1259,6 +1259,24 @@ class ApplicationController < ActionController::Base
       return
     end
 
+    # Enforce the absolute device-trust cap (RefreshToken::MAX_TRUST_LIFETIME,
+    # 1 year — matching the API-token max lifetime). A device trusted longer than
+    # that must re-authenticate rather than be silently re-authenticated forever:
+    # the user falls through to the normal unauthenticated redirect and re-does
+    # the full login (including 2FA). Revoking, not just declining, kills a stolen
+    # copy of the same cookie.
+    if token.trust_expired?
+      SecurityAuditLog.log_refresh_ineligible(
+        token_id: token.id,
+        user_id: token.user_id,
+        ip: request.remote_ip,
+        reason: "trust_expired",
+      )
+      token.revoke!(reason: "trust_expired")
+      delete_refresh_cookie
+      return
+    end
+
     if token.rotated_at.present?
       if token.rotated_at > RefreshToken::REPLAY_GRACE_WINDOW.ago
         # In-flight race: a sibling request already rotated this token.
