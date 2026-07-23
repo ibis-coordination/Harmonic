@@ -360,6 +360,15 @@ class ApiTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "a malformed X-Representation-Session-ID fails closed as forbidden" do
+    # The header is external and free-form. Rails casts a non-UUID value to nil
+    # for the uuid `id` column, so the lookup misses and representation is
+    # rejected (:not_found -> 403) rather than erroring — a guard that this
+    # fail-closed behavior survives any future change to the resolver.
+    get v1_api_endpoint, headers: @headers.merge("X-Representation-Session-ID" => "not-a-valid-session-id")
+    assert_response :forbidden
+  end
+
   private
 
   def enable_stripe_billing_flag!(tenant)
