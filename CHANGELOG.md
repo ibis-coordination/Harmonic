@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.55.0] - 2026-07-23
+
+### Security
+
+- **Login and signup front-gate hardening** (#521) — silent-refresh device trust now expires at a 1-year absolute cap (matching API tokens); OAuth email-linking is scoped to human accounts so it can't attach to an agent or collective identity; a misconfigured tenant `auth_providers` fails loudly instead of silently falling back to a default set; and the non-human-session and 2FA-skip paths gain redteam-style guards. Malformed `code` params on the 2FA endpoints no longer error. Deploy: web only, no migrations.
+- **Trustee grant per-action permissions enforced on HTML and REST** (#522) — a representation grant scoped to a subset of actions (e.g. only `add_comment`) was enforced only on the markdown `/actions/` surface; the human forms and REST API consulted the granting user's capabilities instead, letting a trustee perform ungranted actions. The same `trustee_authorized?` check now gates the mapped controller writes under any user-representation session. Deploy: web only, no migrations.
+
+### Changed
+
+- **Markdown frontmatter is emitted and parsed as standard YAML** (#523) — the page frontmatter is a wire protocol read by Rails, the agent-runner, and external clients, but both ends hand-rolled YAML (a bespoke scalar escaper on emit, a whitespace-coupled grep parser in the runner), so a note title with an interior newline could break out of its scalar and corrupt or inject frontmatter keys. Rails now serializes an ordered hash with Psych and the agent-runner parses with a real YAML library, making injection and silent retyping impossible by construction. Deploy: web + agent-runner — ship the runner first, as its parser reads both the old and new format.
+
 ## [1.54.0] - 2026-07-22
 
 ### Changed
