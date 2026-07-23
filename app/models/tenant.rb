@@ -211,7 +211,14 @@ class Tenant < ApplicationRecord
 
   sig { params(provider: String).returns(T::Boolean) }
   def valid_auth_provider?(provider)
-    settings["auth_providers"].include?(provider)
+    # auth_providers is written at creation (set_defaults), so a nil here is a
+    # data-integrity bug, not a legitimate default. This gates the OAuth
+    # callback, so fail loudly with a clear message rather than guessing a
+    # provider set that could admit the wrong provider.
+    providers = settings["auth_providers"]
+    raise "Tenant #{subdomain.inspect} has no auth_providers configured (data integrity error)" if providers.nil?
+
+    providers.include?(provider)
   end
 
   # Categories of attachment content types this tenant accepts.
