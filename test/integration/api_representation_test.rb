@@ -176,6 +176,36 @@ class ApiRepresentationTest < ActionDispatch::IntegrationTest
                  "but was attributed to #{note.created_by.name} (#{note.created_by.user_type})"
   end
 
+  test "a scoped trustee grant is enforced on the direct (non-/actions/) routes too" do
+    # Alice grants Bob permission to create notes ONLY. The grant's per-action
+    # permissions were enforced only on the markdown /actions/ surface; on the
+    # direct HTML/REST routes the representative could exceed the grant. Lock it.
+    grant = create_trustee_authorization(
+      tenant: @tenant, granting_user: @alice, trustee_user: @bob,
+      permissions: { "create_note" => true }, accepted: true,
+    )
+    session_id = start_representation_session_via_api(grant: grant)
+    rep_headers = @headers.merge(
+      "X-Representation-Session-ID" => session_id,
+      "X-Representing-User" => @alice.handle,
+    )
+
+    # Granted action on the legacy route still works (no regression).
+    post "/collectives/#{@collective.handle}/note",
+         params: { title: "Permitted", text: "created as Alice, permitted" }, headers: rep_headers
+    assert Note.tenant_scoped_only(@tenant.id).exists?(title: "Permitted"),
+           "the granted create_note action must still succeed under representation"
+
+    # Ungranted action on the legacy route: Bob may only create_note, so creating
+    # a decision as Alice must be denied — not silently allowed as it was when
+    # only the /actions/ surface enforced the grant.
+    post "/collectives/#{@collective.handle}/decide",
+         params: { question: "Sneaky decision?", description: "should be blocked" }, headers: rep_headers
+    assert_response :forbidden
+    assert_not Decision.tenant_scoped_only(@tenant.id).exists?(question: "Sneaky decision?"),
+               "the ungranted create_decision action must be blocked on the legacy surface"
+  end
+
   test "API rejects representation with invalid session ID" do
     fake_session_id = SecureRandom.uuid
 
