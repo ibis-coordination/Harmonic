@@ -36,6 +36,46 @@ module MarkdownHelper
     end
   end
 
+  # Escape a value for emission as an inline YAML scalar in a markdown page's
+  # frontmatter block. That frontmatter is a wire protocol the agent-runner / MCP
+  # `fetch_page` consumer parses, so a user-controlled value (note title, decision
+  # question, scope/query, action description) must not be able to break out of
+  # its scalar, inject or corrupt keys, or be silently retyped. When quoting we
+  # escape control characters into YAML double-quoted escape sequences so the
+  # scalar stays on one physical line and round-trips exactly. Returns an
+  # html_safe string for direct <%= %>.
+  def yaml_escape(value)
+    str = value.to_s
+    return str.html_safe unless yaml_scalar_needs_quoting?(str)
+
+    escaped = str.gsub(/["\\\x00-\x1F\x7F]/) do |ch|
+      case ch
+      when '"' then '\\"'
+      when "\\" then "\\\\"
+      when "\n" then '\\n'
+      when "\t" then '\\t'
+      when "\r" then '\\r'
+      else format('\\x%02X', ch.ord)
+      end
+    end
+    ('"' + escaped + '"').html_safe
+  end
+
+  # A plain (unquoted) YAML scalar is safe to emit only if it parses back as the
+  # identical string. Let Psych be the oracle rather than enumerating YAML's
+  # quoting rules by hand: this catches structural indicators (a leading `- `,
+  # `#`, `@`; an embedded `: ` or ` #`; surrounding whitespace) AND values YAML
+  # resolves to a non-string (`true`, `123`, `null`, `~`, `.inf`, sexagesimal
+  # times) in one rule. Control characters always force quoting — we never hand
+  # them to the parser — and unparseable input fails closed to quoted.
+  def yaml_scalar_needs_quoting?(str)
+    return true if str.match?(/[\x00-\x1F\x7F]/)
+
+    YAML.safe_load(str) != str
+  rescue Psych::Exception
+    true
+  end
+
   MARKDOWN_CONTENT_TRUNCATION_LIMIT = 2_000
 
   # Truncates content at a line boundary to reduce agent token usage.

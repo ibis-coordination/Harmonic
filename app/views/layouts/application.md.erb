@@ -1,15 +1,3 @@
-<%
-# Helper to escape YAML values that contain special characters
-def yaml_escape(value)
-  str = value.to_s
-  needs_quoting = str.match?(/\A[@#*&!|>%\[\]{}'":\s-]/) ||
-                  str.include?(": ") ||
-                  str.include?(" #") ||
-                  str.match?(/\s\z/)
-  result = needs_quoting ? '"' + str.gsub('\\', '\\\\').gsub('"', '\\"') + '"' : str
-  result.html_safe
-end
--%>
 ---
 app: Harmonic
 host: <%= "#{@current_tenant.subdomain}.#{ENV['HOSTNAME']}" %>
