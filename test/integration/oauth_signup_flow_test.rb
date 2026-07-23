@@ -207,4 +207,27 @@ class OauthSignupFlowTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/login/return"
     assert_not_nil session[:user_id]
   end
+
+  test "a pending-2FA login cannot reach protected content by skipping the challenge" do
+    # Redteam: after the provider callback but before the TOTP code, the user
+    # is in the pending-2FA state (pending_2fa_identity_id set, user_id NOT).
+    # Navigating away from /login/verify-2fa to a protected tenant page must
+    # not serve it — the second factor cannot be skipped.
+    user = create_user(email: "ghskip-#{SecureRandom.hex(4)}@example.com", name: "GH Skip")
+    @tenant.add_user!(user)
+    @tenant.create_main_collective!(created_by: user)
+    omni = user.find_or_create_omni_auth_identity!
+    omni.generate_otp_secret!
+    omni.enable_otp!
+    github_callback(github_auth(email: user.email))
+    assert_equal omni.id, session[:pending_2fa_identity_id]
+    assert_nil session[:user_id], "no session yet — the challenge is unanswered"
+
+    # Skip the challenge and hit a protected tenant page.
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+    get "/"
+
+    assert_nil session[:user_id], "the second factor was never completed — still no session"
+    assert_redirected_to "/login"
+  end
 end
