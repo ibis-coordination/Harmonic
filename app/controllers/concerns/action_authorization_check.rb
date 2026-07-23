@@ -37,6 +37,7 @@ module ActionAuthorizationCheck
 
   included do
     append_before_action :check_action_authorization
+    append_before_action :enforce_representation_action_grant
   end
 
   private
@@ -64,6 +65,41 @@ module ActionAuthorizationCheck
     return if ActionAuthorization.authorized?(action_name, @current_user, authorization_context)
 
     render_authorization_denied(action_name)
+  end
+
+  # Enforce the active user-representation grant's per-action permissions on the
+  # direct controller routes (the HTML forms and REST api/v1 endpoints mapped via
+  # CONTROLLER_ACTION_MAP). check_action_authorization runs the full
+  # ActionAuthorization.authorized? (which consults the grant) only on
+  # /actions/<name> POSTs; the mapped routes are gated by ActionCapabilityCheck
+  # alone, which — under user representation, where @current_user is the granting
+  # human — never consults the grant. A grant scoped to a subset of actions was
+  # therefore silently bypassable through the human UI and REST. This applies the
+  # SAME trustee check (ActionAuthorization.trustee_authorized?) to those mapped
+  # writes, and only under a user-representation session, so ordinary traffic is
+  # untouched.
+  def enforce_representation_action_grant
+    session = @current_representation_session
+    return unless session&.user_representation?
+    return unless write_request?
+    # /actions/<name> POSTs are already gated by check_action_authorization.
+    return if request.path.match?(%r{/actions/[^/]+/?$})
+
+    mapped_action = ActionCapabilityCheck::CONTROLLER_ACTION_MAP["#{controller_path}##{action_name}"]
+    # Unmapped routes carry no action name to check the grant against; they keep
+    # their controller guards (mirrors ActionCapabilityCheck deferring on
+    # unmapped writes for non-restricted users).
+    return if mapped_action.blank?
+    return if SESSION_MANAGEMENT_ACTIONS.include?(mapped_action)
+
+    # trustee_authorized? for a user-representation session reads only these two
+    # context keys; pass them directly rather than the full authorization_context
+    # so this gate does no incidental resource/handle lookups on every mapped
+    # controller.
+    context = { representation_session: session, collective: @current_collective }
+    return if ActionAuthorization.trustee_authorized?(@current_user, mapped_action, context)
+
+    render_authorization_denied(mapped_action)
   end
 
   # Context passed to ActionAuthorization.authorized? at execute time.
