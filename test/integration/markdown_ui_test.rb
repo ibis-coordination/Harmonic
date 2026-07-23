@@ -50,19 +50,29 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     response.body.include?("# Actions") || response.body.include?("# [Actions]")
   end
 
+  # Parse the YAML frontmatter block the same way the real consumers do
+  # (MarkdownUiService, the agent-runner), rather than regexing the raw body —
+  # the frontmatter is standard YAML, so values may be quoted or block-scalared.
+  def parsed_frontmatter
+    body = response.body
+    return {} unless body.start_with?("---\n")
+
+    end_index = body.index("\n---\n", 4)
+    return {} unless end_index
+
+    YAML.safe_load(body[4...end_index], permitted_classes: [Time, Symbol]) || {}
+  end
+
   def has_action_in_frontmatter?(action_name)
-    # Actions are now in YAML frontmatter, e.g., "- name: confirm_read"
-    response.body.include?("- name: #{action_name}")
+    Array(parsed_frontmatter["actions"]).any? { |action| action["name"] == action_name }
   end
 
   def page_title
-    m = response.body.match(/title: (.+)/)
-    m ? m[1] : nil
+    parsed_frontmatter["title"]
   end
 
   def page_path
-    m = response.body.match(/path: (.+)/)
-    m ? m[1] : nil
+    parsed_frontmatter["path"]
   end
 
   def assert_200_markdown_response(title, path, params: nil)
@@ -2591,8 +2601,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       "Should not mark unrelated comments")
 
     # Frontmatter `path:` preserves comment_id so agents see the canonical URL
-    assert_match(/^path: \/collectives\/#{@collective.handle}\/d\/#{decision.truncated_id}\?comment_id=#{target.truncated_id}$/,
-      response.body, "Frontmatter path should retain comment_id")
+    assert_equal "/collectives/#{@collective.handle}/d/#{decision.truncated_id}?comment_id=#{target.truncated_id}",
+      page_path, "Frontmatter path should retain comment_id"
   end
 
   test "GET decision without ?comment_id= shows no inline marker and bare path in frontmatter" do
@@ -2603,8 +2613,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
 
     assert_no_match(/📌/, response.body, "Should not render any marker without comment_id")
-    assert_match(/^path: \/collectives\/#{@collective.handle}\/d\/#{decision.truncated_id}$/, response.body,
-      "Frontmatter path should be the bare path when no comment_id")
+    assert_equal "/collectives/#{@collective.handle}/d/#{decision.truncated_id}", page_path,
+      "Frontmatter path should be the bare path when no comment_id"
   end
 
   test "GET decision with ?comment_id= matching a nested reply marks the nested reply" do
@@ -2622,8 +2632,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   test "GET search with ?q= preserves the query in the frontmatter path" do
     get "/search?q=hello", headers: @headers
     assert_equal 200, response.status
-    assert_match(/^path: \/search\?q=hello$/, response.body,
-      "Frontmatter path should preserve ?q= for search")
+    assert_equal "/search?q=hello", page_path,
+      "Frontmatter path should preserve ?q= for search"
   end
 
   test "frontmatter path drops query params not on the preserved whitelist" do
@@ -2633,8 +2643,8 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
 
     # Unknown params are stripped from the frontmatter path
-    assert_match(/^path: \/collectives\/#{@collective.handle}\/d\/#{decision.truncated_id}$/, response.body,
-      "Whitelisted-only: unknown query params shouldn't appear in the canonical path")
+    assert_equal "/collectives/#{@collective.handle}/d/#{decision.truncated_id}", page_path,
+      "Whitelisted-only: unknown query params shouldn't appear in the canonical path"
   end
 
   test "GET ai_agent task run markdown surfaces tool_calls and reasoning on think steps" do

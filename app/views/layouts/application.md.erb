@@ -1,48 +1,4 @@
-<%
-# Helper to escape YAML values that contain special characters
-def yaml_escape(value)
-  str = value.to_s
-  needs_quoting = str.match?(/\A[@#*&!|>%\[\]{}'":\s-]/) ||
-                  str.include?(": ") ||
-                  str.include?(" #") ||
-                  str.match?(/\s\z/)
-  result = needs_quoting ? '"' + str.gsub('\\', '\\\\').gsub('"', '\\"') + '"' : str
-  result.html_safe
-end
--%>
----
-app: Harmonic
-host: <%= "#{@current_tenant.subdomain}.#{ENV['HOSTNAME']}" %>
-path: <%= @current_path %>
-<% if @page_scope.present? -%>
-scope: <%= yaml_escape(@page_scope) %>
-<% end -%>
-<% if @page_query.present? -%>
-query: <%= yaml_escape(@page_query) %>
-<% end -%>
-title: <%= yaml_escape(@page_title) %>
-timestamp: <%= Time.now.utc %>
-<% actions = available_actions_for_current_route -%>
-<% if actions.any? -%>
-actions:
-<% actions.each do |action| -%>
-  - name: <%= action[:name] %>
-    visibility: <%= action[:visibility] %>
-    description: <%= yaml_escape(action[:description]) %>
-<% if action[:params]&.any? -%>
-    params:
-<% action[:params].each do |param| -%>
-      - name: <%= param[:name] %>
-        type: <%= param[:type] %>
-        required: <%= param[:required] %>
-<% if param[:description] -%>
-        description: <%= yaml_escape(param[:description]) %>
-<% end -%>
-<% end -%>
-<% end -%>
-<% end -%>
-<% end -%>
----
+<%= page_frontmatter %>
 nav: | [Home](/) <% if @current_collective && @current_collective != @current_tenant.main_collective -%>| <%= @current_collective.private_workspace? ? "Workspace" : "Collective" %>: [<%= @current_collective.name %>](<%= @current_collective.path %>)<% end -%><% if @current_user -%>| Logged in as [<%= @current_user.display_name %>](<%= @current_user.path %>)<% end -%><% if @current_representation_session -%> | acting on behalf of <%= @current_representation_session.representation_label %><% end -%> | [🔍](/search) | [<%= @unread_notification_count %>](/notifications) |
 <% if unattached_rep_sessions.any? -%>
 

@@ -12,6 +12,19 @@ class MarkdownActionAuthorizationTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
   end
 
+  # Action names listed in the page's YAML frontmatter, parsed as the real
+  # consumers do. Precise where a bare `/vote/` body match would be ambiguous
+  # (the word also appears in page copy).
+  def frontmatter_action_names(body)
+    return [] unless body.start_with?("---\n")
+
+    end_index = body.index("\n---\n", 4)
+    return [] unless end_index
+
+    parsed = YAML.safe_load(body[4...end_index], permitted_classes: [Time, Symbol]) || {}
+    Array(parsed["actions"]).map { |action| action["name"] }
+  end
+
   # ==========================================
   # Note actions filtered by block
   # ==========================================
@@ -51,8 +64,9 @@ class MarkdownActionAuthorizationTest < ActionDispatch::IntegrationTest
     get decision.path, headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    assert_no_match(/^ {2}- name: vote$/m, response.body)
-    assert_no_match(/^ {2}- name: add_options$/m, response.body)
+    names = frontmatter_action_names(response.body)
+    assert_not_includes names, "vote"
+    assert_not_includes names, "add_options"
   end
 
   test "decision markdown frontmatter includes vote and add_options when no block" do
