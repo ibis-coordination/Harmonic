@@ -19,6 +19,7 @@ import { spawnWake } from "./spawn.js";
 import { createDispatcher } from "./dispatcher.js";
 import { startServer } from "./server.js";
 import { openAgentLogStreams } from "./log-streams.js";
+import { createHoldAwake } from "./hold-awake.js";
 import type { AgentConfig } from "./config.js";
 
 export interface DaemonOpts {
@@ -33,6 +34,11 @@ export interface DaemonOpts {
    * avoid signal-handler interference across concurrent test runs.
    */
   readonly installSignalHandlers?: boolean;
+  /**
+   * Test override for hold-awake timing (prime grace). Production callers
+   * leave this unset and get the defaults.
+   */
+  readonly holdOverrides?: { readonly primeGraceMs?: number };
 }
 
 export interface RunningDaemon {
@@ -47,6 +53,13 @@ interface WakeEvent {
   readonly eventType: string;
   readonly payload: string;
 }
+
+/**
+ * How long a webhook ack may wait for the hold-awake connection to
+ * establish. Comfortably inside Harmonic's 30s delivery timeout; if the
+ * hold can't establish by then the ack proceeds anyway.
+ */
+const HOLD_PRIME_TIMEOUT_MS = 2_000;
 
 export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
   const daemon = await loadDaemonConfig(path.join(opts.configDir, "config.yml"));
@@ -76,7 +89,35 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
 
   await loadAllAgents();
 
+  // On hibernating hosts, hold a connection open against our own public URL
+  // for the duration of every wake so the platform's idle detector doesn't
+  // freeze the machine mid-task. publicUrl presence is enforced by the
+  // config parser when the flag is on.
+  const holdAwake = daemon.holdAwakeDuringWake
+    ? createHoldAwake({
+        url: `${(daemon.publicUrl as string).replace(/\/+$/, "")}/hold`,
+        primeGraceMs: opts.holdOverrides?.primeGraceMs,
+        onError: (e, consecutive) => {
+          // First failure and every 40th thereafter — enough to diagnose a
+          // dead hold without flooding the log at the reconnect cadence.
+          if (consecutive === 1 || consecutive % 40 === 0) {
+            const msg = e instanceof Error ? e.message : String(e);
+            process.stderr.write(`harmonic-bridge: hold-awake connection failing (attempt ${consecutive}): ${msg}\n`);
+          }
+        },
+      })
+    : null;
+
   const dispatcher = createDispatcher<WakeEvent>(async (handle, { eventType, payload }) => {
+    holdAwake?.acquire();
+    try {
+      await runWake(handle, eventType, payload);
+    } finally {
+      holdAwake?.release();
+    }
+  });
+
+  async function runWake(handle: string, eventType: string, payload: string): Promise<void> {
     const cfg = agents.get(handle);
     if (!cfg) return;
     if (cfg.events && !cfg.events.includes(eventType)) return;
@@ -119,10 +160,12 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     } finally {
       await logs.close();
     }
-  });
+  }
 
   const server = await startServer({
     listen: opts.listenOverride ?? daemon.listen,
+    holdRoute: daemon.holdAwakeDuringWake ? { heartbeatMs: 10_000 } : undefined,
+    beforeAck: holdAwake ? () => holdAwake.prime(HOLD_PRIME_TIMEOUT_MS) : undefined,
     resolveAgent: async (handle) => {
       const cfg = agents.get(handle);
       if (!cfg) return null;
@@ -160,8 +203,14 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
       if (stopped) return;
       stopped = true;
       if (sighupHandler) process.off("SIGHUP", sighupHandler);
-      await server.close();
+      // Stop accepting new connections immediately, but don't await yet:
+      // close() resolves only when existing connections end, and in
+      // production the hold-awake connection hairpins back into this same
+      // server — it closes when the drained wakes release it.
+      const closing = server.close();
       await dispatcher.drain();
+      if (holdAwake) await holdAwake.stop();
+      await closing;
       if (pidFileWritten) {
         await fs.unlink(pidFilePath).catch(() => undefined);
       }

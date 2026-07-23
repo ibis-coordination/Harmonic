@@ -24,6 +24,45 @@ log_dir: /var/log/harmonic-bridge
   assert.equal(cfg.secrets.baseDir, "~/.harmonic-bridge/secrets", "default location when secrets block omitted");
 });
 
+test("parseDaemonConfig: hold_awake_during_wake defaults to false", () => {
+  const cfg = parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /tmp
+`));
+  assert.equal(cfg.holdAwakeDuringWake, false);
+});
+
+test("parseDaemonConfig: hold_awake_during_wake true requires public_url", () => {
+  const cfg = parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /tmp
+public_url: https://bridge.example.com
+hold_awake_during_wake: true
+`));
+  assert.equal(cfg.holdAwakeDuringWake, true);
+
+  assert.throws(
+    () => parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /tmp
+hold_awake_during_wake: true
+`)),
+    (e: unknown) => e instanceof ConfigError && /hold_awake_during_wake requires public_url/.test(e.message),
+  );
+});
+
+test("parseDaemonConfig: hold_awake_during_wake must be a boolean", () => {
+  assert.throws(
+    () => parseDaemonConfig(parseYaml(`
+listen: 127.0.0.1:8080
+log_dir: /tmp
+public_url: https://bridge.example.com
+hold_awake_during_wake: sometimes
+`)),
+    (e: unknown) => e instanceof ConfigError && /hold_awake_during_wake must be a boolean/.test(e.message),
+  );
+});
+
 test("parseDaemonConfig: public_url parses when present, undefined when blank", () => {
   const set = parseDaemonConfig(parseYaml(`
 listen: 127.0.0.1:8080

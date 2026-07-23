@@ -24,6 +24,21 @@ export interface ServerOpts {
   readonly now?: () => number;
   /** Max request body size in bytes. Defaults to 1 MiB. */
   readonly maxBodyBytes?: number;
+  /**
+   * When set, GET /hold streams heartbeat bytes until the client closes the
+   * connection. Used by hold-awake on hibernating hosts: the daemon holds a
+   * request against its own public URL while wakes run so the platform's
+   * idle detector sees activity. Off by default.
+   */
+  readonly holdRoute?: { readonly heartbeatMs: number };
+  /**
+   * Awaited after signature verification, before the 204 ack is written.
+   * On hibernating hosts the daemon uses this to establish the hold-awake
+   * connection while the inbound webhook connection still pins the machine
+   * awake — otherwise establishment races the freeze. Failures are
+   * swallowed: a broken hold must not block deliveries.
+   */
+  readonly beforeAck?: () => Promise<void>;
 }
 
 export interface RunningServer {
@@ -34,11 +49,26 @@ export interface RunningServer {
 
 const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
 const ROUTE_RE = /^\/webhook\/([a-zA-Z0-9][a-zA-Z0-9_-]*)\/?$/;
+const HOLD_ROUTE_RE = /^\/hold\/?$/;
+// The /hold route is unauthenticated (the daemon can't sign its own request
+// without an agent context, and the exposure is equivalent to what any
+// public URL already has — repeated requests keep a hibernating host awake
+// regardless). Cap concurrent holds so it can't be used to pile up sockets.
+const MAX_HOLD_CONNECTIONS = 16;
 
 export function startServer(opts: ServerOpts): Promise<RunningServer> {
   const maxBodyBytes = opts.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
 
+  let holdConnections = 0;
   const server = createHttpServer((req, res) => {
+    if (opts.holdRoute && req.method === "GET" && req.url && HOLD_ROUTE_RE.test(req.url)) {
+      handleHold(res, opts.holdRoute.heartbeatMs, {
+        count: () => holdConnections,
+        increment: () => (holdConnections += 1),
+        decrement: () => (holdConnections -= 1),
+      });
+      return;
+    }
     handleRequest(req, res, opts, maxBodyBytes).catch(() => {
       if (!res.headersSent) {
         res.writeHead(500);
@@ -58,6 +88,28 @@ export function startServer(opts: ServerOpts): Promise<RunningServer> {
         close: () => closeServer(server),
       });
     });
+  });
+}
+
+function handleHold(
+  res: ServerResponse,
+  heartbeatMs: number,
+  connections: { count: () => number; increment: () => void; decrement: () => void },
+): void {
+  if (connections.count() >= MAX_HOLD_CONNECTIONS) {
+    res.writeHead(503);
+    res.end();
+    return;
+  }
+  connections.increment();
+  res.writeHead(200, { "Content-Type": "text/plain", "Cache-Control": "no-store" });
+  // Write immediately so the client's request resolves and it knows the
+  // hold is established, then keep the stream visibly alive.
+  res.write("h\n");
+  const beat = setInterval(() => res.write("h\n"), heartbeatMs);
+  res.on("close", () => {
+    clearInterval(beat);
+    connections.decrement();
   });
 }
 
@@ -109,6 +161,14 @@ async function handleRequest(
     res.writeHead(401);
     res.end();
     return;
+  }
+
+  if (opts.beforeAck) {
+    try {
+      await opts.beforeAck();
+    } catch {
+      // A failed pre-ack hook must not block the delivery.
+    }
   }
 
   // Ack before dispatching so Harmonic doesn't time out on slow wakes.

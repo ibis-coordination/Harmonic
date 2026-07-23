@@ -446,3 +446,80 @@ test("daemon: without installSignalHandlers, no PID file is created", async () =
   void d;
   assert.equal(existsSync(path.join(f.configDir, "daemon.pid")), false);
 });
+
+test("daemon: hold_awake_during_wake holds a connection to public_url for the duration of the wake", async () => {
+  // Stub playing the role of the platform edge: records opens/closes of
+  // held connections and streams a heartbeat like the real /hold route.
+  const { createServer } = await import("node:http");
+  let opens = 0;
+  let closes = 0;
+  const edge = createServer((req, res) => {
+    opens += 1;
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    const beat = setInterval(() => res.write("h\n"), 10);
+    res.on("close", () => {
+      clearInterval(beat);
+      closes += 1;
+    });
+  });
+  await new Promise<void>((resolve) => edge.listen(0, HOST, resolve));
+  const edgeAddress = edge.address();
+  const edgePort = typeof edgeAddress === "object" && edgeAddress ? edgeAddress.port : 0;
+  cleanups.push(async () => new Promise<void>((resolve) => edge.close(() => resolve())));
+
+  const f = makeFixture();
+  // Rewrite daemon config with the hold flag and the stub edge as public_url,
+  // and slow the wake down so the hold window is observable.
+  writeFileSync(path.join(f.configDir, "config.yml"), `
+listen: 127.0.0.1:8080
+log_dir: ${path.join(f.configDir, "logs")}
+public_url: http://${HOST}:${edgePort}
+hold_awake_during_wake: true
+`);
+  writeFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), `
+harmonic_mcp_endpoint: https://app.harmonic.example/mcp
+harmonic_token: file://${path.join(f.configDir, "secrets", "token")}
+webhook_secret: file://${path.join(f.configDir, "secrets", "webhook-secret")}
+working_dir: ${f.configDir}
+wake_command: |
+  sleep 0.5 && echo done > ${f.outputFile}
+`);
+
+  const d = await startDaemon({
+    configDir: f.configDir,
+    listenOverride: { host: HOST, port: 0 },
+    holdOverrides: { primeGraceMs: 200 },
+  });
+  cleanups.push(async () => {
+    await d.stop();
+    rmSync(f.configDir, { recursive: true, force: true });
+  });
+  const body = "{}";
+  const res = await fetch(`http://${HOST}:${d.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign(body, TS, f.webhookSecret),
+      "X-Harmonic-Timestamp": String(TS),
+      "X-Harmonic-Event": "notifications.delivered",
+    },
+    body,
+  });
+  assert.equal(res.status, 204);
+
+  // The hold connection must open while the wake is still running (well
+  // before the 0.5s sleep finishes).
+  const holdOpenDeadline = Date.now() + 400;
+  while (opens === 0 && Date.now() < holdOpenDeadline) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.equal(opens, 1, "hold connection should open during the wake");
+  assert.equal(existsSync(f.outputFile), false, "wake should still be in flight when the hold opens");
+
+  await waitForFile(f.outputFile);
+  // After the wake finishes, the hold should let go.
+  const holdCloseDeadline = Date.now() + 2000;
+  while (closes < opens && Date.now() < holdCloseDeadline) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.equal(closes, opens, "hold connection should close once the wake completes");
+});
