@@ -209,8 +209,10 @@ class SearchTest < ActionDispatch::IntegrationTest
   test "GET search markdown includes path with query in frontmatter" do
     get search_path, params: { q: "test query" }, headers: @headers.merge("Accept" => "text/markdown")
     assert_response :success
-    # The frontmatter should include path with the query
-    assert_match "path: /search?q=", response.body
+    # The frontmatter path (standard YAML, so parse it) carries the query.
+    frontmatter = YAML.safe_load(response.body[/\A---\n(.*?)\n---\n/m, 1], permitted_classes: [Time, Symbol])
+    assert frontmatter["path"].start_with?("/search?q="),
+      "Frontmatter path should preserve ?q= for search, got #{frontmatter["path"].inspect}"
   end
 
   # People search — Phase 1 of discoverability

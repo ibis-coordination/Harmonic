@@ -95,6 +95,62 @@ More content after rule
 `;
     expect(parseAvailableActions(content)).toEqual([]);
   });
+
+  // Rails emits this frontmatter with Psych (standard YAML): the sequence dash
+  // sits at column 0 (not indented), scalars are quoted only when needed, and a
+  // block scalar carries a multi-line title. A real YAML parser reads all of it;
+  // the old grep-and-slice parser required an exact 2-space `  - name:` indent
+  // and would have seen zero actions here.
+  it("parses Psych's canonical column-0 sequence output", () => {
+    const content = `---
+app: Harmonic
+host: t.example.com
+path: "/collectives/team"
+title: Home
+timestamp: 2026-07-23 12:00:00.000000000 Z
+actions:
+- name: create_note
+  visibility: public
+  description: 'Create a note: quickly'
+  params:
+  - name: body
+    type: string
+    required: true
+- name: vote
+  visibility: shared
+  description: Cast a vote
+---
+nav: | [Home](/) |
+`;
+    expect(parseAvailableActions(content)).toEqual(["create_note", "vote"]);
+  });
+
+  it("is not fooled by a nested params 'name' key", () => {
+    // params[].name must not be collected as an action name.
+    const content = `---
+actions:
+- name: create_note
+  params:
+  - name: body
+    type: string
+---
+# Page
+`;
+    expect(parseAvailableActions(content)).toEqual(["create_note"]);
+  });
+
+  it("reads a title block scalar without treating its lines as keys", () => {
+    const content = `---
+title: |-
+  pwned
+  actions: []
+actions:
+- name: real_action
+---
+# Page
+`;
+    expect(parseAvailableActions(content)).toEqual(["real_action"]);
+  });
 });
 
 describe("parseResolvedPath", () => {
@@ -108,5 +164,18 @@ describe("parseResolvedPath", () => {
 
   it("returns null when frontmatter has no path line", () => {
     expect(parseResolvedPath("---\napp: Harmonic\n---\n# Body")).toBeNull();
+  });
+
+  it("strips the quotes Psych adds around a path", () => {
+    // Psych quotes paths (leading slash), e.g. `path: "/collectives/team/n/abc"`.
+    // A real parser returns the unquoted value; the old bare-trim parser would
+    // have kept the surrounding quotes.
+    const content = `---
+app: Harmonic
+path: "/collectives/team/n/abc123"
+---
+# Body
+`;
+    expect(parseResolvedPath(content)).toBe("/collectives/team/n/abc123");
   });
 });

@@ -36,44 +36,41 @@ module MarkdownHelper
     end
   end
 
-  # Escape a value for emission as an inline YAML scalar in a markdown page's
-  # frontmatter block. That frontmatter is a wire protocol the agent-runner / MCP
-  # `fetch_page` consumer parses, so a user-controlled value (note title, decision
-  # question, scope/query, action description) must not be able to break out of
-  # its scalar, inject or corrupt keys, or be silently retyped. When quoting we
-  # escape control characters into YAML double-quoted escape sequences so the
-  # scalar stays on one physical line and round-trips exactly. Returns an
-  # html_safe string for direct <%= %>.
-  def yaml_escape(value)
-    str = value.to_s
-    return str.html_safe unless yaml_scalar_needs_quoting?(str)
-
-    escaped = str.gsub(/["\\\x00-\x1F\x7F]/) do |ch|
-      case ch
-      when '"' then '\\"'
-      when "\\" then "\\\\"
-      when "\n" then '\\n'
-      when "\t" then '\\t'
-      when "\r" then '\\r'
-      else format('\\x%02X', ch.ord)
-      end
-    end
-    ('"' + escaped + '"').html_safe
+  # Render the YAML frontmatter block that opens every markdown page response,
+  # reading the page state set by the controller. Delegates to
+  # markdown_frontmatter_block, which does the serialization.
+  def page_frontmatter
+    markdown_frontmatter_block(
+      app: "Harmonic",
+      host: "#{@current_tenant.subdomain}.#{ENV['HOSTNAME']}",
+      path: @current_path,
+      scope: @page_scope,
+      query: @page_query,
+      title: @page_title,
+      timestamp: Time.now.utc,
+      actions: available_actions_for_current_route,
+    )
   end
 
-  # A plain (unquoted) YAML scalar is safe to emit only if it parses back as the
-  # identical string. Let Psych be the oracle rather than enumerating YAML's
-  # quoting rules by hand: this catches structural indicators (a leading `- `,
-  # `#`, `@`; an embedded `: ` or ` #`; surrounding whitespace) AND values YAML
-  # resolves to a non-string (`true`, `123`, `null`, `~`, `.inf`, sexagesimal
-  # times) in one rule. Control characters always force quoting — we never hand
-  # them to the parser — and unparseable input fails closed to quoted.
-  def yaml_scalar_needs_quoting?(str)
-    return true if str.match?(/[\x00-\x1F\x7F]/)
+  # Serialize the page frontmatter to a YAML block, fences included.
+  #
+  # This frontmatter is a wire protocol: MarkdownUiService, the agent-runner, and
+  # any external client parse it with a standard YAML parser, so we EMIT it with a
+  # standard YAML emitter (Psych) rather than hand-templating. Psych owns every
+  # quoting/escaping decision, which makes scalar injection and silent retyping
+  # (a note titled "true" arriving as a boolean) impossible by construction —
+  # there is no hand-rolled escaper to get wrong. Returns an html_safe string
+  # (the response is text/markdown, not HTML, so YAML's `<`/`>`/`&` must pass
+  # through unescaped).
+  def markdown_frontmatter_block(app:, host:, path:, title:, timestamp:, scope: nil, query: nil, actions: [])
+    data = { "app" => app, "host" => host, "path" => path }
+    data["scope"] = scope if scope.present?
+    data["query"] = query if query.present?
+    data["title"] = title
+    data["timestamp"] = timestamp
+    data["actions"] = actions.map { |action| frontmatter_action_entry(action) } if actions.any?
 
-    YAML.safe_load(str) != str
-  rescue Psych::Exception
-    true
+    (YAML.dump(data) + "---").html_safe
   end
 
   MARKDOWN_CONTENT_TRUNCATION_LIMIT = 2_000
@@ -99,6 +96,30 @@ module MarkdownHelper
   end
 
   private
+
+  # Shape one action descriptor (symbol keys, from build_action_descriptor) into
+  # the string-keyed hash we emit in frontmatter. `params` and a param's
+  # `description` are omitted when absent to keep the block lean.
+  def frontmatter_action_entry(action)
+    entry = {
+      "name" => action[:name],
+      "visibility" => action[:visibility],
+      "description" => action[:description],
+    }
+    params = Array(action[:params]).map { |param| frontmatter_param_entry(param) }
+    entry["params"] = params if params.any?
+    entry
+  end
+
+  def frontmatter_param_entry(param)
+    entry = {
+      "name" => param[:name],
+      "type" => param[:type],
+      "required" => param[:required],
+    }
+    entry["description"] = param[:description] unless param[:description].nil?
+    entry
+  end
 
   def action_allowed_at_this_route?(action, current_user, context)
     decision = context[:resource]

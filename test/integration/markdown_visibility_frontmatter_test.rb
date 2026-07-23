@@ -18,14 +18,22 @@ class MarkdownVisibilityFrontmatterTest < ActionDispatch::IntegrationTest
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
   end
 
-  def visibility_for(body, action_name)
-    # Grab the `visibility:` line within the action block keyed by name.
-    # Block ends at the next `- name:` or the end of the actions list.
-    match = body.match(/^\s*- name: #{Regexp.escape(action_name)}\b.*?(?=^\s*- name:|^---)/m)
-    return nil unless match
+  # Parse the frontmatter as standard YAML (as the real consumers do) rather than
+  # matching indentation — Psych emits actions at column 0 and their params at a
+  # deeper indent, so an indent-based scan can't tell them apart.
+  def frontmatter_actions(body)
+    return [] unless body.start_with?("---\n")
 
-    vis = match[0].match(/^\s*visibility: (public|private|shared)\b/)
-    vis && vis[1]
+    end_index = body.index("\n---\n", 4)
+    return [] unless end_index
+
+    parsed = YAML.safe_load(body[4...end_index], permitted_classes: [Time, Symbol]) || {}
+    Array(parsed["actions"])
+  end
+
+  def visibility_for(body, action_name)
+    action = frontmatter_actions(body).find { |a| a["name"] == action_name }
+    action && action["visibility"]
   end
 
   test "agent-private actions carry visibility: private in /whoami frontmatter" do
@@ -67,10 +75,8 @@ class MarkdownVisibilityFrontmatterTest < ActionDispatch::IntegrationTest
     get "/notifications", headers: { "Accept" => "text/markdown" }
     assert_response :success
 
-    # Parse every action listed in the frontmatter and assert each is private.
-    # Match only top-level action entries (exactly 2-space indent) — deeper
-    # `- name:` lines inside `params:` blocks don't count.
-    listed = response.body.scan(/^  - name: ([a-z_]+)\b/).flatten
+    # Assert every listed action resolves to private (path-based rule).
+    listed = frontmatter_actions(response.body).map { |a| a["name"] }
     assert listed.any?, "expected notifications frontmatter to list at least one action"
 
     listed.each do |action_name|

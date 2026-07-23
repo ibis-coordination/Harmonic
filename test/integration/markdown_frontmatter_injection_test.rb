@@ -1,11 +1,11 @@
 require "test_helper"
 
-# End-to-end guard that the frontmatter escaper (MarkdownHelper#yaml_escape,
-# unit-tested in test/helpers/markdown_helper_test.rb) is actually wired into
-# the rendered `.md` page: a note title containing a newline — length-validated
-# only, so it survives verbatim into @page_title — must not break out of its
-# YAML scalar and corrupt the frontmatter the agent-runner / MCP `fetch_page`
-# consumer parses.
+# End-to-end guard that the frontmatter serializer (MarkdownHelper's
+# markdown_frontmatter_block, unit-tested in test/helpers/markdown_helper_test.rb)
+# is actually wired into the rendered `.md` page: a note title containing a
+# newline — length-validated only, so it survives verbatim into @page_title —
+# must not break out of its YAML scalar and corrupt the frontmatter the
+# agent-runner / MCP `fetch_page` consumer parses.
 class MarkdownFrontmatterInjectionTest < ActionDispatch::IntegrationTest
   def setup
     @tenant = @global_tenant

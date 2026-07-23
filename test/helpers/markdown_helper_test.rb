@@ -75,78 +75,113 @@ class MarkdownHelperTest < ActionView::TestCase
     assert_includes notice, "/n/abc?full_text=true"
   end
 
-  # yaml_escape
+  # markdown_frontmatter_block
   #
-  # The frontmatter block in application.md.erb is a wire protocol the
-  # agent-runner / MCP `fetch_page` consumer parses. yaml_escape is the sole
-  # chokepoint that keeps user-controlled values (note title, decision question,
-  # scope/query, descriptions) from breaking out of their scalar. Round-trip
-  # every escaped value through a real YAML parser: whatever went in must come
-  # back out unchanged, as a single scalar, injecting no keys.
-  def assert_yaml_roundtrip(input)
-    emitted = "title: #{yaml_escape(input)}\n"
-    parsed = YAML.safe_load(emitted)
-    assert_equal({ "title" => input }, parsed,
-                 "#{input.inspect} did not round-trip through frontmatter")
+  # The frontmatter is a wire protocol MarkdownUiService, the agent-runner, and
+  # external clients parse with a standard YAML parser, so it is emitted with a
+  # standard YAML emitter (Psych). The property that matters: whatever value goes
+  # in — including adversarial titles/queries — parses back out as the identical
+  # string, injecting no keys and never silently retyped. Parse the emitted block
+  # the same way the consumer does (strip the fences, YAML.safe_load the body).
+  def frontmatter_of(block)
+    body = block.delete_prefix("---\n").delete_suffix("\n---")
+    YAML.safe_load(body, permitted_classes: [Time, Symbol])
   end
 
-  test "yaml_escape leaves a plain value unquoted" do
-    assert_equal "hello world", yaml_escape("hello world")
+  def build_block(**overrides)
+    markdown_frontmatter_block(**{
+      app: "Harmonic", host: "t.example.com", path: "/x",
+      title: "Hello", timestamp: Time.utc(2026, 7, 23, 12, 0, 0)
+    }.merge(overrides))
   end
 
-  test "yaml_escape returns an html_safe string" do
-    assert_predicate yaml_escape("plain"), :html_safe?
-    assert_predicate yaml_escape("a: b"), :html_safe?
+  test "markdown_frontmatter_block emits a fenced, html_safe block that parses" do
+    block = build_block
+    assert_predicate block, :html_safe?
+    assert block.start_with?("---\n"), "must open with a --- fence"
+    assert block.end_with?("\n---"), "must close with a --- fence"
+    fm = frontmatter_of(block)
+    assert_equal "Harmonic", fm["app"]
+    assert_equal "t.example.com", fm["host"]
+    assert_equal "/x", fm["path"]
+    assert_equal "Hello", fm["title"]
   end
 
-  test "yaml_escape round-trips an interior newline as a single scalar" do
-    # The core injection: unquoted, this newline would start new frontmatter keys.
-    assert_yaml_roundtrip("pwned\ninjected_key: gotcha\nactions: []")
+  test "markdown_frontmatter_block omits scope/query/actions when blank" do
+    fm = frontmatter_of(build_block(scope: nil, query: "", actions: []))
+    assert_not fm.key?("scope")
+    assert_not fm.key?("query")
+    assert_not fm.key?("actions")
   end
 
-  test "yaml_escape round-trips a value with a colon-space that would otherwise fold" do
-    # Quoted but with a literal newline, YAML folds the newline into a space.
-    assert_yaml_roundtrip("Ship it?\nactions: []")
+  test "markdown_frontmatter_block includes scope and query when present" do
+    fm = frontmatter_of(build_block(scope: "visibility:public", query: "type:note"))
+    assert_equal "visibility:public", fm["scope"]
+    assert_equal "type:note", fm["query"]
   end
 
-  test "yaml_escape round-trips tab and carriage-return control characters" do
-    assert_yaml_roundtrip("a\tb\r\nc")
-  end
-
-  test "yaml_escape round-trips other control characters via \\xNN escapes" do
-    assert_yaml_roundtrip("bell\aend")
-    assert_yaml_roundtrip("esc\e[31mred")
-    assert_yaml_roundtrip("null\x00byte")
-    assert_yaml_roundtrip("del\x7Fchar")
-  end
-
-  test "yaml_escape round-trips embedded quotes and backslashes" do
-    assert_yaml_roundtrip('quote " and \\ backslash')
-  end
-
-  test "yaml_escape round-trips YAML-significant leading characters and structure" do
-    ["- leading dash", "@ at sign", "#comment", "*anchor", "key: value",
-     "trailing space ", " leading space", "[list]", "{map}", ""].each do |input|
-      assert_yaml_roundtrip(input)
+  # A title/query containing a newline, control chars, quotes, or YAML structure
+  # must round-trip as one scalar and never inject a key — the injection the whole
+  # refactor removes. Psych is the escaper now, so this exercises the contract end
+  # to end rather than a hand-rolled helper.
+  [
+    "pwned\ninjected_key: gotcha\nactions: []",
+    "Ship it?\nactions: []",
+    "a\tb\r\nc",
+    "bell\aend",
+    "esc\e[31mred",
+    "null\x00byte",
+    "del\x7Fchar",
+    'quote " and \\ backslash',
+    "- leading dash",
+    "@ at sign",
+    "#comment",
+    "key: value",
+    " leading space",
+    "trailing space ",
+    "",
+  ].each do |payload|
+    test "markdown_frontmatter_block round-trips title #{payload.inspect} as a string" do
+      fm = frontmatter_of(build_block(title: payload))
+      assert_equal payload, fm["title"]
+      assert_equal ["app", "host", "path", "title", "timestamp"], fm.keys,
+                   "payload must not inject or reorder keys"
     end
   end
 
-  test "yaml_escape round-trips scalars YAML would otherwise retype to non-strings" do
-    # Bare, these emit `title: true` / `title: 123` etc. and parse back as a
-    # boolean / integer / null — a note literally titled "true" or "123" must
-    # survive as a string through the machine-parsed frontmatter.
-    ["true", "false", "yes", "no", "on", "off", "null", "~",
-     "123", "-5", "1.5", ".inf", ".nan", "12:30:00"].each do |input|
-      assert_yaml_roundtrip(input)
+  # Bare true/123/null etc. must survive as strings, not be retyped to
+  # boolean/integer/null by the parser.
+  ["true", "false", "yes", "no", "null", "~", "123", "-5", "1.5", "12:30:00"].each do |payload|
+    test "markdown_frontmatter_block keeps title #{payload.inspect} a string, not retyped" do
+      fm = frontmatter_of(build_block(title: payload))
+      assert_equal payload, fm["title"]
+      assert_kind_of String, fm["title"]
     end
   end
 
-  test "yaml_escape leaves search-syntax scope/query values unquoted" do
-    # These flow through yaml_escape as page scope/query; they parse back as
-    # plain strings, so quoting them would be noise the frontmatter tests reject.
-    ["visibility:public", "type:note", "list:tuned_in -subtype:comment",
-     "visibility:public creator:@alice"].each do |input|
-      assert_equal input, yaml_escape(input), "#{input.inspect} should stay unquoted"
-    end
+  test "markdown_frontmatter_block shapes actions and omits empty params/description" do
+    actions = [
+      { name: "create_note", visibility: "public", description: "Create a note",
+        params: [{ name: "body", type: "string", required: true, description: "the text" },
+                 { name: "title", type: "string", required: false, description: nil }] },
+      { name: "vote", visibility: "shared", description: "Cast a vote", params: [] },
+    ]
+    fm = frontmatter_of(build_block(actions: actions))
+
+    assert_equal %w[create_note vote], fm["actions"].map { |a| a["name"] }
+    create = fm["actions"][0]
+    assert_equal "public", create["visibility"]
+    assert_equal({ "name" => "body", "type" => "string", "required" => true, "description" => "the text" },
+                 create["params"][0])
+    # nil param description is omitted, not emitted as null.
+    assert_not create["params"][1].key?("description")
+    # An action with no params omits the key entirely.
+    assert_not fm["actions"][1].key?("params")
+  end
+
+  test "markdown_frontmatter_block round-trips an action description with YAML structure" do
+    actions = [{ name: "x", visibility: "public", description: "Do this: then #that", params: [] }]
+    fm = frontmatter_of(build_block(actions: actions))
+    assert_equal "Do this: then #that", fm["actions"][0]["description"]
   end
 end

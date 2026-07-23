@@ -1,72 +1,73 @@
 /**
- * Parsers for YAML-flavored frontmatter that Rails' markdown layout wraps
- * every page response in. Used by McpClient to extract per-page action lists
- * and the server-resolved path from a `fetch_page` result.
+ * Parsers for the YAML frontmatter that Rails' markdown layout wraps every page
+ * response in. Used by McpClient to extract the per-page action list and the
+ * server-resolved path from a `fetch_page` result.
  *
- * These are deliberately small grep-and-slice parsers rather than a full YAML
- * implementation — the frontmatter shape we emit is fixed and predictable, so
- * a real parser would be over-engineered (and would force a runtime dep).
+ * Rails emits this frontmatter with a standard YAML emitter (Psych) and it is
+ * meant to be read by any standard YAML client, so we parse it with a real YAML
+ * parser. An earlier version grep-and-sliced the text, which coupled us to the
+ * exact whitespace/quoting Rails happened to produce; a real parser reads
+ * whatever valid YAML the server emits (quoted paths, column-0 or indented
+ * sequences, block scalars) the same way an external client would.
  */
+import { parse as parseYaml } from "yaml";
+
+interface Frontmatter {
+  readonly path?: unknown;
+  readonly actions?: unknown;
+}
 
 /**
- * Parse available action names from the markdown response's YAML frontmatter.
- * Matches Ruby MarkdownUiService.parse_frontmatter + actions extraction.
- *
- * The Rails markdown layout wraps every response in frontmatter:
- *   ---
- *   actions:
- *     - name: create_note
- *       description: Create a note
- *       ...
- *   ---
+ * Extract and parse the YAML frontmatter block that opens a markdown response.
+ * The block is fenced by a leading `---\n` and the next `\n---\n` (matching Ruby
+ * MarkdownUiService#parse_frontmatter). Returns the parsed mapping, or null when
+ * there is no frontmatter block, it is not valid YAML, or it is not a mapping.
+ */
+function parseFrontmatter(content: string): Frontmatter | null {
+  if (!content.startsWith("---\n")) return null;
+  const endIndex = content.indexOf("\n---\n", 4);
+  if (endIndex === -1) return null;
+
+  const block = content.slice(4, endIndex);
+  try {
+    const parsed: unknown = parseYaml(block);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Frontmatter;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parse the available action names from a markdown response's frontmatter.
+ * Returns the ordered list of `actions[].name` values, skipping entries without
+ * a usable name. Empty when there is no frontmatter or no actions.
  */
 export function parseAvailableActions(content: string): readonly string[] {
-  // Must start with "---\n" (matches Ruby: content.start_with?("---\n"))
-  if (!content.startsWith("---\n")) return [];
+  const frontmatter = parseFrontmatter(content);
+  if (frontmatter === null || !Array.isArray(frontmatter.actions)) return [];
 
-  // Find closing "---\n" after position 4 (matches Ruby: content.index("\n---\n", 4))
-  const endIndex = content.indexOf("\n---\n", 4);
-  if (endIndex === -1) return [];
-
-  const frontmatter = content.slice(4, endIndex);
-
-  // Parse action names from the YAML frontmatter.
-  // We don't use a full YAML parser — just extract "- name: <value>" lines
-  // within the "actions:" block.
-  const actionsMatch = /^actions:\s*$/m.exec(frontmatter);
-  if (actionsMatch === null) return [];
-
-  const actionsBlock = frontmatter.slice(actionsMatch.index + actionsMatch[0].length);
   const names: string[] = [];
-
-  for (const line of actionsBlock.split("\n")) {
-    // Stop if we hit a non-indented line (next top-level YAML key)
-    if (line.length > 0 && !line.startsWith(" ") && !line.startsWith("\t")) break;
-
-    // Match only top-level action items (2-space indent: "  - name: value")
-    // Skip deeper nested "name:" like params (6+ spaces)
-    const nameMatch = /^  - name:\s*(.+)$/.exec(line);
-    if (nameMatch?.[1] !== undefined) {
-      const name = nameMatch[1].trim();
-      if (name !== "") names.push(name);
+  for (const action of frontmatter.actions) {
+    if (action === null || typeof action !== "object") continue;
+    const name: unknown = (action as { name?: unknown }).name;
+    if (typeof name === "string" && name.trim() !== "") {
+      names.push(name.trim());
     }
   }
-
   return names;
 }
 
 /**
- * Extract a `path: …` value from a markdown response's YAML frontmatter.
- * Used to resolve the path the server actually landed on (the server follows
- * redirects internally; we don't see hop-by-hop).
- *
- * Returns null if there's no frontmatter or no `path:` line in it.
+ * Extract the server-resolved `path` from a markdown response's frontmatter.
+ * The server follows redirects internally; this is the path it actually landed
+ * on. Returns null when there is no frontmatter or no string `path`.
  */
 export function parseResolvedPath(content: string): string | null {
-  if (!content.startsWith("---\n")) return null;
-  const endIndex = content.indexOf("\n---\n", 4);
-  if (endIndex === -1) return null;
-  const frontmatter = content.slice(4, endIndex);
-  const match = /^path:\s*(.+)$/m.exec(frontmatter);
-  return match?.[1]?.trim() ?? null;
+  const frontmatter = parseFrontmatter(content);
+  if (frontmatter === null) return null;
+  const path: unknown = frontmatter.path;
+  return typeof path === "string" && path.trim() !== "" ? path : null;
 }
