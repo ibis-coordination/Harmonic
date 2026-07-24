@@ -22,6 +22,12 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Update npm for Trusted Publishing
+        # The OIDC credential exchange requires npm >= 11.5.1; Node 22
+        # bundles npm 10.x, which silently publishes unauthenticated and
+        # fails with a masked E404.
+        run: npm install -g npm@11
+
       - name: Install dependencies
         working-directory: harmonic-bridge
         run: npm ci
