@@ -23,6 +23,13 @@ export interface DaemonConfig {
   readonly secrets: SecretsConfig;
   /** Default after-add steps applied to every agent unless the agent overrides. */
   readonly afterAdd: readonly Step[];
+  /**
+   * Hold an open connection to ${public_url}/hold while wake commands run.
+   * For hibernating hosts (e.g. Fly Sprites) that freeze the machine the
+   * moment no connection is open, pausing in-flight wakes. Requires
+   * public_url. Defaults to false.
+   */
+  readonly holdAwakeDuringWake: boolean;
 }
 
 export interface SecretsConfig {
@@ -70,8 +77,14 @@ export function parseDaemonConfig(raw: unknown): DaemonConfig {
   const secrets = parseSecrets(raw["secrets"]);
   const afterAdd = "after_add" in raw ? parseStepList(raw["after_add"], "after_add") : Object.freeze([]);
   const publicUrl = "public_url" in raw ? parsePublicUrl(raw["public_url"]) : undefined;
+  const holdAwakeDuringWake = "hold_awake_during_wake" in raw
+    ? parseBoolean(raw["hold_awake_during_wake"], "hold_awake_during_wake")
+    : false;
+  if (holdAwakeDuringWake && publicUrl === undefined) {
+    throw new ConfigError("hold_awake_during_wake requires public_url to be set");
+  }
 
-  return Object.freeze({ listen, publicUrl, logDir, secretResolvers, secrets, afterAdd });
+  return Object.freeze({ listen, publicUrl, logDir, secretResolvers, secrets, afterAdd, holdAwakeDuringWake });
 }
 
 export function parseAgentConfig(raw: unknown): AgentConfig {
@@ -168,6 +181,13 @@ function parseStringArray(v: unknown, name: string): readonly string[] {
     }
   }
   return Object.freeze([...v]);
+}
+
+function parseBoolean(v: unknown, name: string): boolean {
+  if (typeof v !== "boolean") {
+    throw new ConfigError(`${name} must be a boolean`);
+  }
+  return v;
 }
 
 function parsePositiveNumber(v: unknown, name: string): number {

@@ -167,3 +167,103 @@ test("server: handle with hyphen routes correctly", async () => {
   });
   assert.equal(res.status, 204);
 });
+
+test("server: GET /hold streams heartbeats while the connection is held", async () => {
+  const server = await startServer({
+    listen: { host: HOST, port: 0 },
+    resolveAgent: async () => null,
+    onEvent: () => undefined,
+    holdRoute: { heartbeatMs: 15 },
+  });
+  harnesses.push({ server, baseUrl: "", captured: [], agents: new Map() });
+
+  const controller = new AbortController();
+  const res = await fetch(`http://${HOST}:${server.port}/hold`, { signal: controller.signal });
+  assert.equal(res.status, 200);
+
+  // Read at least two heartbeat chunks to prove the stream stays live.
+  const reader = res.body!.getReader();
+  let received = 0;
+  while (received < 2) {
+    const { done, value } = await reader.read();
+    assert.equal(done, false, "hold stream must not end on its own");
+    received += value ? 1 : 0;
+  }
+  controller.abort();
+});
+
+test("server: GET /hold is 405 when the hold route is not enabled", async () => {
+  const h = await startTracked();
+  const res = await fetch(`${h.baseUrl}/hold`);
+  assert.equal(res.status, 405);
+});
+
+test("server: beforeAck runs to completion before the webhook is acked", async () => {
+  const agents = new Map<string, AgentResolution>([["alice", { webhookSecret: "s3cret" }]]);
+  const order: string[] = [];
+  let resolveGate!: () => void;
+  const gate = new Promise<void>((r) => (resolveGate = r));
+
+  const captured: Capture[] = [];
+  const server = await startServer({
+    listen: { host: HOST, port: 0 },
+    resolveAgent: async (handle) => agents.get(handle) ?? null,
+    onEvent: (handle, eventType, payload) => {
+      order.push("event");
+      captured.push({ handle, eventType, payload });
+    },
+    now: () => TS,
+    beforeAck: async () => {
+      order.push("beforeAck-start");
+      await gate;
+      order.push("beforeAck-done");
+    },
+  });
+  harnesses.push({ server, baseUrl: "", captured, agents });
+
+  const body = "{}";
+  const resPromise = fetch(`http://${HOST}:${server.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign(body, TS, "s3cret"),
+      "X-Harmonic-Timestamp": String(TS),
+    },
+    body,
+  });
+
+  // Give the request time to reach beforeAck, then release the gate.
+  await new Promise((r) => setTimeout(r, 100));
+  assert.deepEqual(order, ["beforeAck-start"], "ack must wait on beforeAck");
+  resolveGate();
+
+  const res = await resPromise;
+  assert.equal(res.status, 204);
+  assert.deepEqual(order, ["beforeAck-start", "beforeAck-done", "event"]);
+});
+
+test("server: beforeAck failure does not block the ack", async () => {
+  const agents = new Map<string, AgentResolution>([["alice", { webhookSecret: "s3cret" }]]);
+  const captured: Capture[] = [];
+  const server = await startServer({
+    listen: { host: HOST, port: 0 },
+    resolveAgent: async (handle) => agents.get(handle) ?? null,
+    onEvent: (handle, eventType, payload) => captured.push({ handle, eventType, payload }),
+    now: () => TS,
+    beforeAck: async () => {
+      throw new Error("hold never established");
+    },
+  });
+  harnesses.push({ server, baseUrl: "", captured, agents });
+
+  const body = "{}";
+  const res = await fetch(`http://${HOST}:${server.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign(body, TS, "s3cret"),
+      "X-Harmonic-Timestamp": String(TS),
+    },
+    body,
+  });
+  assert.equal(res.status, 204);
+  assert.equal(captured.length, 1, "event must still dispatch when beforeAck fails");
+});

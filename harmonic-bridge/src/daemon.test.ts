@@ -446,3 +446,195 @@ test("daemon: without installSignalHandlers, no PID file is created", async () =
   void d;
   assert.equal(existsSync(path.join(f.configDir, "daemon.pid")), false);
 });
+
+test("daemon: logs wake spawn and exit code per wake", async () => {
+  const f = makeFixture();
+  // Wake command that consumes stdin then fails with a distinctive code.
+  writeFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), `
+harmonic_mcp_endpoint: https://app.harmonic.example/mcp
+harmonic_token: file://${path.join(f.configDir, "secrets", "token")}
+webhook_secret: file://${path.join(f.configDir, "secrets", "webhook-secret")}
+working_dir: ${f.configDir}
+wake_command: |
+  cat > /dev/null; exit 3
+`);
+
+  const logChunks: string[] = [];
+  const { Writable } = await import("node:stream");
+  const logStream = new Writable({
+    write(chunk: Buffer, _enc: string, cb: () => void) {
+      logChunks.push(chunk.toString());
+      cb();
+    },
+  });
+
+  const d = await startDaemon({
+    configDir: f.configDir,
+    listenOverride: { host: HOST, port: 0 },
+    logStream,
+  });
+  cleanups.push(async () => {
+    await d.stop();
+    rmSync(f.configDir, { recursive: true, force: true });
+  });
+
+  const body = "{}";
+  const res = await fetch(`http://${HOST}:${d.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign(body, TS, f.webhookSecret),
+      "X-Harmonic-Timestamp": String(TS),
+      "X-Harmonic-Event": "notifications.delivered",
+    },
+    body,
+  });
+  assert.equal(res.status, 204);
+
+  const deadline = Date.now() + 3000;
+  while (!logChunks.join("").includes("exit=3") && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  const log = logChunks.join("");
+  assert.match(log, /wake alice event=notifications\.delivered spawned/);
+  assert.match(log, /wake alice exit=3 duration_ms=\d+/);
+});
+
+test("daemon: warns when hold-awake is on and an agent has no timeout_seconds", async () => {
+  const f = makeFixture();
+  writeFileSync(path.join(f.configDir, "config.yml"), `
+listen: 127.0.0.1:8080
+log_dir: ${path.join(f.configDir, "logs")}
+public_url: https://bridge.example.com
+hold_awake_during_wake: true
+`);
+  // makeFixture's agent config has no timeout_seconds.
+
+  const logChunks: string[] = [];
+  const { Writable } = await import("node:stream");
+  const logStream = new Writable({
+    write(chunk: Buffer, _enc: string, cb: () => void) {
+      logChunks.push(chunk.toString());
+      cb();
+    },
+  });
+
+  const d = await startDaemon({ configDir: f.configDir, listenOverride: { host: HOST, port: 0 }, logStream });
+  cleanups.push(async () => {
+    await d.stop();
+    rmSync(f.configDir, { recursive: true, force: true });
+  });
+
+  const log = logChunks.join("");
+  assert.match(log, /warning: agent "alice" has no timeout_seconds/);
+  assert.match(log, /hold_awake_during_wake/);
+});
+
+test("daemon: no timeout warning when the agent has timeout_seconds or hold-awake is off", async () => {
+  // Case 1: hold-awake on, agent HAS a timeout.
+  const f1 = makeFixture();
+  writeFileSync(path.join(f1.configDir, "config.yml"), `
+listen: 127.0.0.1:8080
+log_dir: ${path.join(f1.configDir, "logs")}
+public_url: https://bridge.example.com
+hold_awake_during_wake: true
+`);
+  const agentYml = readFileSync(path.join(f1.configDir, "agents", "alice", "harmonic-bridge.yml"), "utf8");
+  writeFileSync(path.join(f1.configDir, "agents", "alice", "harmonic-bridge.yml"), agentYml + "\ntimeout_seconds: 900\n");
+
+  // Case 2: hold-awake off, agent has no timeout.
+  const f2 = makeFixture();
+
+  const { Writable } = await import("node:stream");
+  for (const f of [f1, f2]) {
+    const logChunks: string[] = [];
+    const logStream = new Writable({
+      write(chunk: Buffer, _enc: string, cb: () => void) {
+        logChunks.push(chunk.toString());
+        cb();
+      },
+    });
+    const d = await startDaemon({ configDir: f.configDir, listenOverride: { host: HOST, port: 0 }, logStream });
+    cleanups.push(async () => {
+      await d.stop();
+      rmSync(f.configDir, { recursive: true, force: true });
+    });
+    assert.doesNotMatch(logChunks.join(""), /has no timeout_seconds/);
+  }
+});
+
+test("daemon: hold_awake_during_wake holds a connection to public_url for the duration of the wake", async () => {
+  // Stub playing the role of the platform edge: records opens/closes of
+  // held connections and streams a heartbeat like the real /hold route.
+  const { createServer } = await import("node:http");
+  let opens = 0;
+  let closes = 0;
+  const edge = createServer((req, res) => {
+    opens += 1;
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    const beat = setInterval(() => res.write("h\n"), 10);
+    res.on("close", () => {
+      clearInterval(beat);
+      closes += 1;
+    });
+  });
+  await new Promise<void>((resolve) => edge.listen(0, HOST, resolve));
+  const edgeAddress = edge.address();
+  const edgePort = typeof edgeAddress === "object" && edgeAddress ? edgeAddress.port : 0;
+  cleanups.push(async () => new Promise<void>((resolve) => edge.close(() => resolve())));
+
+  const f = makeFixture();
+  // Rewrite daemon config with the hold flag and the stub edge as public_url,
+  // and slow the wake down so the hold window is observable.
+  writeFileSync(path.join(f.configDir, "config.yml"), `
+listen: 127.0.0.1:8080
+log_dir: ${path.join(f.configDir, "logs")}
+public_url: http://${HOST}:${edgePort}
+hold_awake_during_wake: true
+`);
+  writeFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), `
+harmonic_mcp_endpoint: https://app.harmonic.example/mcp
+harmonic_token: file://${path.join(f.configDir, "secrets", "token")}
+webhook_secret: file://${path.join(f.configDir, "secrets", "webhook-secret")}
+working_dir: ${f.configDir}
+wake_command: |
+  sleep 0.5 && echo done > ${f.outputFile}
+`);
+
+  const d = await startDaemon({
+    configDir: f.configDir,
+    listenOverride: { host: HOST, port: 0 },
+    holdOverrides: { primeGraceMs: 200 },
+  });
+  cleanups.push(async () => {
+    await d.stop();
+    rmSync(f.configDir, { recursive: true, force: true });
+  });
+  const body = "{}";
+  const res = await fetch(`http://${HOST}:${d.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign(body, TS, f.webhookSecret),
+      "X-Harmonic-Timestamp": String(TS),
+      "X-Harmonic-Event": "notifications.delivered",
+    },
+    body,
+  });
+  assert.equal(res.status, 204);
+
+  // The hold connection must open while the wake is still running (well
+  // before the 0.5s sleep finishes).
+  const holdOpenDeadline = Date.now() + 400;
+  while (opens === 0 && Date.now() < holdOpenDeadline) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.equal(opens, 1, "hold connection should open during the wake");
+  assert.equal(existsSync(f.outputFile), false, "wake should still be in flight when the hold opens");
+
+  await waitForFile(f.outputFile);
+  // After the wake finishes, the hold should let go.
+  const holdCloseDeadline = Date.now() + 2000;
+  while (closes < opens && Date.now() < holdCloseDeadline) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.equal(closes, opens, "hold connection should close once the wake completes");
+});

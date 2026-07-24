@@ -9,6 +9,7 @@ import type { Writable } from "node:stream";
 import { runAdd } from "./add.js";
 import { initConfig } from "./init.js";
 import { startDaemon } from "./daemon.js";
+import { runSetupSprite } from "./setup-sprite.js";
 
 export interface CliOpts {
   /** Base config directory. Defaults to ~/.harmonic-bridge. */
@@ -55,6 +56,10 @@ export async function runCommand(args: readonly string[], opts: CliOpts = {}): P
 
   if (command === "add") {
     return await runAdd(args.slice(1), { configDir, stdout, stderr });
+  }
+
+  if (command === "setup-sprite") {
+    return await runSetupSprite(args.slice(1), { stdout, stderr });
   }
 
   if (STUB_COMMANDS.has(command)) {
@@ -148,6 +153,11 @@ Commands:
   init                  Write ~/.harmonic-bridge/config.yml and a systemd unit template.
   add --from <URL>      Redeem a setup URL from Harmonic, write per-agent config,
                         register the webhook, and run any after_add steps.
+  setup-sprite --from <URL> [--harness <name>] [--sprite-name <name>]
+                        Set up a Harmonic agent on a Fly Sprite you own (runs on
+                        your machine; needs an authenticated 'sprite' CLI). With
+                        --harness, opts into that harness's wake command and auth;
+                        without it, no harness is assumed.
   reload                Re-read per-agent configs without dropping in-flight wakes.
                         (Daemon-level config changes still require a restart.)
   help                  Show this help.

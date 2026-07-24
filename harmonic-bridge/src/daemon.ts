@@ -9,6 +9,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import type { Writable } from "node:stream";
 import {
   listAgentNames,
   loadAgentConfig,
@@ -19,6 +20,7 @@ import { spawnWake } from "./spawn.js";
 import { createDispatcher } from "./dispatcher.js";
 import { startServer } from "./server.js";
 import { openAgentLogStreams } from "./log-streams.js";
+import { createHoldAwake } from "./hold-awake.js";
 import type { AgentConfig } from "./config.js";
 
 export interface DaemonOpts {
@@ -33,6 +35,18 @@ export interface DaemonOpts {
    * avoid signal-handler interference across concurrent test runs.
    */
   readonly installSignalHandlers?: boolean;
+  /**
+   * Test override for hold-awake timing (prime grace). Production callers
+   * leave this unset and get the defaults.
+   */
+  readonly holdOverrides?: { readonly primeGraceMs?: number };
+  /**
+   * Where per-wake lifecycle lines (spawned / exit code / spawn errors) are
+   * written. Defaults to process.stdout, which the host's service
+   * supervisor captures. Wake commands' own output goes to the per-agent
+   * log files, not here.
+   */
+  readonly logStream?: Writable;
 }
 
 export interface RunningDaemon {
@@ -47,6 +61,13 @@ interface WakeEvent {
   readonly eventType: string;
   readonly payload: string;
 }
+
+/**
+ * How long a webhook ack may wait for the hold-awake connection to
+ * establish. Comfortably inside Harmonic's 30s delivery timeout; if the
+ * hold can't establish by then the ack proceeds anyway.
+ */
+const HOLD_PRIME_TIMEOUT_MS = 2_000;
 
 export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
   const daemon = await loadDaemonConfig(path.join(opts.configDir, "config.yml"));
@@ -72,11 +93,57 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     for (const name of agents.keys()) {
       if (!seen.has(name)) agents.delete(name);
     }
+
+    // With hold-awake on, a wake with no timeout that hangs holds the
+    // machine awake — and on metered hosts, billing — until someone kills
+    // it. Loud enough to catch at setup time, on start and on reload.
+    if (daemon.holdAwakeDuringWake) {
+      for (const [name, cfg] of agents) {
+        if (cfg.timeoutSeconds === undefined) {
+          logLine(
+            `warning: agent "${name}" has no timeout_seconds — with hold_awake_during_wake enabled, ` +
+            `a hung wake command holds the machine awake indefinitely. Set timeout_seconds in the agent config.`,
+          );
+        }
+      }
+    }
+  }
+
+  function logLine(message: string): void {
+    (opts.logStream ?? process.stdout).write(`harmonic-bridge: ${message}\n`);
   }
 
   await loadAllAgents();
 
+  // On hibernating hosts, hold a connection open against our own public URL
+  // for the duration of every wake so the platform's idle detector doesn't
+  // freeze the machine mid-task. publicUrl presence is enforced by the
+  // config parser when the flag is on.
+  const holdAwake = daemon.holdAwakeDuringWake
+    ? createHoldAwake({
+        url: `${(daemon.publicUrl as string).replace(/\/+$/, "")}/hold`,
+        primeGraceMs: opts.holdOverrides?.primeGraceMs,
+        onError: (e, consecutive) => {
+          // First failure and every 40th thereafter — enough to diagnose a
+          // dead hold without flooding the log at the reconnect cadence.
+          if (consecutive === 1 || consecutive % 40 === 0) {
+            const msg = e instanceof Error ? e.message : String(e);
+            process.stderr.write(`harmonic-bridge: hold-awake connection failing (attempt ${consecutive}): ${msg}\n`);
+          }
+        },
+      })
+    : null;
+
   const dispatcher = createDispatcher<WakeEvent>(async (handle, { eventType, payload }) => {
+    holdAwake?.acquire();
+    try {
+      await runWake(handle, eventType, payload);
+    } finally {
+      holdAwake?.release();
+    }
+  });
+
+  async function runWake(handle: string, eventType: string, payload: string): Promise<void> {
     const cfg = agents.get(handle);
     if (!cfg) return;
     if (cfg.events && !cfg.events.includes(eventType)) return;
@@ -106,8 +173,9 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     env["HARMONIC_BRIDGE_TOKEN"] = token;
 
     const logs = await openAgentLogStreams(daemon.logDir, handle);
+    logLine(`wake ${handle} event=${eventType} spawned`);
     try {
-      await spawnWake({
+      const result = await spawnWake({
         command: cfg.wakeCommand,
         cwd: cfg.workingDir,
         env,
@@ -116,13 +184,21 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
         stdout: logs.stdout,
         stderr: logs.stderr,
       });
+      const signalNote = result.signal ? ` signal=${result.signal}` : "";
+      const timeoutNote = result.timedOut ? " timed_out" : "";
+      logLine(`wake ${handle} exit=${result.exitCode ?? "none"}${signalNote}${timeoutNote} duration_ms=${result.durationMs}`);
+    } catch (e) {
+      // spawnWake rejects only when the process couldn't be spawned at all.
+      logLine(`wake ${handle} spawn_error=${e instanceof Error ? e.message : String(e)}`);
     } finally {
       await logs.close();
     }
-  });
+  }
 
   const server = await startServer({
     listen: opts.listenOverride ?? daemon.listen,
+    holdRoute: daemon.holdAwakeDuringWake ? { heartbeatMs: 10_000 } : undefined,
+    beforeAck: holdAwake ? () => holdAwake.prime(HOLD_PRIME_TIMEOUT_MS) : undefined,
     resolveAgent: async (handle) => {
       const cfg = agents.get(handle);
       if (!cfg) return null;
@@ -160,8 +236,14 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
       if (stopped) return;
       stopped = true;
       if (sighupHandler) process.off("SIGHUP", sighupHandler);
-      await server.close();
+      // Stop accepting new connections immediately, but don't await yet:
+      // close() resolves only when existing connections end, and in
+      // production the hold-awake connection hairpins back into this same
+      // server — it closes when the drained wakes release it.
+      const closing = server.close();
       await dispatcher.drain();
+      if (holdAwake) await holdAwake.stop();
+      await closing;
       if (pidFileWritten) {
         await fs.unlink(pidFilePath).catch(() => undefined);
       }
