@@ -9,6 +9,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import type { Writable } from "node:stream";
 import {
   listAgentNames,
   loadAgentConfig,
@@ -39,6 +40,13 @@ export interface DaemonOpts {
    * leave this unset and get the defaults.
    */
   readonly holdOverrides?: { readonly primeGraceMs?: number };
+  /**
+   * Where per-wake lifecycle lines (spawned / exit code / spawn errors) are
+   * written. Defaults to process.stdout, which the host's service
+   * supervisor captures. Wake commands' own output goes to the per-agent
+   * log files, not here.
+   */
+  readonly logStream?: Writable;
 }
 
 export interface RunningDaemon {
@@ -147,8 +155,9 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     env["HARMONIC_BRIDGE_TOKEN"] = token;
 
     const logs = await openAgentLogStreams(daemon.logDir, handle);
+    logLine(`wake ${handle} event=${eventType} spawned`);
     try {
-      await spawnWake({
+      const result = await spawnWake({
         command: cfg.wakeCommand,
         cwd: cfg.workingDir,
         env,
@@ -157,9 +166,19 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
         stdout: logs.stdout,
         stderr: logs.stderr,
       });
+      const signalNote = result.signal ? ` signal=${result.signal}` : "";
+      const timeoutNote = result.timedOut ? " timed_out" : "";
+      logLine(`wake ${handle} exit=${result.exitCode ?? "none"}${signalNote}${timeoutNote} duration_ms=${result.durationMs}`);
+    } catch (e) {
+      // spawnWake rejects only when the process couldn't be spawned at all.
+      logLine(`wake ${handle} spawn_error=${e instanceof Error ? e.message : String(e)}`);
     } finally {
       await logs.close();
     }
+  }
+
+  function logLine(message: string): void {
+    (opts.logStream ?? process.stdout).write(`harmonic-bridge: ${message}\n`);
   }
 
   const server = await startServer({

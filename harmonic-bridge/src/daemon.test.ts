@@ -447,6 +447,58 @@ test("daemon: without installSignalHandlers, no PID file is created", async () =
   assert.equal(existsSync(path.join(f.configDir, "daemon.pid")), false);
 });
 
+test("daemon: logs wake spawn and exit code per wake", async () => {
+  const f = makeFixture();
+  // Wake command that consumes stdin then fails with a distinctive code.
+  writeFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), `
+harmonic_mcp_endpoint: https://app.harmonic.example/mcp
+harmonic_token: file://${path.join(f.configDir, "secrets", "token")}
+webhook_secret: file://${path.join(f.configDir, "secrets", "webhook-secret")}
+working_dir: ${f.configDir}
+wake_command: |
+  cat > /dev/null; exit 3
+`);
+
+  const logChunks: string[] = [];
+  const { Writable } = await import("node:stream");
+  const logStream = new Writable({
+    write(chunk: Buffer, _enc: string, cb: () => void) {
+      logChunks.push(chunk.toString());
+      cb();
+    },
+  });
+
+  const d = await startDaemon({
+    configDir: f.configDir,
+    listenOverride: { host: HOST, port: 0 },
+    logStream,
+  });
+  cleanups.push(async () => {
+    await d.stop();
+    rmSync(f.configDir, { recursive: true, force: true });
+  });
+
+  const body = "{}";
+  const res = await fetch(`http://${HOST}:${d.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign(body, TS, f.webhookSecret),
+      "X-Harmonic-Timestamp": String(TS),
+      "X-Harmonic-Event": "notifications.delivered",
+    },
+    body,
+  });
+  assert.equal(res.status, 204);
+
+  const deadline = Date.now() + 3000;
+  while (!logChunks.join("").includes("exit=3") && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  const log = logChunks.join("");
+  assert.match(log, /wake alice event=notifications\.delivered spawned/);
+  assert.match(log, /wake alice exit=3 duration_ms=\d+/);
+});
+
 test("daemon: hold_awake_during_wake holds a connection to public_url for the duration of the wake", async () => {
   // Stub playing the role of the platform edge: records opens/closes of
   // held connections and streams a heartbeat like the real /hold route.
