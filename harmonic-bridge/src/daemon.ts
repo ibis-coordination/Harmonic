@@ -93,6 +93,24 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     for (const name of agents.keys()) {
       if (!seen.has(name)) agents.delete(name);
     }
+
+    // With hold-awake on, a wake with no timeout that hangs holds the
+    // machine awake — and on metered hosts, billing — until someone kills
+    // it. Loud enough to catch at setup time, on start and on reload.
+    if (daemon.holdAwakeDuringWake) {
+      for (const [name, cfg] of agents) {
+        if (cfg.timeoutSeconds === undefined) {
+          logLine(
+            `warning: agent "${name}" has no timeout_seconds — with hold_awake_during_wake enabled, ` +
+            `a hung wake command holds the machine awake indefinitely. Set timeout_seconds in the agent config.`,
+          );
+        }
+      }
+    }
+  }
+
+  function logLine(message: string): void {
+    (opts.logStream ?? process.stdout).write(`harmonic-bridge: ${message}\n`);
   }
 
   await loadAllAgents();
@@ -175,10 +193,6 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     } finally {
       await logs.close();
     }
-  }
-
-  function logLine(message: string): void {
-    (opts.logStream ?? process.stdout).write(`harmonic-bridge: ${message}\n`);
   }
 
   const server = await startServer({

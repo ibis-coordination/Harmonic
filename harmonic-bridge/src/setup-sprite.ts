@@ -199,6 +199,9 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
       "No harness was configured (--harness not set). The agent's wake_command is a stub:\n" +
       `edit ${SPRITE_HOME}/.harmonic-bridge/agents/<handle>/harmonic-bridge.yml in the sprite\n` +
       "to wire the harness of your choice, then run 'harmonic-bridge reload' there.\n" +
+      "Set timeout_seconds in that config too — hold_awake_during_wake keeps the sprite\n" +
+      "awake (and billing) for as long as a wake runs, so a hung wake with no timeout\n" +
+      "holds it awake indefinitely.\n" +
       `Supported presets for a future run: --harness ${Object.keys(HARNESSES).join(", ")}\n`,
     );
   }

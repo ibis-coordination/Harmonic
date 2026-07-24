@@ -499,6 +499,69 @@ wake_command: |
   assert.match(log, /wake alice exit=3 duration_ms=\d+/);
 });
 
+test("daemon: warns when hold-awake is on and an agent has no timeout_seconds", async () => {
+  const f = makeFixture();
+  writeFileSync(path.join(f.configDir, "config.yml"), `
+listen: 127.0.0.1:8080
+log_dir: ${path.join(f.configDir, "logs")}
+public_url: https://bridge.example.com
+hold_awake_during_wake: true
+`);
+  // makeFixture's agent config has no timeout_seconds.
+
+  const logChunks: string[] = [];
+  const { Writable } = await import("node:stream");
+  const logStream = new Writable({
+    write(chunk: Buffer, _enc: string, cb: () => void) {
+      logChunks.push(chunk.toString());
+      cb();
+    },
+  });
+
+  const d = await startDaemon({ configDir: f.configDir, listenOverride: { host: HOST, port: 0 }, logStream });
+  cleanups.push(async () => {
+    await d.stop();
+    rmSync(f.configDir, { recursive: true, force: true });
+  });
+
+  const log = logChunks.join("");
+  assert.match(log, /warning: agent "alice" has no timeout_seconds/);
+  assert.match(log, /hold_awake_during_wake/);
+});
+
+test("daemon: no timeout warning when the agent has timeout_seconds or hold-awake is off", async () => {
+  // Case 1: hold-awake on, agent HAS a timeout.
+  const f1 = makeFixture();
+  writeFileSync(path.join(f1.configDir, "config.yml"), `
+listen: 127.0.0.1:8080
+log_dir: ${path.join(f1.configDir, "logs")}
+public_url: https://bridge.example.com
+hold_awake_during_wake: true
+`);
+  const agentYml = readFileSync(path.join(f1.configDir, "agents", "alice", "harmonic-bridge.yml"), "utf8");
+  writeFileSync(path.join(f1.configDir, "agents", "alice", "harmonic-bridge.yml"), agentYml + "\ntimeout_seconds: 900\n");
+
+  // Case 2: hold-awake off, agent has no timeout.
+  const f2 = makeFixture();
+
+  const { Writable } = await import("node:stream");
+  for (const f of [f1, f2]) {
+    const logChunks: string[] = [];
+    const logStream = new Writable({
+      write(chunk: Buffer, _enc: string, cb: () => void) {
+        logChunks.push(chunk.toString());
+        cb();
+      },
+    });
+    const d = await startDaemon({ configDir: f.configDir, listenOverride: { host: HOST, port: 0 }, logStream });
+    cleanups.push(async () => {
+      await d.stop();
+      rmSync(f.configDir, { recursive: true, force: true });
+    });
+    assert.doesNotMatch(logChunks.join(""), /has no timeout_seconds/);
+  }
+});
+
 test("daemon: hold_awake_during_wake holds a connection to public_url for the duration of the wake", async () => {
   // Stub playing the role of the platform edge: records opens/closes of
   // held connections and streams a heartbeat like the real /hold route.

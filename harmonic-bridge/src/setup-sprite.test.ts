@@ -152,6 +152,11 @@ test("setup-sprite: without --harness, no harness assumptions are made", async (
   const allScripts = fake.calls.map((c) => c.script ?? "").join("\n");
   assert.doesNotMatch(allScripts, /claude login/);
   assert.match(r.out, /wake_command/, "must tell the user to wire a harness manually");
+  assert.match(
+    r.out,
+    /timeout_seconds/,
+    "must warn that hold-awake without a wake timeout can hold the sprite awake indefinitely",
+  );
 });
 
 test("setup-sprite: --harness claude-code opts into the claude after_add steps and login flow", async () => {
