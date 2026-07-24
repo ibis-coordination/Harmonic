@@ -54,10 +54,14 @@ interface HarnessDefinition {
 const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
   "claude-code": {
     afterAdd: ["claude-code-per-agent-mcp-config", "claude-code-harness"],
-    authCheckScript: "test -d /home/sprite/.claude",
-    authCommand: (spriteName) => ["sprite", "exec", "-s", spriteName, "--", "claude", "login"],
+    // The Sprites base image ships ~/.claude (settings, hooks) with no
+    // credentials — only the credentials file proves a completed login.
+    authCheckScript: "test -f /home/sprite/.claude/.credentials.json",
+    authCommand: (spriteName) => ["sprite", "exec", "-s", spriteName, "--", "claude", "/login"],
     authInstructions:
-      "Claude Code needs a one-time login inside the sprite. A browser URL will be\nprinted — open it, authorize, and paste the code back.",
+      "Claude Code needs a one-time login inside the sprite. In the Claude session\n" +
+      "that opens, complete the login (open the printed URL, authorize, paste the\n" +
+      "code back), then exit Claude (/exit) to continue.",
   },
 });
 
