@@ -1917,20 +1917,74 @@ class NotesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "View task run"
 
-    # Comments render only after the viewer confirms reading the note (the
-    # author counts as read), so non-author viewers confirm first.
     sign_in_as(automator, tenant: @tenant)
-    post "#{note_path}/actions/confirm_read"
     get note_path
     assert_response :success
     assert_includes response.body, "A persona reply.", "persona comment should render"
     assert_includes response.body, "View task run"
 
     sign_in_as(member, tenant: @tenant)
-    post "#{note_path}/actions/confirm_read"
     get note_path
     assert_response :success
     assert_includes response.body, "A persona reply.", "persona comment should render"
     assert_not_includes response.body, "View task run"
+  end
+
+  # === Comment Visibility Tests ===
+
+  test "note show renders comments for a viewer who has not confirmed read" do
+    other_user = create_user(name: "Unconfirmed Viewer")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    Tenant.current_id = @tenant.id
+
+    note = create_note(text: "Note body")
+    create_note(title: nil, text: "A comment on the note.", commentable: note)
+
+    sign_in_as(other_user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+
+    assert_response :success
+    assert_not Note.find(note.id).user_has_read?(other_user), "viewer should not have confirmed read"
+    assert_includes response.body, "A comment on the note.", "comment should render without confirming read"
+    assert_includes response.body, "Add Comment", "comment form should render without confirming read"
+    assert_includes response.body, "Confirm Read", "confirm read button should still be offered"
+  end
+
+  test "note show keeps comments visible after the note is updated since the last confirm" do
+    other_user = create_user(name: "Stale Confirmer")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    Tenant.current_id = @tenant.id
+
+    note = create_note(text: "Note body")
+    create_note(title: nil, text: "A comment on the note.", commentable: note)
+    note.confirm_read!(other_user)
+    note.update!(text: "Note body, edited", updated_by: @user)
+
+    sign_in_as(other_user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+
+    assert_response :success
+    assert_includes response.body, "Reconfirm to acknowledge the changes", "reconfirm prompt should still show"
+    assert_includes response.body, "A comment on the note.", "comment should stay visible pending reconfirmation"
+  end
+
+  test "note show renders a single comments section for a blocked viewer" do
+    other_user = create_user(name: "Blocked Viewer")
+    @tenant.add_user!(other_user)
+    @collective.add_user!(other_user)
+    Tenant.current_id = @tenant.id
+
+    note = create_note(text: "Note body")
+    UserBlock.create!(blocker: other_user, blocked: @user, tenant: @tenant)
+
+    sign_in_as(other_user, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/n/#{note.truncated_id}"
+
+    assert_response :success
+    assert_equal 1, response.body.scan("pulse-comments-section").size, "comments section should render exactly once"
+    assert_includes response.body, "Commenting is unavailable because you have blocked the author"
+    assert_not_includes response.body, "Add Comment"
   end
 end

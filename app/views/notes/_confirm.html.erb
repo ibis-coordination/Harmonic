@@ -15,8 +15,6 @@
       <% end %>
     <% end %>
   </p>
-  <%= render 'shared/pulse_comments', commentable: @note %>
-  <%= render 'shared/pulse_backlinks', resource: @note %>
 <% elsif @current_user %>
   <% if @note.is_reminder? && @note.reminder_delivered? %>
     <%# Delivered reminder: show acknowledge UI instead of confirm read %>
@@ -90,7 +88,7 @@
       Confirm Read
     </div>
     <p class="pulse-confirm-message">
-      Confirm that you have read this note to access comments and backlinks.
+      Confirm that you have read this note so others know you have seen it.
     </p>
     <div class="pulse-confirm-action">
       <button
