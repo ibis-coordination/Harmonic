@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.56.0] - 2026-07-23
+
+### Added
+
+- **Bridge agents can run on Fly.io Sprites** (#526, #527) — harmonic-bridge 0.2.1 adds `setup-sprite`: one command that creates a sprite on the operator's own Fly.io account, installs the bridge, and redeems the single-use setup URL in-sprite. Sprites freeze seconds after the last connection closes, which killed in-flight wakes; the new opt-in `hold_awake_during_wake` option holds a connection against the daemon's own public URL while wakes run, with the webhook ack delayed until the hold is established. Harness wiring is explicit opt-in — `--harness claude-code` writes a ready-to-use Claude Code wake command; without the flag no harness is assumed. The bridge-setup page and `/help/self-hosting-agents` document both hosting paths. Deploy: web only, no migrations; 0.2.1 is on npm (the publish workflow now upgrades to npm 11, which Trusted Publishing requires).
+
 ## [1.55.0] - 2026-07-23
 
 ### Security
