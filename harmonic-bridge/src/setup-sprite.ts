@@ -57,7 +57,9 @@ const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
     // The Sprites base image ships ~/.claude (settings, hooks) with no
     // credentials — only the credentials file proves a completed login.
     authCheckScript: "test -f /home/sprite/.claude/.credentials.json",
-    authCommand: (spriteName) => ["sprite", "exec", "-s", spriteName, "--", "claude", "/login"],
+    // --tty is required: without a pseudo-TTY claude runs in print mode,
+    // where /login is unavailable (and exits 0 anyway).
+    authCommand: (spriteName) => ["sprite", "exec", "--tty", "-s", spriteName, "--", "claude", "/login"],
     authInstructions:
       "Claude Code needs a one-time login inside the sprite. In the Claude session\n" +
       "that opens, complete the login (open the printed URL, authorize, paste the\n" +
@@ -154,23 +156,9 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
     if (create.code !== 0) return fail(stderr, "create service", create);
   }
 
-  // 7. Harness auth (only with an explicit --harness).
-  if (harness && harnessName) {
-    const check = await inSprite(harness.authCheckScript);
-    if (check.code !== 0) {
-      stdout.write(`\n${harness.authInstructions}\n\n`);
-      const authCode = await execInteractive(harness.authCommand(spriteName));
-      if (authCode !== 0) {
-        stderr.write(`harmonic-bridge setup-sprite: ${harnessName} auth did not complete. Re-run to retry.\n`);
-        return 1;
-      }
-    } else {
-      stdout.write(`${harnessName} already authenticated in the sprite.\n`);
-    }
-  }
-
-  // 8. Redeem the setup URL in-sprite. Single-use: this is the only place
-  //    it is ever used, and only once.
+  // 7. Redeem the setup URL in-sprite. Single-use AND time-limited: this
+  //    runs before any human-paced step so the URL can't expire mid-setup,
+  //    and it is the only place the URL is ever used, only once.
   stdout.write("Connecting the agent to Harmonic…\n");
   const add = await inSprite(`${BRIDGE_BIN} add --from ${shellQuote(fromUrl)}`);
   if (add.code !== 0) {
@@ -181,9 +169,15 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
     );
     return 1;
   }
-  stdout.write(indent(add.stdout.trim()) + "\n");
+  // With a harness, its after_add step just wrote a working wake command —
+  // drop the generic "edit wake_command" next-steps hint, which would
+  // contradict it.
+  const addOutput = harness
+    ? add.stdout.split(/\n\s*Next steps:[\s\S]*/)[0]!.trim()
+    : add.stdout.trim();
+  stdout.write(indent(addOutput) + "\n");
 
-  // 9. Smoke probe: a GET must reach the daemon and be rejected with 405.
+  // 8. Smoke probe: a GET must reach the daemon and be rejected with 405.
   let probeNote = "";
   try {
     const probe = await doFetch(`${publicUrl}/webhook/probe`, { method: "GET" });
@@ -194,6 +188,31 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
     probeNote = `Probe WARNING: could not reach ${publicUrl}/webhook/probe — ${e instanceof Error ? e.message : String(e)}\n`;
   }
   stdout.write(probeNote);
+
+  // 9. Harness auth, last (only with an explicit --harness): it is the one
+  //    human-paced step, so everything time-sensitive already happened. If
+  //    it fails, the agent is fully connected and exactly one manual
+  //    command remains — no re-run, the URL is already consumed.
+  if (harness && harnessName) {
+    const check = await inSprite(harness.authCheckScript);
+    if (check.code !== 0) {
+      stdout.write(`\n${harness.authInstructions}\n\n`);
+      const authCode = await execInteractive(harness.authCommand(spriteName));
+      // The exit code proves nothing (claude exits 0 even when /login is
+      // unavailable) — only the credentials check does.
+      const verify = await inSprite(harness.authCheckScript);
+      if (authCode !== 0 || verify.code !== 0) {
+        stderr.write(
+          `harmonic-bridge setup-sprite: ${harnessName} auth did not complete.\n` +
+          `The agent is connected to Harmonic, but wakes will fail until the login is done.\n` +
+          `Finish it with:\n  ${harness.authCommand(spriteName).join(" ")}\n`,
+        );
+        return 1;
+      }
+    } else {
+      stdout.write(`${harnessName} already authenticated in the sprite.\n`);
+    }
+  }
 
   stdout.write("\nDone.\n");
   if (harness) {

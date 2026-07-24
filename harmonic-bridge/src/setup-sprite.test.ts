@@ -73,11 +73,12 @@ function makeFakeExec(overrides?: {
   return { exec, calls };
 }
 
-function makeFakeInteractive(): { execInteractive: ExecInteractive; calls: string[][] } {
+function makeFakeInteractive(onCall?: () => void): { execInteractive: ExecInteractive; calls: string[][] } {
   const calls: string[][] = [];
   return {
     execInteractive: async (argv) => {
       calls.push([...argv]);
+      onCall?.();
       return 0;
     },
     calls,
@@ -165,8 +166,11 @@ test("setup-sprite: without --harness, no harness assumptions are made", async (
 });
 
 test("setup-sprite: --harness claude-code opts into the claude after_add steps and login flow", async () => {
-  const fake = makeFakeExec();
-  const interactive = makeFakeInteractive();
+  // The login handoff succeeds: the credentials check passes once the
+  // interactive command has run.
+  const overrides = { claudeAuthed: false };
+  const fake = makeFakeExec(overrides);
+  const interactive = makeFakeInteractive(() => { overrides.claudeAuthed = true; });
   const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "claude-code"], {
     exec: fake.exec,
     execInteractive: interactive.execInteractive,
@@ -178,8 +182,44 @@ test("setup-sprite: --harness claude-code opts into the claude after_add steps a
   assert.match(config, /claude-code-harness/);
 
   assert.equal(interactive.calls.length, 1, "claude login handoff expected when not authed");
+  const handoff = interactive.calls[0]!.join(" ");
   // `claude login` is not a subcommand; /login is the CLI's login flow.
-  assert.ok(interactive.calls[0]!.join(" ").includes("claude /login"), `got: ${interactive.calls[0]!.join(" ")}`);
+  assert.ok(handoff.includes("claude /login"), `got: ${handoff}`);
+  // Without a pseudo-TTY, claude runs in print mode where /login is
+  // unavailable (and exits 0 anyway).
+  assert.ok(handoff.includes("--tty"), `got: ${handoff}`);
+
+  // The time-limited single-use URL is redeemed BEFORE the human-paced
+  // login: the connection is the product, harness auth is the final
+  // additive step, and a login failure must not strand an expired URL.
+  const addIndex = fake.calls.findIndex((c) => c.script?.includes("harmonic-bridge add"));
+  assert.ok(addIndex >= 0, "expected the add step to run");
+  const authCheckIndex = fake.calls.findIndex((c) => c.script?.includes(".credentials.json"));
+  assert.ok(authCheckIndex > addIndex, "harness auth must follow the bridge connection");
+
+  // The harness just wrote a working wake command — the generic "edit
+  // wake_command" next-steps hint must not contradict it.
+  assert.doesNotMatch(r.out, /Edit wake_command/);
+});
+
+test("setup-sprite: a failed login leaves the agent connected and names the one remaining step", async () => {
+  // claude exits 0 even when /login is unavailable (print mode), so the
+  // exit code proves nothing — only the credentials check does.
+  const fake = makeFakeExec({ claudeAuthed: false });
+  const interactive = makeFakeInteractive(); // exits 0, auth stays absent
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "claude-code"], {
+    exec: fake.exec,
+    execInteractive: interactive.execInteractive,
+  });
+
+  assert.notEqual(r.code, 0, "must fail when auth did not take");
+  // The connection already succeeded — the URL was redeemed before login.
+  const allScripts = fake.calls.map((c) => c.script ?? "").join("\n");
+  assert.match(allScripts, /harmonic-bridge add/);
+  // The fix is one manual command, not a re-run (the URL is consumed).
+  assert.match(r.err, /connected/);
+  assert.match(r.err, /sprite exec --tty/, "must show the manual login command");
+  assert.doesNotMatch(r.err, /re-run/i);
 });
 
 test("setup-sprite: skips the login handoff when claude is already authed in the sprite", async () => {

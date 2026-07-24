@@ -191,6 +191,27 @@ test("add: runs after_add steps when configured", async () => {
   }
 });
 
+test("add: after_add steps are followed by a second SIGHUP so the daemon picks up their config edits", async () => {
+  // The first SIGHUP (before registration) loads the agent with the STUB
+  // wake_command; harness after_add steps rewrite it on disk. Without a
+  // reload the daemon keeps executing the stub — webhooks 204 but every
+  // wake fails with "wake_command not configured".
+  const f = makeFixture({ afterAdd: `after_add:\n  - command: 'printf STEP-RAN > $HARMONIC_BRIDGE_AGENT_DIR/probe.txt'\n` });
+  try {
+    const { fetch: fakeFetch } = recordingFetch([() => makeMetadataResponse(), () => makeOkResponse()]);
+    const signals: Array<[number, NodeJS.Signals]> = [];
+    const code = await runAdd(["--from", SETUP_URL], {
+      configDir: f.configDir,
+      fetch: fakeFetch,
+      kill: (pid, sig) => { signals.push([pid, sig]); },
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(signals.map((s) => s[1]), ["SIGHUP", "SIGHUP"]);
+  } finally {
+    f.cleanup();
+  }
+});
+
 // ---------- argument + config-side errors ----------
 
 test("add: missing --from returns 64 with usage", async () => {

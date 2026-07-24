@@ -213,6 +213,18 @@ export async function runAdd(args: readonly string[], opts: AddOpts): Promise<nu
         else stderr.write(`  FAIL ${tag} — ${result.error}\n`);
       },
     });
+
+    // The SIGHUP in step 5 loaded the agent with the stub wake_command;
+    // steps like the claude-code harness rewrite it on disk. Reload again
+    // or the daemon keeps executing the stub — webhooks ack with 204 but
+    // every wake fails with "wake_command not configured".
+    const reload = await sendSighup(opts.configDir, doKill);
+    if (!reload.ok) {
+      stderr.write(
+        `harmonic-bridge add: warning — daemon reload after after_add steps failed (${reload.error}).\n` +
+        `Run 'harmonic-bridge reload' to pick up their config changes.\n`,
+      );
+    }
   }
 
   // 8. Done.
