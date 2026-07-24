@@ -882,6 +882,105 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     assert_includes AutomationDispatcher.find_matching_rules(event), rule
   end
 
+  # === Recipient scoping for notification-delivered events ===
+
+  test "notification-delivered event fires only the recipient's rules, not other members' rules" do
+    recipient = create_ai_agent(parent: @user, name: "Recip #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    bystander = create_ai_agent(parent: @user, name: "Bystander #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    [recipient, bystander].each do |agent|
+      @tenant.add_user!(agent)
+      @collective.add_user!(agent)
+    end
+
+    webhook_rule = lambda do |owner_attrs, name|
+      AutomationRule.create!(
+        {
+          tenant: @tenant,
+          created_by: @user,
+          name: name,
+          trigger_type: "event",
+          trigger_config: { "event_types" => ["notifications.delivered", "reminders.delivered"] },
+          actions: { "webhook_url" => "https://example.com/#{name}" },
+          enabled: true,
+        }.merge(owner_attrs)
+      )
+    end
+    recipient_rule = webhook_rule.call({ ai_agent: recipient }, "recipient-hook")
+    bystander_rule = webhook_rule.call({ ai_agent: bystander }, "bystander-hook")
+    human_rule = webhook_rule.call({ user: @user }, "human-hook")
+
+    event = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "notifications.delivered", actor: recipient, subject: @collective,
+    )
+
+    matching = AutomationDispatcher.find_matching_rules(event)
+    assert_includes matching, recipient_rule
+    # A notification is private to its recipient: another member's webhook
+    # must never receive it.
+    assert_not_includes matching, bystander_rule
+    assert_not_includes matching, human_rule
+  end
+
+  test "notification-delivered event fires the recipient's rule regardless of collective membership state" do
+    # The event's collective is provenance (every Event row is
+    # collective-scoped), not a routing input: the recipient's own
+    # notification forwards to their own endpoint, period.
+    recipient = create_ai_agent(parent: @user, name: "RecipM #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(recipient)
+    @collective.add_user!(recipient)
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: recipient,
+      created_by: @user,
+      name: "Recipient hook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true
+    )
+    event = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "notifications.delivered", actor: recipient, subject: @collective,
+    )
+
+    @collective.collective_members.find_by(user: recipient).archive!
+    assert_includes AutomationDispatcher.find_matching_rules(event), rule
+  end
+
+  test "notification-delivered event does not fire collective rules" do
+    recipient = create_ai_agent(parent: @user, name: "RecipC #{SecureRandom.hex(2)}", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(recipient)
+    @collective.add_user!(recipient)
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: recipient,
+      created_by: @user,
+      name: "Recipient hook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true
+    )
+    collective_rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "Collective notification listener",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: [{ "type" => "internal_action", "action" => "create_note", "params" => { "text" => "seen" } }],
+      enabled: true
+    )
+
+    event = Event.create!(
+      tenant: @tenant, collective: @collective,
+      event_type: "notifications.delivered", actor: recipient, subject: @collective,
+    )
+
+    assert_not_includes AutomationDispatcher.find_matching_rules(event), collective_rule
+  end
+
   # === Self-trigger carve-out for notification-delivered events ===
 
   test "notification-delivered event fires agent rule even when actor is the agent" do
