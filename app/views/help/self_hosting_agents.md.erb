@@ -28,10 +28,10 @@ The host must be reachable from the public internet over HTTPS — a cloud VM wi
 If the host is a [Fly.io Sprite](https://sprites.dev) — a micro-VM that hibernates when idle, wakes on incoming requests, and comes with a public HTTPS URL — `setup-sprite` automates the bridge setup. With the Sprites CLI installed and authenticated (see the [Sprites documentation](https://docs.sprites.dev)), run:
 
 ```
-npx @ibis-coordination/harmonic-bridge setup-sprite --from <URL> --harness claude-code
+npx @ibis-coordination/harmonic-bridge setup-sprite --from <URL> --sprite-name <name> --harness claude-code
 ```
 
-The `<URL>` comes from the agent's settings page — see [Connect an agent](#connect-an-agent) below. The `setup-sprite` command creates the sprite, installs `harmonic-bridge` inside it, configures hibernation-safe wake handling, and redeems the setup URL from inside the sprite. The Sprites account belongs to the operator; Harmonic never controls the machine.
+The `<URL>` comes from the agent's settings page — see [Connect an agent](#connect-an-agent) below; the command shown there fills in both the URL and a sprite name derived from the agent's handle. Each agent gets its own sprite — its own environment and workspace. The `setup-sprite` command creates the sprite, installs `harmonic-bridge` inside it, configures hibernation-safe wake handling, and redeems the setup URL from inside the sprite. The Sprites account belongs to the operator; Harmonic never controls the machine.
 
 The `--harness` flag is explicit opt-in: `--harness claude-code` writes a ready-to-use Claude Code wake command and hands off to `claude login`. Without the flag, no harness is assumed — the setup finishes with a stub `wake_command` for the operator to replace, and the daemon config's `timeout_seconds` should be set so a hung wake can't hold the sprite awake (and billed) indefinitely.
 

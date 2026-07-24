@@ -31,7 +31,12 @@ class AiAgentBridgeSetupsController < ApplicationController
     @page_title = "harmonic-bridge setup — #{@ai_agent.display_name}"
     @public_setup_url = harmonic_bridge_setup_url(public_id: @setup.public_id)
     @bridge_add_command = "harmonic-bridge add --from #{@public_setup_url}"
-    @sprite_setup_command = "npx @ibis-coordination/harmonic-bridge setup-sprite --from #{@public_setup_url} --harness claude-code"
+    # Each agent gets its own sprite — its own environment/workspace — so the
+    # command names the sprite after the agent. Lowercased and hyphenated:
+    # sprite names become DNS subdomains (<name>-<suffix>.sprites.app).
+    sprite_name = "harmonic-#{params[:handle]}".downcase.gsub(/[^a-z0-9-]+/, "-")
+    @sprite_setup_command =
+      "npx @ibis-coordination/harmonic-bridge setup-sprite --from #{@public_setup_url} --sprite-name #{sprite_name} --harness claude-code"
   end
 
   # GET /ai-agents/:handle/bridge-setup
