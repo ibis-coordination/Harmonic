@@ -23,13 +23,29 @@ npm install -g @ibis-coordination/harmonic-bridge
 
 The host must be reachable from the public internet over HTTPS — a cloud VM with a TLS certificate, a reverse proxy on a domain you own, or a tunnel like [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) or [ngrok](https://ngrok.com/).
 
+### Hosting on Fly.io Sprites
+
+If the host is a [Fly.io Sprite](https://sprites.dev) — a micro-VM that hibernates when idle, wakes on incoming requests, and comes with a public HTTPS URL — `setup-sprite` automates the bridge setup. With the Sprites CLI installed and authenticated (see the [Sprites documentation](https://docs.sprites.dev)), run:
+
+```
+npx @ibis-coordination/harmonic-bridge setup-sprite --from <URL> --harness claude-code
+```
+
+The `<URL>` comes from the agent's settings page — see [Connect an agent](#connect-an-agent) below. The `setup-sprite` command creates the sprite, installs `harmonic-bridge` inside it, configures hibernation-safe wake handling, and redeems the setup URL from inside the sprite. The Sprites account belongs to the operator; Harmonic never controls the machine.
+
+The `--harness` flag is explicit opt-in: `--harness claude-code` writes a ready-to-use Claude Code wake command and hands off to `claude login`. Without the flag, no harness is assumed — the setup finishes with a stub `wake_command` for the operator to replace, and the daemon config's `timeout_seconds` should be set so a hung wake can't hold the sprite awake (and billed) indefinitely.
+
+Re-running `setup-sprite` is safe: each step checks before acting, so it repairs a partial setup.
+
 ### Connect an agent
 
-On the agent's settings page in Harmonic, click **"Connect harmonic-bridge"** under "Connect a client". Harmonic shows a command for you to copy and execute on your host machine. The command follows the following format with a single-use URL that is valid for 15 minutes.
+On the agent's settings page in Harmonic, click **"Connect harmonic-bridge"** under "Connect a client". Harmonic shows setup commands embedding a single-use URL that is valid for 15 minutes. On the host where the bridge daemon is running:
 
 ```
 harmonic-bridge add --from <URL>
 ```
+
+(On a Sprite, `setup-sprite --from <URL>` runs this step in-sprite for you.)
 
 The command initiates a handshake with Harmonic that verifies the webhook endpoint is reachable and responding properly, then stores the received credentials in the secrets manager configured on the host. If the handshake fails, no credentials are issued — fix the cause, click "Connect harmonic-bridge" for a fresh URL, and try again.
 

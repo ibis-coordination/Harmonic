@@ -26,6 +26,14 @@ class AiAgentBridgeSetupsController < ApplicationController
     :describe_cancel_harmonic_bridge_setup, :execute_cancel_harmonic_bridge_setup,
   ]
 
+  # GET /ai-agents/:handle/bridge-setup/:public_id
+  def show
+    @page_title = "harmonic-bridge setup — #{@ai_agent.display_name}"
+    @public_setup_url = harmonic_bridge_setup_url(public_id: @setup.public_id)
+    @bridge_add_command = "harmonic-bridge add --from #{@public_setup_url}"
+    @sprite_setup_command = "npx @ibis-coordination/harmonic-bridge setup-sprite --from #{@public_setup_url} --harness claude-code"
+  end
+
   # GET /ai-agents/:handle/bridge-setup
   def new
     @page_title = "Connect harmonic-bridge — #{@ai_agent.display_name}"
@@ -34,13 +42,6 @@ class AiAgentBridgeSetupsController < ApplicationController
     # bounce off HarmonicBridgeSetup's no_existing_notification_webhook_for_agent
     # validation. The model validation is still the real guard.
     @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@ai_agent).first
-  end
-
-  # GET /ai-agents/:handle/bridge-setup/:public_id
-  def show
-    @page_title = "harmonic-bridge setup — #{@ai_agent.display_name}"
-    @public_setup_url = harmonic_bridge_setup_url(public_id: @setup.public_id)
-    @bridge_add_command = "harmonic-bridge add --from #{@public_setup_url}"
   end
 
   # GET /ai-agents/:handle/bridge-setup/actions
@@ -74,18 +75,18 @@ class AiAgentBridgeSetupsController < ApplicationController
     )
     if setup.errors.any?
       return render_action_error({
-                                   action_name: "connect_harmonic_bridge",
-                                   resource: @ai_agent,
-                                   error: setup.errors.full_messages.to_sentence,
-                                 })
+        action_name: "connect_harmonic_bridge",
+        resource: @ai_agent,
+        error: setup.errors.full_messages.to_sentence,
+      })
     end
 
     render_action_success({
-                            action_name: "connect_harmonic_bridge",
-                            resource: @ai_agent,
-                            result: "Bridge setup URL minted. Paste the command on your bridge host.",
-                            redirect_to: ai_agent_bridge_setup_path(@ai_agent.handle, setup.public_id),
-                          })
+      action_name: "connect_harmonic_bridge",
+      resource: @ai_agent,
+      result: "Bridge setup URL minted. Paste the command on your bridge host.",
+      redirect_to: ai_agent_bridge_setup_path(@ai_agent.handle, setup.public_id),
+    })
   end
 
   # GET /ai-agents/:handle/bridge-setup/:public_id/actions/cancel_harmonic_bridge_setup
@@ -103,11 +104,11 @@ class AiAgentBridgeSetupsController < ApplicationController
     @setup.destroy!
 
     render_action_success({
-                            action_name: "cancel_harmonic_bridge_setup",
-                            resource: @setup,
-                            result: "Bridge setup cancelled.",
-                            redirect_to: ai_agent_settings_path(@ai_agent.handle),
-                          })
+      action_name: "cancel_harmonic_bridge_setup",
+      resource: @setup,
+      result: "Bridge setup cancelled.",
+      redirect_to: ai_agent_settings_path(@ai_agent.handle),
+    })
   end
 
   private
@@ -123,7 +124,7 @@ class AiAgentBridgeSetupsController < ApplicationController
     return render(status: :not_found, plain: "404 Not Found") if tu.nil?
 
     @ai_agent = tu.user
-    return render(status: :not_found, plain: "404 Not Found") unless @ai_agent.external_ai_agent?
+    render(status: :not_found, plain: "404 Not Found") unless @ai_agent.external_ai_agent?
   end
 
   def authorize_parent

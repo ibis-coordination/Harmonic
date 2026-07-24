@@ -95,6 +95,36 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert_match(%r{harmonic-bridge add --from \S+/bridge-setups/#{Regexp.escape(setup.public_id)}}, response.body)
   end
 
+  test "GET show: offers the Sprites path with the setup-sprite command" do
+    setup = make_setup
+    get show_path(setup.public_id)
+    assert_response :ok
+
+    sprite_command_re =
+      %r{npx @ibis-coordination/harmonic-bridge setup-sprite --from \S+/bridge-setups/#{Regexp.escape(setup.public_id)} --harness claude-code}
+    add_command_re = %r{harmonic-bridge add --from \S+/bridge-setups/#{Regexp.escape(setup.public_id)}}
+
+    assert_match(sprite_command_re, response.body)
+    assert_match(add_command_re, response.body)
+    # Sprites is one option among others, listed after the generic host path.
+    assert_operator response.body.index(add_command_re), :<, response.body.index(sprite_command_re)
+    assert_no_match(/recommended/i, response.body)
+    # Sprites setup itself is Fly's product — link to their docs, don't inline them.
+    assert_match(/docs\.sprites\.dev/, response.body)
+    assert_no_match(/install\.sh/, response.body)
+  end
+
+  test "GET show: markdown view also offers the Sprites path" do
+    setup = make_setup
+    get show_path(setup.public_id), headers: { "Accept" => "text/markdown" }
+    assert_response :ok
+    assert_match(
+      %r{npx @ibis-coordination/harmonic-bridge setup-sprite --from \S+/bridge-setups/#{Regexp.escape(setup.public_id)} --harness claude-code},
+      response.body
+    )
+    assert_match(%r{harmonic-bridge add --from \S+/bridge-setups/#{Regexp.escape(setup.public_id)}}, response.body)
+  end
+
   test "GET show: also serves text/markdown for the fetch_page flow" do
     setup = make_setup
     get show_path(setup.public_id), headers: { "Accept" => "text/markdown" }
@@ -134,6 +164,7 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
     assert_match(/expired/i, response.body)
     assert_no_match(/harmonic-bridge add --from \S*#{Regexp.escape(setup.public_id)}/, response.body)
+    assert_no_match(/setup-sprite --from \S*#{Regexp.escape(setup.public_id)}/, response.body)
   end
 
   # === POST execute_cancel_harmonic_bridge_setup ===
@@ -254,7 +285,7 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     # End-to-end check that the AI_AGENT_ALWAYS_BLOCKED list actually
     # routes through to a deny decision. If a future refactor changes the
     # restriction predicate or the deny path, this catches it.
-    refute CapabilityCheck.allowed?(@agent, "connect_harmonic_bridge")
-    refute CapabilityCheck.allowed?(@agent, "cancel_harmonic_bridge_setup")
+    assert_not CapabilityCheck.allowed?(@agent, "connect_harmonic_bridge")
+    assert_not CapabilityCheck.allowed?(@agent, "cancel_harmonic_bridge_setup")
   end
 end
