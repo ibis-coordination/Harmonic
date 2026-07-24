@@ -610,4 +610,75 @@ class AutomationRuleTest < ActiveSupport::TestCase
     rule.actions = rule.actions.merge("webhook_url" => "https://example.com/updated")
     assert rule.valid?, rule.errors.full_messages.to_s
   end
+
+  # === Soft delete ===
+
+  def create_simple_rule(**attrs)
+    AutomationRule.create!({
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Archivable",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "Respond" },
+      enabled: true,
+    }.merge(attrs))
+  end
+
+  def create_webhook_rule_for(owner, url: "https://example.com/hook")
+    owner_attrs = owner.ai_agent? ? { ai_agent: owner } : { user: owner }
+    AutomationRule.create!({
+      tenant: @tenant,
+      created_by: @user,
+      name: "Webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => url },
+    }.merge(owner_attrs))
+  end
+
+  test "soft_delete! soft-deletes the rule, disables it, and records who" do
+    rule = create_simple_rule
+    rule.soft_delete!(by: @user)
+
+    rule.reload
+    assert_not_nil rule.deleted_at
+    assert_not rule.enabled?
+    assert_equal @user.id, rule.updated_by_id
+  end
+
+  test "enabled scope excludes soft-deleted rules even when the enabled flag is true" do
+    rule = create_simple_rule
+    rule.update!(deleted_at: Time.current) # enabled flag stays true
+
+    assert_not_includes AutomationRule.enabled, rule
+  end
+
+  test "notification_webhook_for excludes soft-deleted rules" do
+    rule = create_webhook_rule_for(@user)
+    assert_includes AutomationRule.notification_webhook_for(@user), rule
+
+    rule.soft_delete!(by: @user)
+    assert_empty AutomationRule.notification_webhook_for(@user)
+  end
+
+  test "a replacement webhook passes validation after the old one is soft-deleted" do
+    create_webhook_rule_for(@user).soft_delete!(by: @user)
+
+    replacement = create_webhook_rule_for(@user, url: "https://example.com/replacement")
+    assert replacement.persisted?
+  end
+
+  test "hard destroy is blocked unless explicitly allowed" do
+    rule = create_simple_rule
+    run = AutomationRuleRun.create!(tenant: @tenant, automation_rule: rule, status: "completed")
+
+    assert_raises(ActiveRecord::RecordNotDestroyed) { rule.destroy! }
+    assert AutomationRuleRun.exists?(run.id), "blocked destroy must not cascade into run history"
+
+    rule.allow_hard_destroy = true
+    rule.destroy!
+    assert_not AutomationRule.exists?(rule.id)
+  end
 end

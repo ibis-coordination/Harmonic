@@ -28,6 +28,7 @@ class CollectiveAutomationsController < ApplicationController
   def index
     @page_title = "Automations - #{@current_collective.name}"
     @automation_rules = AutomationRule.tenant_scoped_only
+      .not_deleted
       .where(collective_id: @current_collective.id)
       .where(ai_agent_id: nil)
       .order(created_at: :desc)
@@ -239,13 +240,13 @@ class CollectiveAutomationsController < ApplicationController
     render_action_description({
                                 action_name: "delete_automation_rule",
                                 resource: @automation_rule,
-                                description: "Permanently delete the automation rule",
+                                description: "Delete the automation rule",
                                 params: [],
                               })
   end
 
   def execute_delete
-    @automation_rule.destroy!
+    @automation_rule.soft_delete!(by: @current_user)
     render_action_success({
                             action_name: "delete_automation_rule",
                             resource: nil,
@@ -498,6 +499,7 @@ class CollectiveAutomationsController < ApplicationController
 
   def set_automation_rule
     @automation_rule = AutomationRule.tenant_scoped_only
+      .not_deleted
       .where(collective_id: @current_collective.id)
       .where(ai_agent_id: nil)
       .find_by!(truncated_id: params[:automation_id])

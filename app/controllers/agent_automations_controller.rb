@@ -23,6 +23,7 @@ class AgentAutomationsController < ApplicationController
   def index
     @page_title = "Automations - #{@ai_agent.display_name}"
     @automation_rules = AutomationRule.tenant_scoped_only
+      .not_deleted
       .where(ai_agent_id: @ai_agent.id)
       .excluding_notification_webhooks
       .order(created_at: :desc)
@@ -201,7 +202,7 @@ class AgentAutomationsController < ApplicationController
 
   def execute_delete
     name = @automation_rule.name
-    @automation_rule.destroy!
+    @automation_rule.soft_delete!(by: @current_user)
 
     render_action_success({
       action_name: "delete_automation_rule",
@@ -303,6 +304,7 @@ class AgentAutomationsController < ApplicationController
 
   def set_automation_rule
     @automation_rule = AutomationRule.tenant_scoped_only
+      .not_deleted
       .where(ai_agent_id: @ai_agent.id)
       .find_by!(truncated_id: params[:automation_id])
   end

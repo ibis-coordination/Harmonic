@@ -247,13 +247,19 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "collective admin can delete automation" do
     rule = create_collective_automation_rule(name: "To Delete")
 
-    assert_difference "AutomationRule.unscoped.count", -1 do
+    assert_no_difference "AutomationRule.unscoped.count" do
       post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/delete_automation_rule",
         headers: @headers
     end
 
     assert_response :success
     assert_includes response.body, "deleted"
+    rule.reload
+    assert_not_nil rule.deleted_at
+
+    # Soft-deleted rules disappear from the automations index.
+    get "/collectives/#{@collective.handle}/settings/automations", headers: @headers
+    assert_not_includes response.body, "To Delete"
   end
 
   # === Toggle Tests ===

@@ -55,10 +55,17 @@ class NotificationWebhooksController < ApplicationController
   end
 
   # DELETE /(u|ai-agents)/:handle/webhook
-  # After destroy the webhook page would show the "create new" form, which
-  # is confusing right after a delete. Redirect to settings instead.
+  # Soft delete: hard destroy would cascade into run history and is
+  # blocked by FKs from bridge setups anyway. After delete the webhook
+  # page would show the "create new" form, which is confusing right
+  # after a delete. Redirect to settings instead.
   def destroy
-    @webhook_rule&.destroy!
+    if @webhook_rule
+      @webhook_rule.soft_delete!(by: @current_user)
+      # Mirror of the create-side sync: removing the webhook can drop the
+      # human's billable_quantity by one; push that to Stripe immediately.
+      sync_billable_quantity!
+    end
     redirect_to settings_path_for_target, notice: "Webhook deleted."
   end
 
@@ -116,7 +123,7 @@ class NotificationWebhooksController < ApplicationController
     # right after a successful billing flow.
     set_webhook_rule
     if @webhook_rule
-      sync_subscription_for_new_billable!
+      sync_billable_quantity!
       return redirect_to show_path_for_target, notice: "Billing set up — your webhook is ready."
     end
 
@@ -178,7 +185,7 @@ class NotificationWebhooksController < ApplicationController
       enabled: true
     )
     if @webhook_rule.save
-      sync_subscription_for_new_billable!
+      sync_billable_quantity!
       # Redirect so the URL bar lands on the canonical show URL — refresh-safe.
       # Secret rides through one flash round-trip in the encrypted session.
       redirect_to show_path_for_target, flash: { reveal_secret: secret }
@@ -259,11 +266,11 @@ class NotificationWebhooksController < ApplicationController
     redirect_to checkout_url, allow_other_host: true
   end
 
-  # After saving the webhook, push the updated billable_quantity to Stripe so
-  # the human is charged proration immediately. No-op for agents (skipped by
-  # the human? gate) and for humans without an active subscription (the
+  # After adding or removing a webhook, push the updated billable_quantity
+  # to Stripe so the human's proration adjusts immediately. No-op for agents
+  # (billed separately) and for humans without an active subscription (the
   # Stripe-Checkout-first path handles charging before save).
-  def sync_subscription_for_new_billable!
+  def sync_billable_quantity!
     return unless @target_user.human?
     return unless @target_user.stripe_customer&.active?
 

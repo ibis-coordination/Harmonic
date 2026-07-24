@@ -943,7 +943,7 @@ class User < ApplicationRecord
     return false if tenant_ids.empty?
 
     AutomationRule.for_user_across_tenants(self)
-      .where(tenant_id: tenant_ids)
+      .where(tenant_id: tenant_ids, deleted_at: nil)
       .where("(actions->>'webhook_url') IS NOT NULL")
       .exists?
   end

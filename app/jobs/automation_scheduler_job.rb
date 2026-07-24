@@ -28,7 +28,7 @@ class AutomationSchedulerJob < SystemJob
   def scheduled_rules
     AutomationRule.unscoped_for_system_job
       .where(trigger_type: "schedule")
-      .where(enabled: true)
+      .where(enabled: true, deleted_at: nil)
   end
 
   sig { params(rule: AutomationRule).void }

@@ -353,7 +353,8 @@ CREATE TABLE public.automation_rules (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     truncated_id character varying GENERATED ALWAYS AS ("left"((id)::text, 8)) STORED NOT NULL,
-    updated_by_id uuid
+    updated_by_id uuid,
+    deleted_at timestamp(6) without time zone
 );
 
 
@@ -6612,7 +6613,7 @@ CREATE INDEX search_index_p9_tenant_id_replying_to_id_idx ON public.search_index
 -- Name: uniq_notification_webhook_per_user; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX uniq_notification_webhook_per_user ON public.automation_rules USING btree (tenant_id, COALESCE(ai_agent_id, user_id)) WHERE ((actions ->> 'webhook_url'::text) IS NOT NULL);
+CREATE UNIQUE INDEX uniq_notification_webhook_per_user ON public.automation_rules USING btree (tenant_id, COALESCE(ai_agent_id, user_id)) WHERE (((actions ->> 'webhook_url'::text) IS NOT NULL) AND (deleted_at IS NULL));
 
 
 --
@@ -10628,6 +10629,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260723120000'),
 ('20260719130000'),
 ('20260719120000'),
 ('20260719090000'),

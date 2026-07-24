@@ -52,6 +52,7 @@ class IncomingWebhooksController < ActionController::Base
   def find_automation_rule
     # Find within the current tenant's automation rules
     AutomationRule.tenant_scoped_only(@current_tenant.id)
+      .not_deleted
       .where(trigger_type: "webhook")
       .find_by(webhook_path: params[:webhook_path])
   end
