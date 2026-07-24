@@ -6,7 +6,7 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
   setup do
     @tenant = @global_tenant
     @user = @global_user
-    host! "#{@tenant.subdomain}.#{ENV['HOSTNAME']}"
+    host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
     @tenant.set_feature_flag!("api", true)
     @tenant.set_feature_flag!("external_ai_agents", true)
     sign_in_as(@user, tenant: @tenant)
@@ -88,6 +88,22 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Connect harmonic-bridge/, response.body)
   end
 
+  test "/help/self-hosting-agents documents the Sprites path" do
+    get "/help/self-hosting-agents"
+    assert_response :success
+    # Sprites is one hosting option; setup-sprite automates the bridge side.
+    assert_match(/Sprites/, response.body)
+    assert_match(/setup-sprite --from/, response.body)
+    # Harness wiring is explicit opt-in via --harness; no harness is assumed.
+    assert_match(/--harness/, response.body)
+    # Sprites install/auth is Fly's product — link their docs, don't inline them.
+    assert_match(/docs\.sprites\.dev/, response.body)
+    assert_no_match(/install\.sh/, response.body)
+    assert_no_match(/recommended/i, response.body)
+    # The generic-host instructions must survive alongside the Sprites path.
+    assert_match(/cloudflared|reverse proxy/, response.body)
+  end
+
   test "/help/self-hosting-agents renders in markdown too" do
     get "/help/self-hosting-agents", headers: { "Accept" => "text/markdown" }
     assert_response :success
@@ -123,8 +139,8 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     get "/help/mcp/connect/cursor"
     assert_response :success
     # Breadcrumb should expose Home > Help > MCP > Connect <Harness>
-    assert_match(/href="\/help"[^>]*>Help/, response.body)
-    assert_match(/href="\/help\/mcp"[^>]*>MCP/, response.body)
+    assert_match(%r{href="/help"[^>]*>Help}, response.body)
+    assert_match(%r{href="/help/mcp"[^>]*>MCP}, response.body)
     assert_includes response.body, "Connect Cursor"
   end
 
@@ -164,7 +180,7 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "all harness slugs render successfully" do
-    slugs = %w[cursor claude-code claude-desktop codex codex-cloud cline continue goose hermes-agent openclaw]
+    slugs = ["cursor", "claude-code", "claude-desktop", "codex", "codex-cloud", "cline", "continue", "goose", "hermes-agent", "openclaw"]
     slugs.each do |slug|
       get "/help/mcp/connect/#{slug}"
       assert_response :success, "Expected /help/mcp/connect/#{slug} to render but got #{response.status}"
@@ -185,7 +201,7 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
   test "/help/agents/getting-started breadcrumb links to /help/agents" do
     get "/help/agents/getting-started"
     assert_response :success
-    assert_match(/href="\/help\/agents"[^>]*>Agents/, response.body)
+    assert_match(%r{href="/help/agents"[^>]*>Agents}, response.body)
     assert_includes response.body, "Getting started"
   end
 

@@ -111,7 +111,7 @@
 /* Center the logo relative to the window at every width. In-flow, space-between
    would center it between the left control and the right cluster, which reads
    as off-center against the full width. Absolute positioning lifts it out of
-   flow so the left slot (places toggle on desktop, back button on mobile #322)
+   flow so the left slot (places toggle on desktop, back button on mobile, issue 322)
    and the right cluster flank a truly centered logo. */
 .pulse-top-header .pulse-logo {
   position: absolute;

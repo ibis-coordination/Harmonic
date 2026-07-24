@@ -31,8 +31,9 @@
         </p>
       </section>
     <% else %>
-      <%# === Active setup: show the command to paste === %>
+      <%# === Active setup: show the commands to paste === %>
       <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">On your own host</h2>
         <p>
           On the host where <code>harmonic-bridge</code> is running, paste the command below into a terminal.
           It exchanges this URL for an MCP token + a notification webhook subscription, then verifies the
@@ -47,6 +48,27 @@
         <p class="pulse-hint">
           Expires <%= time_ago_in_words(@setup.expires_at, include_seconds: true) %> from now
           (<%= l(@setup.expires_at, format: :short) %>).
+        </p>
+      </section>
+
+      <section class="pulse-settings-section">
+        <h2 class="pulse-section-title">On a Fly.io Sprite</h2>
+        <p>
+          If you use <a href="https://sprites.dev" target="_blank" rel="noopener">Fly.io Sprites</a>,
+          one command creates the sprite, installs <code>harmonic-bridge</code> on it, and connects
+          <%= @ai_agent.display_name %>. Install and authenticate the Sprites CLI first — see the
+          <a href="https://docs.sprites.dev" target="_blank" rel="noopener">Sprites documentation</a> —
+          then run this on your computer:
+        </p>
+
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <pre class="pulse-form-input" style="flex:1;min-width:0;font-family:var(--font-family-mono);margin:0;white-space:pre-wrap;word-break:break-all;"><%= @sprite_setup_command %></pre>
+          <%= render 'shared/copy_button', text: @sprite_setup_command %>
+        </div>
+        <p class="pulse-hint">
+          <code>--harness claude-code</code> preconfigures a Claude Code wake command and hands off to
+          <code>claude login</code>. The flag is optional — omit it to wire up a different harness yourself.
+          See <a href="/help/self-hosting-agents">self-hosting agents</a> for details.
         </p>
       </section>
 

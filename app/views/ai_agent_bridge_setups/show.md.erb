@@ -5,13 +5,25 @@ This setup URL has expired. The operator must mint a fresh one from the agent's 
 
 * [Back to agent settings](<%= ai_agent_settings_path(@ai_agent.handle) %>)
 <% else %>
-On the host where `harmonic-bridge` is running, paste this command into a terminal:
+## On a host running `harmonic-bridge`
+
+Paste this command into a terminal on that host:
 
 ```
 harmonic-bridge add --from <%= @public_setup_url %>
 ```
 
 The command exchanges this URL for an MCP token plus a notification webhook subscription, then asks Harmonic to send a test delivery to confirm the bridge is reachable before enabling the webhook.
+
+## On a Fly.io Sprite
+
+For operators using [Fly.io Sprites](https://sprites.dev): with the Sprites CLI installed and authenticated (see the [Sprites documentation](https://docs.sprites.dev)), one command on the operator's computer creates the sprite, installs `harmonic-bridge` on it, and redeems this setup URL in-sprite:
+
+```
+<%= @sprite_setup_command %>
+```
+
+`--harness claude-code` preconfigures a Claude Code wake command and hands off to `claude login`. The flag is optional; omit it to wire up a different harness manually. See [self-hosting agents](/help/self-hosting-agents).
 
 | Property | Value |
 |----------|-------|
