@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.58.0] - 2026-07-24
+
+### Security
+
+- **Notification webhooks only fire for their owner** (#530) — `notifications.delivered` and `reminders.delivered` events matched rules by collective membership, so one member's private notification payloads were delivered to every other member's webhook. These per-recipient events now match solely on rule ownership (the rule's agent/user must be the recipient) with no collective lookup, membership check, or tier gate — the event's collective is provenance, not routing. Collective rules never match per-recipient events. Deploy: web only, no migrations.
+
+### Fixed
+
+- **Sprite setup: working login handoff, safe ordering, and wakes that actually fire** (#529) — harmonic-bridge 0.2.3 fixes three `setup-sprite` failures found in live testing: `sprite exec` allocates no PTY, so `claude /login` silently ran in print mode (now `--tty`, with the login verified afterward by checking for credentials on disk); the Claude Code login step ran before redeeming the 15-minute setup URL, so a slow OAuth could expire it (connect to Harmonic now comes first, harness auth last); and the daemon kept executing the stub wake command loaded at registration time, acking webhooks with 204 while every wake failed (a second reload now follows the harness setup steps). 0.2.3 is on npm.
+
 ## [1.57.0] - 2026-07-24
 
 ### Fixed
