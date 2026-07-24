@@ -42,10 +42,16 @@ class AnonymousReadAccessViewsTest < ActionDispatch::IntegrationTest
 
   # ---- Anon sees "Log in to comment" CTA on commentable show pages ----
   #
-  # Note: /n/:id does NOT render the comments section inline — it fetches it
-  # async from /n/:id/comments.html, which is not declared `allows_anonymous`.
-  # So anon viewers don't see comments on note pages, consistent with the
-  # scope of this feature (the three item show URLs only).
+  # The comment list is server-rendered inline on all three show pages. Live
+  # updates are the only thing anon viewers miss: the cable connection rejects
+  # anonymous users, so the refresh fetch to /comments.html never fires.
+
+  test "anon GET /n/:id shows a Log in to comment CTA" do
+    host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"
+    get @note.path
+    assert_response :success
+    assert_match(/Log in.*to comment/m, response.body)
+  end
 
   test "anon GET /d/:id shows a Log in to comment CTA" do
     host! "#{PUBLIC_SUBDOMAIN}.#{ENV.fetch("HOSTNAME", nil)}"

@@ -189,5 +189,8 @@
   <div class="pulse-confirmed-section" data-note-target="confirmSection">
     <%= render 'notes/confirm' %>
   </div>
+
+  <%= render 'shared/pulse_comments', commentable: note %>
+  <%= render 'shared/pulse_backlinks', resource: note %>
 </article>
 <% end %>

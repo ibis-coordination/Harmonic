@@ -6,6 +6,7 @@ export default class NoteController extends Controller {
 
   declare readonly confirmButtonTarget: HTMLElement
   declare readonly confirmButtonMessageTarget: HTMLElement
+  declare readonly hasConfirmButtonMessageTarget: boolean
   declare readonly confirmSectionTarget: HTMLElement
   declare readonly historyLogTarget: HTMLElement
 
@@ -47,12 +48,16 @@ export default class NoteController extends Controller {
     }
   }
 
+  // The message span is gone between confirm()'s pending-message swap and the
+  // button's removal, while these bindings are still live.
   confirmButtonMouseEnter(_event: Event): void {
     if (this.editingName) return
+    if (!this.hasConfirmButtonMessageTarget) return
     this.confirmButtonMessageTarget.style.textDecoration = "underline"
   }
 
   confirmButtonMouseLeave(_event: Event): void {
+    if (!this.hasConfirmButtonMessageTarget) return
     this.confirmButtonMessageTarget.style.textDecoration = ""
   }
 
