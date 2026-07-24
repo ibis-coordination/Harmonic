@@ -111,6 +111,7 @@ class HarmonicBridgeSetup < ApplicationRecord
       # that hasn't been staged yet. Other rule shapes (scheduled tasks,
       # collective-wide rules) are unrelated and stay out of scope.
       conflicting = AutomationRule.tenant_scoped_only(tenant_id)
+        .not_deleted
         .where(ai_agent_id: ai_agent_user_id)
         .where("(actions->>'webhook_url') IS NOT NULL OR name = ?", PENDING_RULE_NAME)
       raise ConflictingSetup if conflicting.exists?
@@ -190,6 +191,9 @@ class HarmonicBridgeSetup < ApplicationRecord
       rule = automation_rule
       token = api_token
       update!(api_token: nil, automation_rule: nil, webhook_registered_at: nil)
+      # Hard destroy is sanctioned here: the rule was minted moments ago by
+      # this setup's redeem! and never registered, so it has no history.
+      rule&.allow_hard_destroy = true
       rule&.destroy!
       token&.destroy!
     end
@@ -274,7 +278,7 @@ class HarmonicBridgeSetup < ApplicationRecord
   def no_existing_notification_webhook_for_agent
     return if ai_agent_user_id.blank? || tenant_id.blank?
 
-    existing = AutomationRule.tenant_scoped_only(tenant_id).where(
+    existing = AutomationRule.tenant_scoped_only(tenant_id).not_deleted.where(
       "ai_agent_id = :id AND (actions->>'webhook_url') IS NOT NULL",
       id: ai_agent_user_id
     )

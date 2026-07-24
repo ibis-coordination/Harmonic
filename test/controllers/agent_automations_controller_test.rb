@@ -243,13 +243,49 @@ class AgentAutomationsControllerTest < ActionDispatch::IntegrationTest
   test "parent can delete automation" do
     rule = create_automation_rule(name: "To Delete")
 
-    assert_difference "AutomationRule.unscoped.count", -1 do
+    assert_no_difference "AutomationRule.unscoped.count" do
       post "/ai-agents/#{@ai_agent.handle}/automations/#{rule.truncated_id}/actions/delete_automation_rule",
            headers: @headers
     end
 
     assert_response :success
     assert_includes response.body, "deleted"
+    rule.reload
+    assert_not_nil rule.deleted_at
+
+    # Soft-deleted rules disappear from the automations index.
+    get "/ai-agents/#{@ai_agent.handle}/automations", headers: @headers
+    assert_not_includes response.body, "To Delete"
+  end
+
+  test "delete succeeds for a rule with dispatch history and keeps that history" do
+    rule = create_automation_rule(name: "Ran Tasks")
+    task_run = AiAgentTaskRun.unscoped.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      initiated_by: @user,
+      automation_rule: rule,
+      task: "Do the thing",
+      max_steps: 10,
+      status: "completed",
+      success: true
+    )
+    rule_run = AutomationRuleRun.unscoped.create!(
+      tenant: @tenant,
+      automation_rule: rule,
+      ai_agent_task_run: task_run,
+      status: "completed"
+    )
+
+    post "/ai-agents/#{@ai_agent.handle}/automations/#{rule.truncated_id}/actions/delete_automation_rule",
+         headers: @headers
+
+    assert_response :success
+    rule.reload
+    assert_not_nil rule.deleted_at
+    # Attribution survives: the task run and rule run still reference the rule.
+    assert_equal rule.id, task_run.reload.automation_rule_id
+    assert_equal rule.id, rule_run.reload.automation_rule_id
   end
 
   # === Toggle Tests ===

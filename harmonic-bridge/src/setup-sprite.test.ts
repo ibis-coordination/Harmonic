@@ -51,8 +51,13 @@ function makeFakeExec(overrides?: {
       if (script.includes("npm install")) return { code: 0, stdout: "added 1 package\n", stderr: "" };
       if (script.includes("harmonic-bridge init")) return { code: 0, stdout: "", stderr: "" };
       if (script.includes("base64 -d")) return { code: 0, stdout: "", stderr: "" };
-      if (script.includes("test -d /home/sprite/.claude")) {
+      if (script.includes("test -f /home/sprite/.claude/.credentials.json")) {
         return { code: overrides?.claudeAuthed ? 0 : 1, stdout: "", stderr: "" };
+      }
+      if (script.includes("test -d /home/sprite/.claude")) {
+        // The Sprites base image ships ~/.claude (settings, hooks, skills)
+        // without credentials, so a bare directory check always passes.
+        return { code: 0, stdout: "", stderr: "" };
       }
       if (script.includes("services list")) return { code: 0, stdout: "[]", stderr: "" };
       if (script.includes("services create") || script.includes("services restart")) {
@@ -173,7 +178,8 @@ test("setup-sprite: --harness claude-code opts into the claude after_add steps a
   assert.match(config, /claude-code-harness/);
 
   assert.equal(interactive.calls.length, 1, "claude login handoff expected when not authed");
-  assert.ok(interactive.calls[0]!.join(" ").includes("claude login"), `got: ${interactive.calls[0]!.join(" ")}`);
+  // `claude login` is not a subcommand; /login is the CLI's login flow.
+  assert.ok(interactive.calls[0]!.join(" ").includes("claude /login"), `got: ${interactive.calls[0]!.join(" ")}`);
 });
 
 test("setup-sprite: skips the login handoff when claude is already authed in the sprite", async () => {

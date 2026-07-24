@@ -4,6 +4,7 @@ class AutomationRule < ApplicationRecord
   extend T::Sig
   include HasTruncatedId
   include MightNotBelongToCollective
+  include HasDeletedAt
 
   TRIGGER_TYPES = ["event", "schedule", "webhook", "manual"].freeze
 
@@ -27,7 +28,17 @@ class AutomationRule < ApplicationRecord
   before_validation :generate_webhook_secret, on: :create
   before_validation :generate_webhook_path, on: :create
 
-  scope :enabled, -> { where(enabled: true) }
+  # "Delete" on a rule soft-deletes it (HasDeletedAt#soft_delete!) so run
+  # history, task-run attribution, and bridge-setup references survive.
+  # Hard destroy cascades through automation_rule_runs (dependent:
+  # :destroy) and is reserved for data-retention tooling via
+  # `allow_hard_destroy`.
+  before_destroy :block_unsanctioned_hard_destroy, prepend: true
+  attr_accessor :allow_hard_destroy
+
+  # A soft-deleted rule must never fire regardless of its enabled flag —
+  # every dispatch path composes from this scope.
+  scope :enabled, -> { where(enabled: true, deleted_at: nil) }
   # Matches both the singular `event_type` (legacy) and `event_types` array forms.
   # Uses jsonb's `@>` containment operator (no `?` to escape) — array form must
   # be a JSON array of strings; the bind is a one-element JSON array literal.
@@ -50,7 +61,8 @@ class AutomationRule < ApplicationRecord
   # on (tenant_id, COALESCE(ai_agent_id, user_id)) — at most one row.
   scope :notification_webhook_for, lambda { |owner|
     column = owner.ai_agent? ? :ai_agent_id : :user_id
-    where(trigger_type: "event")
+    not_deleted
+      .where(trigger_type: "event")
       .where(column => owner.id)
       .where("(actions->>'webhook_url') IS NOT NULL")
   }
@@ -255,7 +267,7 @@ class AutomationRule < ApplicationRecord
     recipient_id = ai_agent_id || user_id
     return if recipient_id.nil?
 
-    scope = AutomationRule.tenant_scoped_only(tenant_id).where(
+    scope = AutomationRule.tenant_scoped_only(tenant_id).not_deleted.where(
       "(ai_agent_id = :rid OR user_id = :rid) AND (actions->>'webhook_url') IS NOT NULL",
       rid: recipient_id
     )
@@ -263,6 +275,23 @@ class AutomationRule < ApplicationRecord
     return unless scope.exists?
 
     errors.add(:base, "This user already has a notification webhook. Edit or delete the existing one first.")
+  end
+
+  sig { void }
+  def block_unsanctioned_hard_destroy
+    return if allow_hard_destroy
+
+    errors.add(:base, "Automation rules are soft-deleted (soft_delete!), not destroyed — destroying would cascade into run history.")
+    throw :abort
+  end
+
+  # Soft-deleting a rule also disables it and records who did it. The
+  # rule stops dispatching, disappears from listings, and stops counting
+  # for uniqueness and billing, while its row — and every run, task run,
+  # and bridge-setup row referencing it — survives.
+  sig { params(by: T.nilable(User)).returns(T::Hash[Symbol, T.untyped]) }
+  def soft_delete_updates(by)
+    { enabled: false, updated_by: by }
   end
 
   sig { void }

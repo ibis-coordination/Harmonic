@@ -178,6 +178,17 @@ class IncomingWebhooksControllerTest < ActionDispatch::IntegrationTest
 
   # === Not Found Tests ===
 
+  test "soft-deleted rule returns 404" do
+    @automation_rule.update!(deleted_at: Time.current) # enabled flag stays true
+    payload = { "event" => "test" }.to_json
+
+    post "/hooks/#{@webhook_path}",
+      params: payload,
+      headers: valid_webhook_headers(payload)
+
+    assert_response :not_found
+  end
+
   test "unknown webhook_path returns 404" do
     payload = { "event" => "test" }.to_json
 

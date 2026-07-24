@@ -68,6 +68,15 @@ class AutomationSchedulerJobTest < ActiveSupport::TestCase
     end
   end
 
+  test "does not process soft-deleted rules" do
+    rule = create_scheduled_rule(cron: "* * * * *")
+    rule.update!(deleted_at: Time.current) # enabled flag stays true
+
+    assert_no_difference "AutomationRuleRun.count" do
+      AutomationSchedulerJob.perform_now
+    end
+  end
+
   # === Cron Expression Matching (Time-Frozen Tests) ===
 
   test "fires rule at exact cron time" do

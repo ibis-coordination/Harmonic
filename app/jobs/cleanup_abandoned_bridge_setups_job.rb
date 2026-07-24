@@ -31,6 +31,9 @@ class CleanupAbandonedBridgeSetupsJob < SystemJob
         rule = AutomationRule.unscoped_for_system_job.find_by(id: setup.automation_rule_id)
         token = ApiToken.unscoped_for_system_job.find_by(id: setup.api_token_id)
         setup.destroy!
+        # Hard destroy is sanctioned here, as in revert_completion!: the
+        # rule was minted by an unfinished redeem and never registered.
+        rule&.allow_hard_destroy = true
         rule&.destroy!
         token&.destroy!
       end

@@ -195,13 +195,67 @@ class NotificationWebhooksControllerTest < ActionDispatch::IntegrationTest
 
   # === DELETE ===
 
-  test "delete removes the rule" do
-    create_webhook_for(@user)
+  test "delete soft-deletes the rule and keeps its row" do
+    rule = create_webhook_for(@user)
 
-    assert_difference "AutomationRule.count", -1 do
+    assert_no_difference "AutomationRule.unscoped.count" do
       delete "/u/#{@user_handle}/webhook"
     end
     assert_response :redirect
+
+    rule.reload
+    assert_not_nil rule.deleted_at
+    assert_not rule.enabled?
+
+    # The webhook page treats the soft-deleted rule as gone: create form again.
+    get "/u/#{@user_handle}/webhook"
+    assert_select 'form input[name="webhook_url"]'
+  end
+
+  test "delete succeeds for a bridge-connected webhook and keeps the bridge setup row" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    bridge_setup = HarmonicBridgeSetup.create!(tenant: @tenant, ai_agent_user: @external_agent, created_by_user: @user)
+    Tenant.clear_thread_scope
+    rule = create_webhook_for(@external_agent)
+    bridge_setup.update!(automation_rule: rule, redeemed_at: Time.current, webhook_registered_at: Time.current)
+
+    delete "/ai-agents/#{@external_agent_handle}/webhook"
+    assert_response :redirect
+
+    rule.reload
+    assert_not_nil rule.deleted_at
+    bridge_setup.reload
+    assert_equal rule.id, bridge_setup.automation_rule_id
+  end
+
+  test "a replacement webhook can be created after deleting the previous one" do
+    create_webhook_for(@user)
+    delete "/u/#{@user_handle}/webhook"
+
+    patch "/u/#{@user_handle}/webhook", params: { webhook_url: "https://replacement.example.com/hook" }
+    assert_redirected_to "/u/#{@user_handle}/webhook"
+
+    assert AutomationRule.unscoped.where(user_id: @user.id)
+      .exists?(["actions->>'webhook_url' = ?", "https://replacement.example.com/hook"])
+  end
+
+  test "a soft-deleted webhook no longer counts toward has_notification_webhook?" do
+    create_webhook_for(@user)
+    assert @user.has_notification_webhook?([@tenant.id])
+
+    delete "/u/#{@user_handle}/webhook"
+    assert_not @user.has_notification_webhook?([@tenant.id])
+  end
+
+  test "delete syncs the subscription quantity down for billable humans" do
+    create_webhook_for(@user)
+    StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(4)}", active: true)
+
+    synced = []
+    StripeService.stub :sync_subscription_quantity!, ->(user) { synced << user.id } do
+      delete "/u/#{@user_handle}/webhook"
+    end
+    assert_equal [@user.id], synced
   end
 
   # === Rotate ===

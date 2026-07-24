@@ -40,6 +40,17 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     s
   end
 
+  # Each agent gets its own sprite: the command names the sprite after the
+  # agent (lowercased — sprite names become DNS subdomains).
+  def sprite_command_re(setup)
+    Regexp.new(
+      "npx @ibis-coordination/harmonic-bridge setup-sprite " \
+      "--from \\S+/bridge-setups/#{Regexp.escape(setup.public_id)} " \
+      "--sprite-name harmonic-#{Regexp.escape(@agent_handle.downcase)} " \
+      "--harness claude-code"
+    )
+  end
+
   # === POST execute_connect_harmonic_bridge ===
 
   test "POST execute_connect_harmonic_bridge: mints a setup and redirects to its show page" do
@@ -100,14 +111,12 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     get show_path(setup.public_id)
     assert_response :ok
 
-    sprite_command_re =
-      %r{npx @ibis-coordination/harmonic-bridge setup-sprite --from \S+/bridge-setups/#{Regexp.escape(setup.public_id)} --harness claude-code}
     add_command_re = %r{harmonic-bridge add --from \S+/bridge-setups/#{Regexp.escape(setup.public_id)}}
 
-    assert_match(sprite_command_re, response.body)
+    assert_match(sprite_command_re(setup), response.body)
     assert_match(add_command_re, response.body)
     # Sprites is one option among others, listed after the generic host path.
-    assert_operator response.body.index(add_command_re), :<, response.body.index(sprite_command_re)
+    assert_operator response.body.index(add_command_re), :<, response.body.index(sprite_command_re(setup))
     assert_no_match(/recommended/i, response.body)
     # Sprites setup itself is Fly's product — link to their docs, don't inline them.
     assert_match(/docs\.sprites\.dev/, response.body)
@@ -118,10 +127,7 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     setup = make_setup
     get show_path(setup.public_id), headers: { "Accept" => "text/markdown" }
     assert_response :ok
-    assert_match(
-      %r{npx @ibis-coordination/harmonic-bridge setup-sprite --from \S+/bridge-setups/#{Regexp.escape(setup.public_id)} --harness claude-code},
-      response.body
-    )
+    assert_match(sprite_command_re(setup), response.body)
     assert_match(%r{harmonic-bridge add --from \S+/bridge-setups/#{Regexp.escape(setup.public_id)}}, response.body)
   end
 
