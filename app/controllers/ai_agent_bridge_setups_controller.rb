@@ -33,8 +33,9 @@ class AiAgentBridgeSetupsController < ApplicationController
     @bridge_add_command = "harmonic-bridge add --from #{@public_setup_url}"
     # Each agent gets its own sprite — its own environment/workspace — so the
     # command names the sprite after the agent. Lowercased and hyphenated:
-    # sprite names become DNS subdomains (<name>-<suffix>.sprites.app).
-    sprite_name = "harmonic-#{params[:handle]}".downcase.gsub(/[^a-z0-9-]+/, "-")
+    # sprite names become DNS subdomains (<name>-<suffix>.sprites.app). Built
+    # from the canonical stored handle, not params (Brakeman taint).
+    sprite_name = "harmonic-#{@ai_agent_handle}".downcase.gsub(/[^a-z0-9-]+/, "-")
     @sprite_setup_command =
       "npx @ibis-coordination/harmonic-bridge setup-sprite --from #{@public_setup_url} --sprite-name #{sprite_name} --harness claude-code"
   end
@@ -129,6 +130,7 @@ class AiAgentBridgeSetupsController < ApplicationController
     return render(status: :not_found, plain: "404 Not Found") if tu.nil?
 
     @ai_agent = tu.user
+    @ai_agent_handle = tu.handle
     render(status: :not_found, plain: "404 Not Found") unless @ai_agent.external_ai_agent?
   end
 
