@@ -2,6 +2,7 @@
 
 class ApiToken < ApplicationRecord
   extend T::Sig
+  include HasDeletedAt
 
   self.implicit_order_column = "created_at"
   belongs_to :tenant
@@ -155,11 +156,6 @@ class ApiToken < ApplicationRecord
   end
 
   sig { returns(T::Boolean) }
-  def deleted?
-    !deleted_at.nil?
-  end
-
-  sig { returns(T::Boolean) }
   def sys_admin?
     sys_admin == true
   end
@@ -240,10 +236,11 @@ class ApiToken < ApplicationRecord
     token
   end
 
+  # Token revocation is the HasDeletedAt soft delete under its historical
+  # name; no actor column exists on api_tokens, so nothing records `by`.
   sig { void }
   def delete!
-    self.deleted_at ||= T.cast(Time.current, ActiveSupport::TimeWithZone)
-    save!
+    soft_delete!
   end
 
   sig { void }
