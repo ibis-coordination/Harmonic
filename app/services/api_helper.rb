@@ -966,15 +966,24 @@ class ApiHelper
 
   # Eligibility rules arrive as the compact grammar ("users:alice,bob
   # role:admin") from the agent surfaces and the HTML form, or as a rule hash
-  # from JSON callers. Absent and blank params are left alone, so an update that
-  # says nothing about eligibility does not silently reset it — resetting takes
-  # an explicit "open".
+  # from JSON callers.
+  #
+  # Absent means "no change", so a partial update that says nothing about
+  # eligibility does not reset it. Present-but-empty means "no restriction" —
+  # the settings form always submits both fields, so someone who clears one to
+  # lift a restriction has to get what they asked for rather than a successful
+  # redirect that changed nothing.
   sig { returns(T::Hash[Symbol, T.untyped]) }
   private def eligibility_attrs
     attrs = T.let({}, T::Hash[Symbol, T.untyped])
     [:voter_eligibility, :proposer_eligibility].each do |key|
       next unless params.has_key?(key)
-      next if params[key].blank?
+      next if params[key].nil?
+
+      if params[key].blank?
+        attrs[key] = EligibilityRule.default.to_h
+        next
+      end
 
       begin
         attrs[key] = EligibilityRule.parse(params[key], collective: current_collective).to_h
@@ -1282,30 +1291,6 @@ class ApiHelper
       )
     end
     resource
-  end
-
-  # Update option title
-  sig { params(option: Option).returns(Option) }
-  def update_option(option)
-    ActiveRecord::Base.transaction do
-      option.title = params[:title] if params[:title].present?
-      DecisionActionService.update_option!(option: option, actor: current_user, representation_session: current_representation_session)
-      if current_representation_session
-        current_representation_session.record_event!(
-          request: request,
-          action_name: "update_option",
-          resource: option,
-          context_resource: option.decision
-        )
-      end
-    end
-    option
-  end
-
-  # Delete an option
-  sig { params(option: Option).void }
-  def delete_option(option)
-    DecisionActionService.remove_option!(decision: T.must(option.decision), option: option, actor: current_user, representation_session: current_representation_session)
   end
 
   # Duplicate a decision

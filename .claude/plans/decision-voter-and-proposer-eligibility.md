@@ -126,6 +126,12 @@ memo is dropped by the rule writers and by `reload` — the latter swaps
 - **Nil user is never eligible.** Decisions are anonymously readable on tenants
   in `ANON_READABLE_TENANT_SUBDOMAINS`, so both predicates take a nilable user
   and return false.
+- **The electorate is named to everyone who can read the decision** — page,
+  markdown, and `api_json` alike. An electorate you cannot see is one you cannot
+  contest, and every clause type references data the reader can already see:
+  public lists, roles shown in member listings, and named members whose ballots
+  the voters page publishes anyway. Hiding the rule would also be futile, since
+  a restricted decision reveals its electorate as it votes.
 - **A dangling clause matches nobody; it does not void the rule.** A deleted
   `UserList` or a removed user leaves the other clauses working. Under union
   semantics this narrows rather than widens — the safe direction — and avoids
@@ -148,6 +154,11 @@ memo is dropped by the rule writers and by `reload` — the latter swaps
   containing "everyone" collapses to everyone; anything beside it is dead weight
   that reads as if it restricted something.
 - `role` in `CollectiveMember.valid_roles`.
+- **`voter_eligibility` must be `open` unless the subtype is `vote`.** Lotteries
+  are drawn and executive decisions are settled by their decision maker, so a
+  voter rule on either is inert; rejecting it beats accepting a restriction that
+  silently does nothing. `proposer_eligibility` applies to every subtype — a
+  lottery's entries are options.
 - `list_id` resolves to a non-deleted, **public** `UserList` in this collective.
   A private list is owner-only, but a decision publishes its voters by name, so
   a private-list electorate would convert owner-only membership into
@@ -169,6 +180,12 @@ voter_eligibility: users:alice,bob role:admin list:abc123
 
 Handles are input-only and resolve to UUIDs immediately, so a stored rule never
 rots on rename. `to_s` renders back to this form for the markdown views.
+
+An **absent** param means "no change", so a partial update that says nothing
+about eligibility does not reset it. A **present-but-empty** param means "no
+restriction": the settings form always submits both fields, so someone who
+clears one to lift a restriction has to get what they asked for rather than a
+successful redirect that changed nothing.
 
 ### Composition with `options_open`
 
@@ -320,11 +337,6 @@ independent of each other.
 
 ## Open questions
 
-- **Electorate disclosure.** `describe` and `api_json` both expose the rule,
-  including the members of a `users` clause, to anyone who can read the
-  decision. One policy should cover both surfaces. Start with the full
-  description for eligible users and a generic "voting is restricted" for
-  everyone else; revisit if it confuses people.
 - **`list` clauses do not survive collective export/import** — `UserList` is not
   exported, so the clause dangles and matches nobody in the target collective.
   Acceptable under per-clause fail-closed, but if lists become portable this

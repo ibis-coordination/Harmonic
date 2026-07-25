@@ -72,14 +72,6 @@ class DecisionProposerEligibilityTest < ActionDispatch::IntegrationTest
     assert_not @decision.can_add_options?(participant_for(@bob))
   end
 
-  test "update and delete follow the same rule as adding" do
-    restrict_proposing_to(@alice)
-
-    assert_not @decision.can_update_options?(participant_for(@bob))
-    assert_not @decision.can_delete_options?(participant_for(@bob))
-    assert @decision.can_update_options?(participant_for(@alice))
-  end
-
   # ---- composition with options_open ----
 
   test "options_open false still restricts to the creator under an open rule" do

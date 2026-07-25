@@ -192,16 +192,6 @@ class Decision < ApplicationRecord
     false
   end
 
-  sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
-  def can_update_options?(participant)
-    can_add_options?(participant)
-  end
-
-  sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
-  def can_delete_options?(participant)
-    can_add_options?(participant)
-  end
-
   sig { params(participant_or_user: T.nilable(T.any(DecisionParticipant, User))).returns(T::Boolean) }
   def can_edit_settings?(participant_or_user)
     return false if participant_or_user.nil?
@@ -365,6 +355,16 @@ class Decision < ApplicationRecord
       end
       rule.validation_errors(collective: T.must(collective)).each { |message| errors.add(attribute, message) }
     end
+
+    # Only `vote` decisions take votes — lotteries are drawn and executive
+    # decisions are settled by their decision maker — so a voter rule on either
+    # would be inert. Rejecting it beats accepting a restriction that silently
+    # does nothing.
+    return if is_vote? || voter_eligibility_rule.open?
+
+    errors.add(:voter_eligibility, "does not apply to #{subtype} decisions, which do not take votes")
+  rescue EligibilityRule::ParseError
+    nil # already reported per attribute above
   end
 
   # Track the creator of this decision

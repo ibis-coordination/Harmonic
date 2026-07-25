@@ -29,8 +29,8 @@
       </ul>
     <% elsif !@decision.eligible_voter?(@current_user) %>
       <%# Outside the electorate: options are visible, the ballot is not. The
-          message stays generic — naming the rule would disclose who is in it. %>
-      <span class="pulse-section-hint">Voting on this decision is restricted. You can view the options but not vote.</span>
+          rule is named — you cannot contest an electorate you cannot see. %>
+      <span class="pulse-section-hint">Voting is limited to <%= @decision.voter_eligibility_rule.describe(collective: @current_collective) %>. You can view the options but not vote.</span>
       <ul class="pulse-options-list">
         <span data-decision-target="list">
           <%= render 'options_list_items' %>

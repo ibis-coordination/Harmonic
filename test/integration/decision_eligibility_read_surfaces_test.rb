@@ -78,7 +78,7 @@ class DecisionEligibilityReadSurfacesTest < ActionDispatch::IntegrationTest
     assert_no_match(/eligible to vote/i, response.body)
   end
 
-  test "markdown tells an ineligible reader the decision is restricted without naming the electorate" do
+  test "markdown names the electorate to an ineligible reader" do
     restrict_voting_to(@alice)
     sign_in_as(@bob, tenant: @tenant)
 
@@ -86,8 +86,34 @@ class DecisionEligibilityReadSurfacesTest < ActionDispatch::IntegrationTest
         headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    assert_match(/restricted/i, response.body)
-    assert_no_match(/#{Regexp.escape(@alice.name)}/, response.body)
+    # An electorate you cannot see is one you cannot contest, and every clause
+    # type references data this reader can already see.
+    assert_match(/#{Regexp.escape(@alice.name)}/, response.body)
+    assert_match(/not eligible/i, response.body)
+  end
+
+  test "the decision page names the electorate to someone outside it" do
+    restrict_voting_to(@alice)
+    sign_in_as(@bob, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+
+    assert_response :success
+    assert_match(/#{Regexp.escape(@alice.name)}/, response.body)
+  end
+
+  test "a lottery does not claim a voting restriction" do
+    lottery = scoped do
+      Decision.create!(tenant: @tenant, collective: @collective, created_by: @user,
+                       subtype: "lottery", question: "Draw?", deadline: 1.week.from_now)
+    end
+    sign_in_as(@bob, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/d/#{lottery.truncated_id}",
+        headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_no_match(/eligible to vote/i, response.body)
   end
 
   test "markdown tells an eligible reader they can vote" do

@@ -139,6 +139,32 @@ class DecisionEligibilityTest < ActiveSupport::TestCase
     assert @decision.save
   end
 
+  test "voter eligibility is rejected on a lottery, which takes no votes" do
+    lottery = Decision.create!(tenant: @tenant, collective: @collective, created_by: @user,
+                               subtype: "lottery", question: "Draw?", deadline: 1.week.from_now)
+    lottery.voter_eligibility = { "any_of" => [{ "type" => "users", "user_ids" => [@user.id] }] }
+
+    assert_not lottery.valid?
+    assert lottery.errors[:voter_eligibility].any?
+  end
+
+  test "voter eligibility is rejected on an executive decision" do
+    executive = Decision.create!(tenant: @tenant, collective: @collective, created_by: @user,
+                                 subtype: "executive", question: "Decide?", deadline: 1.week.from_now)
+    executive.voter_eligibility = { "any_of" => [{ "type" => "users", "user_ids" => [@user.id] }] }
+
+    assert_not executive.valid?
+    assert executive.errors[:voter_eligibility].any?
+  end
+
+  test "proposer eligibility is allowed on a lottery, whose entries are options" do
+    lottery = Decision.create!(tenant: @tenant, collective: @collective, created_by: @user,
+                               subtype: "lottery", question: "Draw?", deadline: 1.week.from_now)
+    lottery.proposer_eligibility = { "any_of" => [{ "type" => "users", "user_ids" => [@user.id] }] }
+
+    assert lottery.valid?
+  end
+
   # ---- memoization ----
 
   test "repeated eligibility checks for the same user do not re-query" do

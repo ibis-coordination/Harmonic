@@ -143,8 +143,13 @@ class DecisionVoterEligibilityTest < ActiveSupport::TestCase
       question: "Executive?", deadline: 1.week.from_now, options_open: false,
     )
     option = create_option(decision: executive, created_by: @user, title: "Only")
-    # A restrictive rule that the decision maker does not match.
-    executive.update!(voter_eligibility: { "any_of" => [{ "type" => "users", "user_ids" => [@user.id] }] })
+    # A restrictive rule the decision maker does not match. Validation refuses
+    # this on an executive decision, so write it the only way it can occur in
+    # practice — an import, which saves without validating.
+    executive.update_column(
+      :voter_eligibility, { "any_of" => [{ "type" => "users", "user_ids" => [@user.id] }] }
+    )
+    executive.reload
     vote = build_vote(decision_maker, decision: executive, option: option)
 
     assert_nothing_raised do

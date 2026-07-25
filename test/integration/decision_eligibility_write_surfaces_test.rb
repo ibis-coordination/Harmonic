@@ -129,6 +129,38 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     assert_equal({ "any_of" => [{ "type" => "open" }] }, rule)
   end
 
+  test "clearing the field resets the rule to open" do
+    scoped do
+      Decision.find(@decision.id)
+        .update!(voter_eligibility: { "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] })
+    end
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
+         params: { question: @decision.question, voter_eligibility: "", deadline_option: "1_week" }
+
+    assert_response :redirect
+    rule = scoped { Decision.find(@decision.id).voter_eligibility }
+    assert_equal({ "any_of" => [{ "type" => "open" }] }, rule,
+                 "clearing the field must remove the restriction, not silently keep it")
+  end
+
+  test "omitting the param entirely leaves the rule alone" do
+    scoped do
+      Decision.find(@decision.id)
+        .update!(voter_eligibility: { "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] })
+    end
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
+         params: { question: "Still restricted?" },
+         headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    rule = scoped { Decision.find(@decision.id).voter_eligibility }
+    assert_equal({ "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] }, rule)
+  end
+
   # ---- audit ----
 
   test "an eligibility change is audited as JSON, not a Ruby hash literal" do
