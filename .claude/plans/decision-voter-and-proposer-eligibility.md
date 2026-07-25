@@ -1,6 +1,6 @@
 # Decision Voter & Proposer Eligibility
 
-Status: planning. Standalone slice carved out of
+Status: implemented — all six phases, PR #534. Standalone slice carved out of
 [decision-semantics-and-action-approval.md](decision-semantics-and-action-approval.md)
 (gap #2, "no eligibility — anyone with access can vote; no declared
 electorate").
@@ -103,7 +103,9 @@ the array is variable-length, and `decision.changes` diffs the column as a unit
 so an audit entry reads as one coherent before/after value. GIN stays available
 if "decisions I can vote on" ever needs an index.
 
-Defaults make every existing row and unmodified create path behave as today.
+Both columns are nullable with **no default**, so every existing row and every
+unmodified create path behaves as today. Absence is the representation of "no
+restriction" — there is no sentinel value standing in for it.
 
 **Always assign a whole rule** (`decision.voter_eligibility = rule.to_h`).
 In-place mutation of a jsonb attribute is not dirty-tracked, so it would skip
@@ -111,7 +113,7 @@ both the audit entry and the save.
 
 ### `UserSet` value object
 
-A PORO (`app/models/eligibility_rule.rb`, not `ActiveRecord`) owns the grammar
+A PORO (`app/models/user_set.rb`, not `ActiveRecord`) owns the grammar
 so `Decision` stays thin and the logic is unit-testable without a database:
 `parse(jsonb_or_compact_string, collective:)`, `matches?(user)`, `to_h`,
 `to_s`, `validation_errors(collective:)`, `describe`.
@@ -166,7 +168,7 @@ memo is dropped by the rule writers and by `reload` — the latter swaps
   subset of collective members, so a union containing `members` collapses to it;
   anything beside it is dead weight that reads as if it restricted something.
 - `role` in `CollectiveMember.valid_roles`.
-- **`voter_eligibility` must be `open` unless the subtype is `vote`.** Lotteries
+- **`voter_eligibility` must be absent unless the subtype is `vote`.** Lotteries
   are drawn and executive decisions are settled by their decision maker, so a
   voter rule on either is inert; rejecting it beats accepting a restriction that
   silently does nothing. `proposer_eligibility` applies to every subtype — a
@@ -218,10 +220,14 @@ end
 
 `options_open` is the coarse switch (everyone / creator only), eligibility the
 fine-grained restriction. The AND is additive, so a default-valued decision
-behaves byte-for-byte as today. The UI presents one control per set so the form
-cannot produce the incoherent combination (`options_open: false` plus a rule the
-creator does not match, which resolves to nobody). API and MCP can set them
-independently; the AND rule is documented there.
+behaves byte-for-byte as today. **The forms no longer offer an `options_open`
+control at all** — "who can add options" is proposer eligibility now, and
+creator-only is expressible as a `user:` clause naming the creator. Two controls
+for one question is one too many, and dropping the dropdown is also what keeps
+the form from producing the incoherent combination (`options_open: false` plus a
+rule the creator does not match, which resolves to nobody). The column, its
+export/import serialization, and its audit metadata are untouched, and API and
+MCP can still set both independently; the AND rule is documented there.
 
 ### Enforcement
 
@@ -235,11 +241,13 @@ independently; the AND rule is documented there.
    - Checks **the participant's user**, not `actor:`. Under representation those
      coincide, but a trustee must be judged against the represented user's
      eligibility, and the REST path can target a participant directly.
-2. The `vote` action's `authorization:` becomes a **Proc** calling
-   `AUTHORIZATION_CHECKS[:collective_member]` and then `eligible_voter?` when
-   `context[:resource]` is a `Decision`. It must be a Proc, never an array of
-   symbols — arrays are OR in that module, which would *widen* access. Stays
-   permissive when `:resource` is absent, per the listing convention. On routes
+2. The `vote` action's `authorization:` becomes
+   `ActionAuthorization.all_of(:collective_member, :eligible_voter)`. It must
+   conjoin, never be an array of symbols — arrays are OR in that module, which
+   would *widen* access, and `all_of` exists so that the conjunction has a name
+   rather than being re-derived as an inline Proc per call site. The
+   `eligible_voter` check stays permissive when `:resource` is absent or is not
+   a `Decision`, per the listing convention. On routes
    where `current_resource` resolves to a `DecisionParticipant` rather than the
    decision, this layer no-ops and `cast_vote!` is the guard.
 3. HTML: `submit_votes` early-returns with an alert; `show.html.erb` renders the
@@ -249,7 +257,8 @@ independently; the AND rule is documented there.
 
 1. `can_add_options?` as above — covers the API helper, the options partial, and
    the controller header labels in one edit.
-2. The `add_options` action gets the parallel Proc, same constraints.
+2. The `add_options` action gets the parallel
+   `all_of(:collective_member, :eligible_proposer)`, same constraints.
 
 ### Audit
 
@@ -316,9 +325,13 @@ independent of each other.
 
 5. **Write surfaces.** Params on `create_decision` and
    `update_decision_settings` in `ACTION_DEFINITIONS`, `ApiHelper`, and the
-   `decision_params` permit list. Clause-builder UI in `new.html.erb` and
-   `settings.html.erb` — add people / add a role / add a list as removable
-   chips, once per set. The `update_decision!` JSON-encoding patch;
+   `decision_params` permit list. Eligibility fields on `new.html.erb` and
+   `settings.html.erb`, once per set. **Shipped as a text field taking the
+   compact grammar, not the clause-builder chips originally planned** — a
+   narrower control cannot represent a multi-clause union, so it would silently
+   flatten any set built through the API the moment someone opened the form.
+   The syntax lives behind a tooltip pointing at `/help/user-sets` rather than
+   in an inline description. The `update_decision!` JSON-encoding patch;
    `record_creation!` metadata and the pinned PII test.
    *Tests:* set a union through the compact grammar and the HTML form; reject
    invalid clauses on both; the change appears in `decision_updated` metadata as
