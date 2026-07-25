@@ -121,4 +121,4 @@ Tests: each row of the behavior table above. Resource-less action → no rows. C
 - UI for browsing the new table (Phase 2 principal-review UI).
 - Backfilling historical attribution for external MCP traffic since Phase 1 shipped.
 - Per-resource backlink UI for external-agent creations. Today `AuthorComponent` and `CommentComponent` render a "Created by AI Agent Task Run #X" link via `AiAgentTaskRunResource.task_run_for(resource)`. Internal-agent links keep working unchanged after this branch (dual-write keeps the existing path populated); external-agent creations resolve to nil and silently render no link until Phase 2 ships a per-tool-call detail page.
-- Retention — rides along with `McpToolCallLog` ([mcp-audit-log-retention.md](mcp-audit-log-retention.md)).
+- Retention — rides along with `McpToolCallLog` ([mcp-audit-log-retention.md](../../../parked/mcp-audit-log-retention.md)).

@@ -1,6 +1,6 @@
 # MCP Client Connect Flow
 
-> **Status: active.** Phase 2 OAuth ([mcp-oauth-authz-server.md](mcp-oauth-authz-server.md)) is deferred. This plan delivers the Connect-button product surface without an authorization server, leaning on each harness's existing install primitive.
+> **Status: active.** Phase 2 OAuth ([mcp-oauth-authz-server.md](../../../parked/mcp-oauth-authz-server.md)) is deferred. This plan delivers the Connect-button product surface without an authorization server, leaning on each harness's existing install primitive.
 
 ## Goal
 
@@ -117,7 +117,7 @@ Audit found the existing `/help/*` corpus already covers every proposed topic: `
 ## Out of scope
 
 - **Claude Desktop** — needs separate `.dxt`-or-`mcp-remote`-shim decision; not in v1.
-- **OAuth 2.1 authorization server** — deferred (see [mcp-oauth-authz-server.md](mcp-oauth-authz-server.md)).
+- **OAuth 2.1 authorization server** — deferred (see [mcp-oauth-authz-server.md](../../../parked/mcp-oauth-authz-server.md)).
 - **Connected Apps page** — using the existing tokens index for now; can split into a dedicated UI later if `client_name` columns prove useful enough.
 - **Webhook coupling** — all v1 harnesses are one-shot or IDE-bound; webhook setup waits for daemon-style harnesses that can actually receive them.
 - **One-time-view install page** — install URLs are normal authenticated routes; user can refresh to re-see the same install action. Token lifecycle is the only security boundary.

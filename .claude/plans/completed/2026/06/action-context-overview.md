@@ -1,9 +1,11 @@
 # Action context — overview & north-star
 
+> **Shipped** as Stages 1–2: MCP `context` enforcement (c654fece, 2026-06-17) and representation wiring (6e2e5ca6, 2026-06-19). Stage 3 (AgentSession rename + session gate) is parked, not scheduled: [stage 3](../../../parked/action-context-stage-3-agent-sessions.md).
+
 > **Status: design north-star.** Shared concepts and end-state for the `context` work. Delivered in three independently shippable stages, each with its own plan doc:
 > - [Stage 1 — validations](action-context-stage-1-validations.md): `visibility`, `identity`, `intention`. Depends on nothing.
 > - [Stage 2 — representation](action-context-stage-2-representation.md): `representation_session_id` + `identity.on_behalf_of`, wiring agents into the *existing* representation mechanism. Depends on Stage 1.
-> - [Stage 3 — agent sessions](action-context-stage-3-agent-sessions.md): rename `AiAgentTaskRun` → `AgentSession` + the `agent_session_id` gate. Depends on Stages 1–2.
+> - [Stage 3 — agent sessions](../../../parked/action-context-stage-3-agent-sessions.md): rename `AiAgentTaskRun` → `AgentSession` + the `agent_session_id` gate. Depends on Stages 1–2.
 
 Require agents to declare a `context` block on every write action — what space they think they're in, who they think they are (and whose authority they act under), and what they're trying to do. The server validates the checkable claims against ground truth and rejects on mismatch; it records the rest into the audit trail. This catches "right action, wrong context" — wrong space, wrong identity — *before* it commits, and turns the agent's mental model into a first-class, auditable signal.
 
@@ -37,7 +39,7 @@ The fields are not peers: most are **gates** (validated against ground truth, mi
 
 ## Cross-cutting principles
 
-- **Agents only.** The requirement keys off `ai_agent?` / `CapabilityCheck.restricted_user?` ([capability_check.rb:269](app/services/capability_check.rb#L269)). Human browser/API callers are exempt — they never send `context`.
+- **Agents only.** The requirement keys off `ai_agent?` / `CapabilityCheck.restricted_user?` ([capability_check.rb:269](../../../app/services/capability_check.rb#L269)). Human browser/API callers are exempt — they never send `context`.
 - **Validate against resolved ground truth, not re-parsed strings.** Compare `visibility` against the collective the action actually resolves to, `identity` against the token user, `representation_session_id` against the live `RepresentationSession`. Never a parallel parser that can drift from what the request actually does.
 - **The redundancy is the feature.** `identity.actor` overlaps the token; `on_behalf_of` overlaps `representation_session_id`; `agent_session_id` overlaps the token's bound context (internal). Restating these on every write is deliberate ceremony — it reinforces the concepts in the agent's model and makes a drifted model fail loudly. We do not trim the overlap.
 - **Helpful, machine-readable errors.** On any gate mismatch, reject with `422 { error: "<code>", expected, got }`. Hard-fail recovery depends on the agent parsing these, so the codes are load-bearing (e.g. `context_missing`, `visibility_mismatch`, `identity_mismatch`, `representation_inactive`, `session_mismatch`).

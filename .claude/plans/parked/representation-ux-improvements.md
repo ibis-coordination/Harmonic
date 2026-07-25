@@ -55,4 +55,4 @@ Problem inventory for the representation surface, scoped to items not yet shippe
 
 - [`representation-routes-refactor.md`](representation-routes-refactor.md) — `/representations` as a first-class resource, with the session show page, dashboard, and end-of-session notification work folded in.
 - [`help-topics-discovery-refactor.md`](help-topics-discovery-refactor.md) — adjacent: the documented discovery path for agents only works if agents can find the docs reliably.
-- [`handle-model-unification.md`](handle-model-unification.md) — bigger restructuring of how user and collective handles relate; touches some of the vocabulary above.
+- [`handle-model-unification.md`](../completed/2026/06/handle-model-unification.md) — bigger restructuring of how user and collective handles relate; touches some of the vocabulary above.

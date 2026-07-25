@@ -24,14 +24,14 @@ Subtypes share 90%+ behavior with their parent. A simple string column with vali
 
 Implementation order (simplest to most complex):
 
-1. [Foundation](content-subtypes-foundation.md) — add `subtype` column + model infrastructure
-2. [Statementable](statementable.md) — statement-as-note concern for decisions, commitments, representation sessions
-3. [Executive Decision](content-subtypes-decision-executive.md) — designated decision maker, no voting
+1. [Foundation](../04/content-subtypes-foundation.md) — add `subtype` column + model infrastructure
+2. [Statementable](../04/statementable.md) — statement-as-note concern for decisions, commitments, representation sessions
+3. [Executive Decision](../04/content-subtypes-decision-executive.md) — designated decision maker, no voting
 4. [Commitment Policy](content-subtypes-commitment-policy.md) — ongoing rules, no deadline
 4. [Calendar Event](content-subtypes-calendar-event.md) — date/time/location + RSVP
 5. [Lottery Decision](content-subtypes-lottery.md) — random draw from options
-6. [Reminder Note](content-subtypes-reminder.md) — resurface on schedule
-7. [Table Note](content-subtypes-data.md) — structured tabular data with row-level operations
+6. [Reminder Note](../04/content-subtypes-reminder.md) — resurface on schedule
+7. [Table Note](../04/content-subtypes-data.md) — structured tabular data with row-level operations
 
 ## Help Documentation
 

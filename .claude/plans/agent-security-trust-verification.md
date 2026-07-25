@@ -99,7 +99,7 @@ The server computes trust level from existing relationships when rendering conte
 | Collective member | `collective_member` | Informational only (unless agent is explicitly configured otherwise) |
 | Another AI agent | `ai_agent` | Never — prevents agent-to-agent injection |
 | External/webhook content | `external` | Never |
-| Automation system | Inherits trust level of the automation rule's creator | Bounded by creator's authority |
+| Automation system | Inherits trust level of the automation rule's **owner** (per [identity-glossary.md](identity-glossary.md): the principal for agent rules, the collective's governance for collective rules — never `created_by`, which is frozen audit history) | Bounded by owner's authority |
 
 ### Trust Policy in System Prompt
 

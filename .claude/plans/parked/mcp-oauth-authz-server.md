@@ -1,10 +1,10 @@
 # MCP OAuth 2.1 Authorization Server
 
-> **Status: deferred.** Phase 2 OAuth is on hold in favor of [mcp-client-connect-flow.md](mcp-client-connect-flow.md), which delivers the Connect-button UX without an authorization server by rendering per-harness install actions (deeplink, CLI command, or config snippet) prefilled with a freshly-minted `ApiToken`. Full OAuth becomes worth revisiting if/when third-party MCP-client connectivity, cross-tenant agent federation, regulated-industry procurement, or a spec-strict client that rejects manual config becomes a concrete demand. Until then this doc is reference material for what a full Phase 2 would look like; it is not the active plan.
+> **Status: deferred.** Phase 2 OAuth is on hold in favor of [mcp-client-connect-flow.md](../completed/2026/06/mcp-client-connect-flow.md), which delivers the Connect-button UX without an authorization server by rendering per-harness install actions (deeplink, CLI command, or config snippet) prefilled with a freshly-minted `ApiToken`. Full OAuth becomes worth revisiting if/when third-party MCP-client connectivity, cross-tenant agent federation, regulated-industry procurement, or a spec-strict client that rejects manual config becomes a concrete demand. Until then this doc is reference material for what a full Phase 2 would look like; it is not the active plan.
 
 Replace the paste-token UX with an OAuth 2.1 "Connect Claude" flow against a hosted authorization server on each tenant. After this lands, a Claude Desktop / Cursor / Claude Code user installs Harmonic's MCP server by clicking a button — no token copy-paste, no per-client config file edits, no token expiry surprise.
 
-This is Phase 2 of [hosted-mcp-server.md](hosted-mcp-server.md). Phase 1 (Bearer `/mcp` + audit log + `mcp_only` + rate limits) and Phase 5 (agent-runner consolidation) are already in production. Phase 2 reuses every Phase 1 layer below the Bearer parse: capability gates, `McpToolCallLog`, rate limits, billing — all of it.
+This is Phase 2 of [hosted-mcp-server.md](../completed/2026/06/hosted-mcp-server.md). Phase 1 (Bearer `/mcp` + audit log + `mcp_only` + rate limits) and Phase 5 (agent-runner consolidation) are already in production. Phase 2 reuses every Phase 1 layer below the Bearer parse: capability gates, `McpToolCallLog`, rate limits, billing — all of it.
 
 ## Goal
 

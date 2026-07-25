@@ -1,5 +1,7 @@
 # Enforce ACTION_DEFINITIONS authorization at execute time
 
+> **Shipped** in 79af4ecb (2026-07-06): the `ActionAuthorizationCheck` concern enforces each action's `authorization:` rule at execute time on every `/actions` POST, additive to existing controller guards.
+
 ## The problem (one line)
 
 The `authorization:` field on every entry in `ACTION_DEFINITIONS` is consulted only when building markdown action listings — never when an action actually executes. The execute path is gated only by whatever `before_action :authorize_*` the controller happens to declare. So a contributor who adds a new action with a tight `authorization:` rule but a thin controller ships an unguarded endpoint that looks gated to anyone reading the action definition.

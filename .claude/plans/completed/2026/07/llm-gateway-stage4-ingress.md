@@ -1,5 +1,7 @@
 # LLM Gateway — Stage 4 ingress (external access via `llm_gateway` API keys)
 
+> **Shipped** via PR #483: token-type exclusivity (`rest`/`mcp`/`llm_gateway`) with external `llm_gateway` keys live.
+
 ## Context
 
 Stages 1–2 of the LLM gateway are live: internal agents' billed LLM calls relay through

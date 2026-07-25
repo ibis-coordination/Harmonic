@@ -1,5 +1,7 @@
 # Handle model unification
 
+> **Shipped** 2026-06-29: d839a75d (Goal 1 — citext case-insensitive handles, case-preserving display) and 9ea8fa77 (Goal 2 — unified collective + identity-user handle namespace).
+
 Two related changes to do together, since they both touch how handles are stored, validated, and looked up.
 
 ## Goal 1: GitHub-style case-preserving handles

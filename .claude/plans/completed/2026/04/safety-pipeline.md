@@ -10,7 +10,7 @@ This plan builds the pipeline: users report/block → reports land in admin queu
 
 See also:
 - [Content Reporting Design](content-reporting-design.md) — detailed architecture for the reporting feature
-- [Sys Admin Ops plan](sys-admin-improvements.md) — operational tooling track
+- [Sys Admin Ops plan](../05/sys-admin-improvements.md) — operational tooling track
 
 ## Features (in implementation order)
 

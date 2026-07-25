@@ -4,7 +4,7 @@
 
 Production troubleshooting of the agent-runner revealed gaps in admin tooling: no way to redispatch stuck tasks from the UI, no way to cancel tasks, and no visibility into system health (DB pool, Redis). These are operational tools for sys admins managing the infrastructure.
 
-See also: [Safety Pipeline plan](safety-pipeline.md) for the security/moderation track.
+See also: [Safety Pipeline plan](../04/safety-pipeline.md) for the security/moderation track.
 
 ## Features (in implementation order)
 

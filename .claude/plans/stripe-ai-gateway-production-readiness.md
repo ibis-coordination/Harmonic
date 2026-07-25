@@ -1,5 +1,7 @@
 # Stripe AI Gateway — Production Readiness
 
+> **Status refresh 2026-07-24: partially complete, needs a rewrite before further use.** Gateway routing is live in prod (sandbox tenant), with the billing pipeline, per-model rates, and per-tenant model config shipped (PRs #407/#414/#421). Still open: main-tenant cutover, zero-balance email, prod vendor-slug verification, #413 agent-runner token optimization. The phase breakdown below predates all of that.
+
 > **Status 2026-07-05:** Phases 2–6 implemented on branch `stripe-gateway-routing` (6 commits): `StripeGatewayModelMapper` + fail-fast dispatch mapping, per-task `llm_gateway_mode` stream field (Rails decides; runner env var is fallback-only), structured `llm_request` logs + `billing:gateway_health` rake task, BILLING.md runbook + `.env.example` vars, and `test/manual/billing/gateway_enablement.manual_test.md`. Remaining: Phase 1 dashboard steps (restricted key, product ID check, raw `llm.stripe.com` call — Dan), merge, then Phase 6 smoke test execution and Phase 7 cutover.
 
 ## Where we are

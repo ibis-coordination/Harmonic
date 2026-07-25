@@ -1,10 +1,10 @@
 # ApplicationController auth pipeline refactor (deferred)
 
-Status: **deferred**. Capture so it isn't lost. The anonymous-read-access feature it warned about ([completed plan](completed/2026/05/anonymous-read-access-main-collective.md)) shipped on 2026-05-26 — this refactor is now unblocked but still deferred until one of the trigger conditions in [When to revisit](#when-to-revisit) is hit.
+Status: **deferred**. Capture so it isn't lost. The anonymous-read-access feature it warned about ([completed plan](../completed/2026/05/anonymous-read-access-main-collective.md)) shipped on 2026-05-26 — this refactor is now unblocked but still deferred until one of the trigger conditions in [When to revisit](../#when-to-revisit) is hit.
 
 ## Why
 
-[`app/controllers/application_controller.rb`](app/controllers/application_controller.rb) is 1285 lines, `typed: false`, and entangles identity resolution with access enforcement and membership maintenance. Specifically:
+[`app/controllers/application_controller.rb`](../../../app/controllers/application_controller.rb) is 1285 lines, `typed: false`, and entangles identity resolution with access enforcement and membership maintenance. Specifically:
 
 1. **`current_user` (line 191) is not a pure resolver.** It calls `resolve_browser_session_user` → `validate_access` → `validate_unauthenticated_access`, which can redirect, render JSON, or render an unauthorized response. A method named "current_user" should return the user, not perform request termination as a side effect. This is also why the auth gate isn't visible as a `before_action` — new readers have to chase three call sites to find it.
 
@@ -31,8 +31,8 @@ Status: **deferred**. Capture so it isn't lost. The anonymous-read-access featur
 
 ## Constraints when this lands
 
-- **Do not start while anonymous-read-access is in flight.** That feature inserts the bypass at [validate_unauthenticated_access:562-579](app/controllers/application_controller.rb#L562-L579) and adds the `allows_anonymous` macro. Both should ship and bake before structure underneath them moves. The macro is actually a small step *toward* this refactor (class-level metadata for permissible access) and should be preserved.
-- **The route-introspection sweep test at [`test/integration/anonymous_read_access_route_sweep_test.rb`](../../test/integration/anonymous_read_access_route_sweep_test.rb)** is the safety net for this refactor. Don't drop it.
+- **Do not start while anonymous-read-access is in flight.** That feature inserts the bypass at [validate_unauthenticated_access:562-579](../../../app/controllers/application_controller.rb#L562-L579) and adds the `allows_anonymous` macro. Both should ship and bake before structure underneath them moves. The macro is actually a small step *toward* this refactor (class-level metadata for permissible access) and should be preserved.
+- **The route-introspection sweep test at [`test/integration/anonymous_read_access_route_sweep_test.rb`](../../../test/integration/anonymous_read_access_route_sweep_test.rb)** is the safety net for this refactor. Don't drop it.
 - **Don't bundle with another security-sensitive feature.** Refactor in its own PR with focused review.
 - Preserve behavior for: representation sessions, API token auth (including the X-Representation-Session-ID flow), feature-flag/billing/activation gates, archived-collective handling.
 - Token auth flow (`resolve_api_user` → `api_authorize!` → `validate_scope`) is reasonably well-scoped today; the refactor doesn't need to disturb it, only realign it under the new pipeline.
@@ -41,8 +41,8 @@ Status: **deferred**. Capture so it isn't lost. The anonymous-read-access featur
 
 1–2 day refactor if scoped tightly. Risks:
 
-- Subtle ordering changes in the `before_action` chain (the current comment at [application_controller.rb:19-22](app/controllers/application_controller.rb#L19-L22) about `ActionCapabilityCheck` and `append_before_action` is the kind of fragile-ordering thing that bites refactors).
-- Representation session handling is non-obvious; preserve all four validation steps in [resolve_browser_representation:398-448](app/controllers/application_controller.rb#L398-L448).
+- Subtle ordering changes in the `before_action` chain (the current comment at [application_controller.rb:19-22](../../../app/controllers/application_controller.rb#L19-L22) about `ActionCapabilityCheck` and `append_before_action` is the kind of fragile-ordering thing that bites refactors).
+- Representation session handling is non-obvious; preserve all four validation steps in [resolve_browser_representation:398-448](../../../app/controllers/application_controller.rb#L398-L448).
 - The `add_user!` membership-creation side effects of `validate_authenticated_access` are how some users get added to collectives — splitting these out means making sure the new pipeline still invokes them at the right time.
 
 ## When to revisit

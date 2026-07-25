@@ -4,7 +4,7 @@
 
 A "calendar_event" commitment is an event with a date/time and optional location. Members RSVP instead of "joining." The core calendar event functionality should follow familiar patterns from existing calendar apps (Google Calendar, Apple Calendar, etc.) — the commitment/RSVP layer is what's unique to Harmonic.
 
-**Depends on:** [Foundation](content-subtypes-foundation.md)
+**Depends on:** [Foundation](../04/content-subtypes-foundation.md)
 
 ## Design Principles
 

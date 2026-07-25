@@ -1,5 +1,7 @@
 # Trustee authorization notifications
 
+> **Shipped**: lifecycle notifications now dispatch via `NotificationService::TRUSTEE_NOTIFICATION_TYPE`; the TODOs described below no longer exist.
+
 Trustee authorizations (formerly "trustee grants") have lifecycle events that should reach the affected user's inbox. Today none of these fire — TODOs sit in the model and controller waiting for the notification dispatch.
 
 ## Events
@@ -15,7 +17,7 @@ Use the existing `Notification` model. Add new event types to the whitelist in `
 
 ## Out of scope
 
-- **Session-occurred notifications** (start / end). Folded into [`representation-routes-refactor.md`](representation-routes-refactor.md), since the show page they link to is part of that plan.
+- **Session-occurred notifications** (start / end). Folded into [`representation-routes-refactor.md`](../../../parked/representation-routes-refactor.md), since the show page they link to is part of that plan.
 
 ## Related
 
