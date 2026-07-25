@@ -73,7 +73,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     assert_response :success
     decision = scoped { Decision.find(@decision.id) }
     assert_equal({ "any_of" => [{ "type" => "role", "role" => "admin" }] }, decision.proposer_eligibility)
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, decision.voter_eligibility)
+    assert_nil decision.voter_eligibility
   end
 
   test "sets a multi-clause union" do
@@ -97,7 +97,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     rule = scoped { Decision.find(@decision.id).voter_eligibility }
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, rule)
+    assert_nil rule
   end
 
   test "rejects a clause naming a non-member" do
@@ -110,10 +110,10 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     rule = scoped { Decision.find(@decision.id).voter_eligibility }
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, rule)
+    assert_nil rule
   end
 
-  test "resets to open" do
+  test "an explicit empty value lifts the restriction" do
     scoped do
       Decision.find(@decision.id)
         .update!(voter_eligibility: { "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] })
@@ -121,12 +121,11 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
-         params: { voter_eligibility: "open" },
+         params: { voter_eligibility: "" },
          headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    rule = scoped { Decision.find(@decision.id).voter_eligibility }
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, rule)
+    assert_nil scoped { Decision.find(@decision.id).voter_eligibility }
   end
 
   test "clearing the field resets the rule to open" do
@@ -141,8 +140,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     rule = scoped { Decision.find(@decision.id).voter_eligibility }
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, rule,
-                 "clearing the field must remove the restriction, not silently keep it")
+    assert_nil rule, "clearing the field must remove the restriction, not silently keep it"
   end
 
   test "omitting the param entirely leaves the rule alone" do
@@ -175,11 +173,11 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     assert_not_nil entry
     before, after = entry.metadata["voter_eligibility"]
 
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, JSON.parse(before))
+    assert_nil before
     assert_equal({ "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] }, JSON.parse(after))
   end
 
-  test "creation records both rules in the audit metadata" do
+  test "creation omits absent rules from the audit metadata" do
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/decide/actions/create_decision",
@@ -188,8 +186,22 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     entry = scoped { DecisionAuditEntry.where(action: "decision_created").order(:created_at).last }
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, JSON.parse(entry.metadata["voter_eligibility"]))
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, JSON.parse(entry.metadata["proposer_eligibility"]))
+    assert_not entry.metadata.key?("voter_eligibility")
+    assert_not entry.metadata.key?("proposer_eligibility")
+  end
+
+  test "creation records a rule that is set" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/decide/actions/create_decision",
+         params: { question: "Born restricted?", deadline: "7d",
+                   voter_eligibility: "users:#{alice_handle}", },
+         headers: { "Accept" => "text/markdown" }
+    assert_response :success
+
+    entry = scoped { DecisionAuditEntry.where(action: "decision_created").order(:created_at).last }
+    assert_equal({ "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] },
+                 JSON.parse(entry.metadata["voter_eligibility"]))
   end
 
   # ---- create_decision ----

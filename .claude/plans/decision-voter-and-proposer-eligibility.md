@@ -73,15 +73,17 @@ matches.
 
 | type | payload | matches |
 |---|---|---|
-| `open` | — | anyone clearing the surrounding action authorization (today: collective members) |
 | `members` | — | `collective.user_is_member?(user)`, or the collective's identity user |
 | `role` | `role` | that user's `CollectiveMember#has_role?` |
 | `list` | `list_id` | membership in that `UserList` |
 | `users` | `user_ids` | user's id is in the array |
 
-`open` and `members` coincide today. Both exist because `open` means "whatever
-the surrounding access rules allow" and tracks those rules if they change,
-while `members` asserts collective membership and does not.
+There is deliberately **no clause for "everyone"**. A NULL column means no
+restriction. "Everyone" is a property of the call site, not a set of users, and
+giving it a clause would put an unenumerable member into a grammar whose whole
+purpose is describing bounded sets — it would also be the one construct that
+cannot appear inside a search operator value, since a bare word there is a
+full-text term.
 
 **Union only — no `all_of`/`none_of`.** Every clause widens, so a rule always
 renders as a plain sentence with no precedence to explain. Intersection and
@@ -92,8 +94,8 @@ buy is exclusions, better expressed by naming who *is* included.
 
 ```
 decisions
-  voter_eligibility     jsonb NOT NULL DEFAULT '{"any_of":[{"type":"open"}]}'
-  proposer_eligibility  jsonb NOT NULL DEFAULT '{"any_of":[{"type":"open"}]}'
+  voter_eligibility     jsonb   -- NULL = no restriction
+  proposer_eligibility  jsonb
 ```
 
 One column per set, not typed columns per clause field: payloads vary in shape,
@@ -160,9 +162,9 @@ memo is dropped by the rule writers and by `reload` — the latter swaps
 - `any_of` present, an array, 1..10 clauses. Empty means nobody can vote — a
   validation error, not a reachable config.
 - Clause `type` in the table above, carrying exactly that type's keys.
-- **`open` and `members` may only appear as the sole clause.** A union
-  containing "everyone" collapses to everyone; anything beside it is dead weight
-  that reads as if it restricted something.
+- **`members` may only appear as the sole clause.** Every other clause selects a
+  subset of collective members, so a union containing `members` collapses to it;
+  anything beside it is dead weight that reads as if it restricted something.
 - `role` in `CollectiveMember.valid_roles`.
 - **`voter_eligibility` must be `open` unless the subtype is `vote`.** Lotteries
   are drawn and executive decisions are settled by their decision maker, so a
@@ -329,7 +331,8 @@ independent of each other.
 
 ## Invariants
 
-- Default rules reproduce today's behavior exactly, on every surface.
+- An absent set means no restriction, and reproduces today's behavior exactly on
+  every surface.
 - A user matching any clause is eligible; a nil user never is.
 - Evaluated live; nothing is snapshotted.
 - Every change to a rule is written to the decision audit chain, as JSON.

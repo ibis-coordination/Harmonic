@@ -159,9 +159,9 @@ class CollectiveImportService
   # export, so the id is left as it stands and the clause resolves to nobody in
   # the target collective — narrowing the electorate rather than widening it,
   # which is the safe direction for a reference that failed to travel.
-  sig { params(rule: T.untyped).returns(T::Hash[String, T.untyped]) }
+  sig { params(rule: T.untyped).returns(T.nilable(T::Hash[String, T.untyped])) }
   def remap_eligibility(rule)
-    return UserSet.default.to_h unless rule.is_a?(Hash) && rule["any_of"].is_a?(Array)
+    return nil unless rule.is_a?(Hash) && rule["any_of"].is_a?(Array)
 
     clauses = rule["any_of"].map do |clause|
       next clause unless clause.is_a?(Hash) && clause["type"] == "users"

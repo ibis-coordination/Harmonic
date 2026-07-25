@@ -64,13 +64,19 @@ class Decision < ApplicationRecord
     super
   end
 
-  sig { returns(UserSet) }
+  # nil means no restriction — "everyone" is a property of this call site, not a
+  # set of users, so it has no representation in UserSet.
+  sig { returns(T.nilable(UserSet)) }
   def voter_eligibility_rule
+    return nil if voter_eligibility.nil?
+
     @voter_eligibility_rule ||= UserSet.parse(voter_eligibility)
   end
 
-  sig { returns(UserSet) }
+  sig { returns(T.nilable(UserSet)) }
   def proposer_eligibility_rule
+    return nil if proposer_eligibility.nil?
+
     @proposer_eligibility_rule ||= UserSet.parse(proposer_eligibility)
   end
 
@@ -332,11 +338,13 @@ class Decision < ApplicationRecord
   # re-resolve the rule ten times — and a `list` clause costs two queries each
   # time.
   sig do
-    params(cache: T::Hash[String, T::Boolean], rule: UserSet, user: T.nilable(User))
+    params(cache: T::Hash[String, T::Boolean], rule: T.nilable(UserSet), user: T.nilable(User))
       .returns(T::Boolean)
   end
   def memoized_eligibility(cache, rule, user)
     return false if user.nil?
+    return true if rule.nil? # no restriction
+
     return T.must(cache[user.id]) if cache.key?(user.id)
 
     cache[user.id] = rule.matches?(user, collective: T.must(collective))
@@ -347,6 +355,8 @@ class Decision < ApplicationRecord
     return if collective.nil?
 
     { voter_eligibility: voter_eligibility, proposer_eligibility: proposer_eligibility }.each do |attribute, value|
+      next if value.nil?
+
       rule = begin
         UserSet.parse(value)
       rescue UserSet::ParseError => e
@@ -360,7 +370,7 @@ class Decision < ApplicationRecord
     # decisions are settled by their decision maker — so a voter rule on either
     # would be inert. Rejecting it beats accepting a restriction that silently
     # does nothing.
-    return if is_vote? || voter_eligibility_rule.open?
+    return if is_vote? || voter_eligibility.nil?
 
     errors.add(:voter_eligibility, "does not apply to #{subtype} decisions, which do not take votes")
   rescue UserSet::ParseError

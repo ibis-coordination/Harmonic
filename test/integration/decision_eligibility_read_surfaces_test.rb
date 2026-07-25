@@ -63,7 +63,7 @@ class DecisionEligibilityReadSurfacesTest < ActionDispatch::IntegrationTest
 
     assert_equal({ "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] },
                  json[:voter_eligibility])
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, json[:proposer_eligibility])
+    assert_nil json[:proposer_eligibility]
   end
 
   # ---- markdown ----

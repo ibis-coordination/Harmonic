@@ -41,10 +41,11 @@ class UserSet
 
   class ParseError < StandardError; end
 
-  CLAUSE_TYPES = ["open", "members", "role", "list", "users"].freeze
-  # `open` and `members` cover everyone, so they are meaningless beside another
+  CLAUSE_TYPES = ["members", "role", "list", "users"].freeze
+  # `members` covers every other clause — a list member, a role holder, and a
+  # named user are all collective members — so it is meaningless beside another
   # clause and rejected there rather than silently ignored.
-  EXCLUSIVE_TYPES = ["open", "members"].freeze
+  EXCLUSIVE_TYPES = ["members"].freeze
   MAX_CLAUSES = 10
   MAX_USER_IDS = 200
 
@@ -54,11 +55,6 @@ class UserSet
   sig { params(clauses: T::Array[T::Hash[String, T.untyped]]).void }
   def initialize(clauses)
     @clauses = clauses.freeze
-  end
-
-  sig { returns(UserSet) }
-  def self.default
-    new([{ "type" => "open" }])
   end
 
   # Accepts a stored jsonb hash or the compact string grammar. Raises
@@ -115,10 +111,12 @@ class UserSet
     type, _, argument = token.partition(":")
 
     case type
-    when "open", "members"
-      raise ParseError, "'#{type}' does not take a value" if argument.present?
+    when "open"
+      raise ParseError, "There is no 'open' clause — leave the value empty for no restriction"
+    when "members"
+      raise ParseError, "'members' does not take a value" if argument.present?
 
-      { "type" => type }
+      { "type" => "members" }
     when "role"
       raise ParseError, "'role:' requires a role name" if argument.blank?
 
@@ -207,15 +205,9 @@ class UserSet
     errors.uniq
   end
 
-  # True when the rule imposes no restriction, so callers can skip reporting it.
-  sig { returns(T::Boolean) }
-  def open?
-    clauses.any? { |clause| EXCLUSIVE_TYPES.include?(clause["type"]) }
-  end
-
   sig { params(collective: Collective).returns(String) }
   def describe(collective:)
-    return "Everyone with access" if clauses.any? { |c| EXCLUSIVE_TYPES.include?(c["type"]) }
+    return "every member of this collective" if clauses.any? { |c| EXCLUSIVE_TYPES.include?(c["type"]) }
 
     clauses.map { |clause| describe_clause(clause, collective) }.to_sentence(two_words_connector: " or ",
                                                                              last_word_connector: ", or ")
@@ -235,8 +227,6 @@ class UserSet
   end
   def clause_matches?(clause, user, collective)
     case clause["type"]
-    when "open"
-      true
     when "members"
       # Mirrors ActionAuthorization's :collective_member check so a collective
       # identity keeps the standing it has on every other action.
@@ -263,7 +253,7 @@ class UserSet
   sig { params(clause: T::Hash[String, T.untyped], collective: Collective).returns(T::Array[String]) }
   def clause_errors(clause, collective)
     case clause["type"]
-    when "open", "members"
+    when "members"
       []
     when "role"
       return ["Unknown role '#{clause["role"]}'"] unless CollectiveMember.valid_roles.include?(clause["role"])
@@ -327,7 +317,7 @@ class UserSet
       names = Array(clause["user_ids"]).filter_map { |id| users.find { |u| u.id == id }&.name }
       names.any? ? names.to_sentence : "no one"
     else
-      "everyone with access"
+      "every member of this collective"
     end
   end
 end

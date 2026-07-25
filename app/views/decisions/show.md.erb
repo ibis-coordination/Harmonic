@@ -19,10 +19,10 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
      electorate you cannot see is one you cannot contest, and every clause type
      references data this reader can already see — public lists, roles, and
      named members whose votes this decision will publish anyway. -%>
-<% if @decision.is_vote? && !@decision.voter_eligibility_rule.open? -%>
+<% if @decision.is_vote? && @decision.voter_eligibility_rule -%>
 | voting | limited to <%= @decision.voter_eligibility_rule.describe(collective: @current_collective) %> — you are <%= "not " unless @decision.eligible_voter?(@current_user) %>eligible to vote |
 <% end -%>
-<% unless @decision.proposer_eligibility_rule.open? -%>
+<% if @decision.proposer_eligibility_rule -%>
 | adding options | limited to <%= @decision.proposer_eligibility_rule.describe(collective: @current_collective) %> — you are <%= "not " unless @decision.eligible_proposer?(@current_user) %>eligible to add options |
 <% end -%>
 | deadline | <%= @decision.deadline %> |

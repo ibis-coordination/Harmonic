@@ -21,29 +21,24 @@ class UserSetTest < ActiveSupport::TestCase
     UserSet.parse(hash)
   end
 
-  # ---- default ----
+  # ---- no such thing as "everyone" ----
 
-  test "default is a single open clause" do
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, UserSet.default.to_h)
+  test "there is no open clause type" do
+    errors = rule({ "any_of" => [{ "type" => "open" }] }).validation_errors(collective: @collective)
+    assert(errors.any? { |e| e.match?(/unknown clause type/i) })
   end
 
-  test "default matches any user and reports no errors" do
-    assert UserSet.default.matches?(@user, collective: @collective)
-    assert_empty UserSet.default.validation_errors(collective: @collective)
+  test "the compact grammar rejects open with a message pointing at emptiness" do
+    error = assert_raises(UserSet::ParseError) { UserSet.parse("open", collective: @collective) }
+    assert_match(/empty/i, error.message)
+  end
+
+  test "nil user never matches" do
+    r = rule({ "any_of" => [{ "type" => "members" }] })
+    assert_not r.matches?(nil, collective: @collective)
   end
 
   # ---- clause matching ----
-
-  test "open matches any user" do
-    r = rule({ "any_of" => [{ "type" => "open" }] })
-    assert r.matches?(@user, collective: @collective)
-    assert r.matches?(outsider, collective: @collective)
-  end
-
-  test "nil user never matches, even under open" do
-    r = rule({ "any_of" => [{ "type" => "open" }] })
-    assert_not r.matches?(nil, collective: @collective)
-  end
 
   test "members matches collective members and not outsiders" do
     r = rule({ "any_of" => [{ "type" => "members" }] })
@@ -163,14 +158,6 @@ class UserSetTest < ActiveSupport::TestCase
     assert(errors.any? { |e| e.match?(/at most 10/i) })
   end
 
-  test "open beside another clause is invalid" do
-    errors = rule({ "any_of" => [
-      { "type" => "open" },
-      { "type" => "users", "user_ids" => [@user.id] },
-    ] }).validation_errors(collective: @collective)
-    assert(errors.any? { |e| e.match?(/only clause/i) })
-  end
-
   test "members beside another clause is invalid" do
     errors = rule({ "any_of" => [
       { "type" => "members" },
@@ -276,11 +263,6 @@ class UserSetTest < ActiveSupport::TestCase
 
   # ---- compact grammar ----
 
-  test "parses the compact open form" do
-    r = UserSet.parse("open", collective: @collective)
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, r.to_h)
-  end
-
   test "resolves handles to user ids" do
     alice = make_user("alice")
     bob = make_user("bob")
@@ -329,10 +311,6 @@ class UserSetTest < ActiveSupport::TestCase
     assert_equal original.to_h, round_tripped.to_h
   end
 
-  test "to_s renders the open default" do
-    assert_equal "open", UserSet.default.to_s(collective: @collective)
-  end
-
   # ---- describe ----
 
   test "describe names the clauses in a readable sentence" do
@@ -347,7 +325,4 @@ class UserSetTest < ActiveSupport::TestCase
     assert_includes description, "admin"
   end
 
-  test "describe of the default says everyone" do
-    assert_match(/every/i, UserSet.default.describe(collective: @collective))
-  end
 end

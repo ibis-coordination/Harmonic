@@ -762,8 +762,8 @@ CREATE TABLE public.decisions (
     deadline_event_fired_at timestamp(6) without time zone,
     audit_chain_hash character varying,
     hard_delete_after timestamp(6) without time zone,
-    voter_eligibility jsonb DEFAULT '{"any_of": [{"type": "open"}]}'::jsonb NOT NULL,
-    proposer_eligibility jsonb DEFAULT '{"any_of": [{"type": "open"}]}'::jsonb NOT NULL
+    voter_eligibility jsonb,
+    proposer_eligibility jsonb
 );
 
 

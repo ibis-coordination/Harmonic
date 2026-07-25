@@ -981,7 +981,7 @@ class ApiHelper
       next if params[key].nil?
 
       if params[key].blank?
-        attrs[key] = UserSet.default.to_h
+        attrs[key] = nil
         next
       end
 

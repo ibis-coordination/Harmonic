@@ -32,9 +32,11 @@ class DecisionAuditService
       subtype: decision.subtype,
       deadline: decision.deadline&.iso8601,
       options_open: decision.options_open.to_s,
-      voter_eligibility: decision.voter_eligibility.to_json,
-      proposer_eligibility: decision.proposer_eligibility.to_json,
     }
+    # Omitted rather than recorded as "null" when absent — an absent user set
+    # means no restriction, which is the same thing as having nothing to say.
+    initial_values[:voter_eligibility] = decision.voter_eligibility.to_json if decision.voter_eligibility
+    initial_values[:proposer_eligibility] = decision.proposer_eligibility.to_json if decision.proposer_eligibility
     initial_values[:decision_maker_id] = decision.decision_maker_id if decision.decision_maker_id.present?
     record!(
       decision: decision,

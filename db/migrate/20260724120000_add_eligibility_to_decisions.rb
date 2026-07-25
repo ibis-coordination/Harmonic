@@ -1,5 +1,5 @@
-# Two independently declared electorates per decision: who may vote, and who
-# may propose options. Each is a union of clauses (see UserSet).
+# Two independently declared user sets per decision: who may vote, and who may
+# propose options. Each is a union of clauses (see UserSet).
 #
 # One jsonb column per set rather than typed columns per clause field: clause
 # payloads vary in shape, the clause list is variable-length, and
@@ -7,17 +7,15 @@
 # column lands in the audit chain as one coherent before/after value instead of
 # several scattered column diffs.
 #
-# The default reproduces today's behavior exactly: anyone who already clears the
-# `vote` / `add_options` action authorization.
+# NULL means no restriction, which is today's behavior for every existing row.
+# "Everyone" is deliberately not representable as a set: it is a property of the
+# call site, not a set of users, and giving it a clause would mean an
+# unenumerable member of a grammar whose whole point is describing bounded sets.
 class AddEligibilityToDecisions < ActiveRecord::Migration[7.2]
-  # A Hash, not a JSON string — a String default would be serialized *as* a
-  # json string value ("{\"any_of\": ...}") rather than an object.
-  OPEN = { "any_of" => [{ "type" => "open" }] }.freeze
-
   def change
     change_table :decisions, bulk: true do |t|
-      t.column :voter_eligibility, :jsonb, null: false, default: OPEN
-      t.column :proposer_eligibility, :jsonb, null: false, default: OPEN
+      t.column :voter_eligibility, :jsonb
+      t.column :proposer_eligibility, :jsonb
     end
   end
 end

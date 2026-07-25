@@ -27,9 +27,11 @@ class DecisionEligibilityTest < ActiveSupport::TestCase
 
   # ---- defaults ----
 
-  test "a new decision is open to everyone for both voting and proposing" do
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, @decision.voter_eligibility)
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, @decision.proposer_eligibility)
+  test "a new decision carries no restriction on either set" do
+    assert_nil @decision.voter_eligibility
+    assert_nil @decision.proposer_eligibility
+    assert_nil @decision.voter_eligibility_rule
+    assert_nil @decision.proposer_eligibility_rule
   end
 
   test "default rules make any member eligible for both" do
@@ -118,13 +120,23 @@ class DecisionEligibilityTest < ActiveSupport::TestCase
     assert @decision.errors[:voter_eligibility].any?
   end
 
-  test "open beside another clause is rejected" do
+  test "members beside another clause is rejected" do
     @decision.voter_eligibility = { "any_of" => [
-      { "type" => "open" },
+      { "type" => "members" },
       { "type" => "users", "user_ids" => [@user.id] },
     ] }
     assert_not @decision.valid?
     assert @decision.errors[:voter_eligibility].any?
+  end
+
+  test "clearing a rule to nil lifts the restriction" do
+    alice = make_user("alice")
+    @decision.update!(voter_eligibility: { "any_of" => [{ "type" => "users", "user_ids" => [alice.id] }] })
+    assert_not @decision.eligible_voter?(@user)
+
+    @decision.update!(voter_eligibility: nil)
+
+    assert @decision.eligible_voter?(@user)
   end
 
   test "a structurally malformed rule is rejected rather than raising" do
@@ -200,8 +212,9 @@ class DecisionEligibilityTest < ActiveSupport::TestCase
 
   # ---- rule accessors ----
 
-  test "exposes parsed rules as UserSet values" do
+  test "exposes parsed rules as UserSet values when set" do
+    @decision.update!(voter_eligibility: { "any_of" => [{ "type" => "members" }] })
     assert_kind_of UserSet, @decision.voter_eligibility_rule
-    assert_kind_of UserSet, @decision.proposer_eligibility_rule
+    assert_nil @decision.proposer_eligibility_rule
   end
 end
