@@ -203,6 +203,28 @@ class EligibilityRuleTest < ActiveSupport::TestCase
     assert(errors.any? { |e| e.match?(/list/i) })
   end
 
+  test "a private list is invalid as an electorate" do
+    private_list = UserList.create!(creator: @user, owner: @user, name: "Secret",
+                                    visibility: "private", add_policy: "owner_only")
+    errors = rule({ "any_of" => [{ "type" => "list", "list_id" => private_list.id }] })
+      .validation_errors(collective: @collective)
+
+    assert(errors.any? { |e| e.match?(/public/i) })
+  end
+
+  test "a list turned private after the fact matches nobody" do
+    member = make_user
+    list = UserList.create!(creator: @user, owner: @user, name: "Voters")
+    UserListMember.create!(user_list: list, user: member, added_by: @user)
+    r = rule({ "any_of" => [{ "type" => "list", "list_id" => list.id }] })
+    assert r.matches?(member, collective: @collective)
+
+    list.update!(visibility: "private", add_policy: "owner_only")
+
+    assert_not r.matches?(member, collective: @collective),
+               "a private list must not govern a decision whose voters are published by name"
+  end
+
   test "a user who is not a collective member is invalid" do
     errors = rule({ "any_of" => [{ "type" => "users", "user_ids" => [outsider.id] }] })
       .validation_errors(collective: @collective)

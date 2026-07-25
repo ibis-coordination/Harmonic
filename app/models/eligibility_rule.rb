@@ -232,7 +232,12 @@ class EligibilityRule
       collective.collective_members.find_by(user_id: user.id)&.has_role?(clause["role"]) || false
     when "list"
       list = UserList.find_by(id: clause["list_id"], collective_id: collective.id)
-      return false if list.nil?
+      # A private list is owner-only (UserList#visible_to?), but a decision
+      # publishes its voters by name — so governing a decision with a private
+      # list would convert owner-only membership into collective-visible
+      # membership. Rejected on write; also refused here, in case a list is
+      # turned private after a rule already referenced it.
+      return false if list.nil? || !list.public?
 
       list.user_list_members.exists?(user_id: user.id)
     when "users"
@@ -252,8 +257,11 @@ class EligibilityRule
 
       []
     when "list"
-      return ["Eligibility list not found"] if UserList.find_by(id: clause["list_id"],
-                                                                collective_id: collective.id).nil?
+      list = UserList.find_by(id: clause["list_id"], collective_id: collective.id)
+      return ["Eligibility list not found"] if list.nil?
+      # An electorate cannot be secret: a decision names its voters, so a
+      # private list would be de-privatized by the first vote cast.
+      return ["Eligibility list must be a public list"] unless list.public?
 
       []
     when "users"

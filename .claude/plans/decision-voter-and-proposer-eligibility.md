@@ -148,7 +148,12 @@ memo is dropped by the rule writers and by `reload` — the latter swaps
   containing "everyone" collapses to everyone; anything beside it is dead weight
   that reads as if it restricted something.
 - `role` in `CollectiveMember.valid_roles`.
-- `list_id` resolves to a non-deleted `UserList` in this collective.
+- `list_id` resolves to a non-deleted, **public** `UserList` in this collective.
+  A private list is owner-only, but a decision publishes its voters by name, so
+  a private-list electorate would convert owner-only membership into
+  collective-visible membership — and could not stay secret anyway, since it
+  reveals itself as it votes. Refused on write, and refused again at match time
+  in case a list is turned private after a rule already referenced it.
 - `user_ids`: 1..200, deduped, each an existing user who is a collective member
   **at write time**. Membership is not re-checked on read — that is what a
   `members` clause is for.
@@ -302,6 +307,8 @@ independent of each other.
 - Evaluated live; nothing is snapshotted.
 - Every change to a rule is written to the decision audit chain, as JSON.
 - A dangling clause matches nobody and never voids the rest of the rule.
+- Eligibility never turns private data public: a rule may only reference lists
+  that are already visible to the collective.
 - A rule always has at least one clause.
 - Voter eligibility is checked against the participant's user, never the acting
   trustee.
