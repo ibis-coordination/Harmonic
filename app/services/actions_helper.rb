@@ -525,7 +525,7 @@ class ActionsHelper
       params: [
         { name: "titles", type: "array[string]", description: "Array of option title strings" },
       ],
-      authorization: :collective_member,
+      authorization: ActionAuthorization.all_of(:collective_member, :eligible_proposer),
       visibility: :by_collective,
     },
     "vote" => {

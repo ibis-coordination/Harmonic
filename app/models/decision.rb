@@ -181,6 +181,10 @@ class Decision < ApplicationRecord
     return false if participant.nil?
     return false if closed? || !participant.authenticated?
     return false if options.count >= MAX_OPTIONS
+    # options_open is the coarse switch (everyone / creator only), proposer
+    # eligibility the fine-grained restriction. Both must pass, so a
+    # default-valued decision behaves exactly as it did before eligibility.
+    return false unless eligible_proposer?(participant.user)
     return true if options_open? || participant.user_id == created_by_id
 
     false

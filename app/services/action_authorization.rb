@@ -96,6 +96,16 @@ module ActionAuthorization
 
       decision.eligible_voter?(user)
     },
+    # Who may put options on the ballot. Same permissiveness rules as
+    # :eligible_voter; can_add_options? is the guard behind it.
+    eligible_proposer: lambda { |user, context|
+      return false unless user
+
+      decision = context[:resource]
+      return true unless decision.is_a?(Decision)
+
+      decision.eligible_proposer?(user)
+    },
     resource_owner: lambda { |user, context|
       return false unless user
 
