@@ -209,6 +209,36 @@ class DecisionProposerEligibilityTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "the HTML route refuses an option on a closed decision without erroring" do
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    sign_in_as(@alice, tenant: @tenant)
+    scoped { @decision.update!(deadline: 1.day.ago) }
+
+    # can_add_options? refuses for reasons other than eligibility too, and they
+    # reach the same raise in the API helper.
+    assert_no_difference -> { scoped { Option.where(decision_id: @decision.id).count } } do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/options.html",
+           params: { title: "Too late" }
+    end
+
+    assert_response :forbidden
+  end
+
+  test "the HTML route refuses a non-creator under options_open false without erroring" do
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    sign_in_as(@alice, tenant: @tenant)
+    scoped { @decision.update!(options_open: false) }
+
+    assert_no_difference -> { scoped { Option.where(decision_id: @decision.id).count } } do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/options.html",
+           params: { title: "Not mine to add" }
+    end
+
+    assert_response :forbidden
+  end
+
   test "an ineligible member does not see the add-option form" do
     restrict_proposing_to(@alice)
     Collective.clear_thread_scope

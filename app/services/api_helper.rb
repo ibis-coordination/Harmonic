@@ -624,9 +624,11 @@ class ApiHelper
         decision: T.must(current_decision),
         user: current_user
       ).find_or_create_participant
-      unless T.must(current_decision).can_add_options?(current_decision_participant)
-        raise "Cannot add options to decision #{T.must(current_decision).id} for user #{current_user.id}"
-      end
+      refusal = T.must(current_decision).add_options_refusal(current_decision_participant)
+      # ArgumentError rather than a bare RuntimeError: every caller already
+      # treats that as bad input and renders it, so the refusal reaches the
+      # person instead of escaping as a 500 carrying record ids.
+      raise ArgumentError, refusal if refusal
 
       titles.each do |title|
         option = Option.new(

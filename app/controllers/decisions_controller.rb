@@ -297,7 +297,14 @@ class DecisionsController < ApplicationController
       return
     end
 
-    api_helper.create_decision_option
+    begin
+      api_helper.create_decision_option
+    rescue ArgumentError => e
+      # can_add_options? refuses for reasons the authorization rule does not
+      # cover — closed, creator-only, at the option limit.
+      render plain: "Forbidden: #{e.message}", status: :forbidden
+      return
+    end
     options_partial
   end
 

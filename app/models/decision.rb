@@ -188,18 +188,27 @@ class Decision < ApplicationRecord
     decision_participants.where(user: user).joins(:votes).exists?
   end
 
-  sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
-  def can_add_options?(participant)
-    return false if participant.nil?
-    return false if closed? || !participant.authenticated?
-    return false if options.count >= MAX_OPTIONS
+  # Why this participant may not add options, or nil if they may. Callers that
+  # only need the yes/no use can_add_options?; callers that have to tell someone
+  # what happened use this, so the reason is stated once rather than re-derived
+  # from the same branches somewhere else.
+  sig { params(participant: T.nilable(DecisionParticipant)).returns(T.nilable(String)) }
+  def add_options_refusal(participant)
+    return "You must be signed in to add options." if participant.nil? || !participant.authenticated?
+    return "This decision is closed." if closed?
+    return "This decision already has the maximum of #{MAX_OPTIONS} options." if options.count >= MAX_OPTIONS
     # options_open is the coarse switch (everyone / creator only), proposer
     # eligibility the fine-grained restriction. Both must pass, so a
     # default-valued decision behaves exactly as it did before eligibility.
-    return false unless eligible_proposer?(participant.user)
-    return true if options_open? || participant.user_id == created_by_id
+    return "You are not eligible to add options to this decision." unless eligible_proposer?(participant.user)
+    return nil if options_open? || participant.user_id == created_by_id
 
-    false
+    "Only the creator can add options to this decision."
+  end
+
+  sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
+  def can_add_options?(participant)
+    add_options_refusal(participant).nil?
   end
 
   sig { params(participant_or_user: T.nilable(T.any(DecisionParticipant, User))).returns(T::Boolean) }
