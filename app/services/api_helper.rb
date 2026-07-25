@@ -988,7 +988,9 @@ class ApiHelper
       begin
         attrs[key] = UserSet.parse(params[key], collective: current_collective).to_h
       rescue UserSet::ParseError => e
-        raise ArgumentError, e.message
+        # Named, because both fields are edited side by side and the parse
+        # message on its own says nothing about which one was rejected.
+        raise ArgumentError, "#{key}: #{e.message}"
       end
     end
     attrs
@@ -1305,6 +1307,10 @@ class ApiHelper
         subtype: original.subtype,
         options_open: original.options_open,
         deadline: original.deadline,
+        # Carried over deliberately: a copy that dropped them would widen the
+        # electorate silently, which is the failure direction that matters.
+        voter_eligibility: original.voter_eligibility,
+        proposer_eligibility: original.proposer_eligibility,
         created_by: current_user
       )
       DecisionActionService.create_decision!(decision: new_decision, actor: current_user, representation_session: current_representation_session)

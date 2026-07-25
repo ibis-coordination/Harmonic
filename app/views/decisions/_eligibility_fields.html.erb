@@ -14,7 +14,14 @@
 <% variant = local_assigns.fetch(:variant, :settings) %>
 <% section_class = variant == :form ? "pulse-form-section" : "pulse-settings-section" %>
 <% label_class = variant == :form ? "pulse-form-label" : "pulse-label" %>
+<%#
+  A submitted value wins over the stored rule so that a re-render after a parse
+  failure shows what was typed — the stored rule cannot represent it, since the
+  parse is exactly what failed.
+%>
 <% rule_for = ->(attribute) {
+     submitted = params[attribute] || params.dig(:decision, attribute)
+     next submitted if submitted.present?
      next nil if decision.nil?
      decision.public_send(:"#{attribute}_rule")&.to_s(collective: @current_collective)
    } %>

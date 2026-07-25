@@ -46,8 +46,10 @@ class DecisionsController < ApplicationController
         api_helper.pin_resource(@decision)
       end
       redirect_to @decision.path
-    rescue ActiveRecord::RecordInvalid => e
-      e.record.errors.full_messages.each do |msg|
+    # ArgumentError covers input the helper cannot even parse — a mistyped
+    # handle in an eligibility field, say — which is form error, not a fault.
+    rescue ActiveRecord::RecordInvalid, ArgumentError => e
+      form_error_messages(e).each do |msg|
         flash.now[:alert] = msg
       end
       @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
@@ -67,7 +69,7 @@ class DecisionsController < ApplicationController
         resource: @decision,
         result: 'You have successfully created a decision',
       })
-    rescue ActiveRecord::RecordInvalid => e
+    rescue ActiveRecord::RecordInvalid, ArgumentError => e
       render_action_error({
         action_name: 'create_decision',
         resource: @decision,
@@ -168,7 +170,20 @@ class DecisionsController < ApplicationController
       helper_params[:voter_eligibility] = decision_params[:voter_eligibility]
       helper_params[:proposer_eligibility] = decision_params[:proposer_eligibility]
     end
-    @decision = api_helper(params: helper_params).update_decision_settings
+    begin
+      @decision = api_helper(params: helper_params).update_decision_settings
+    rescue ActiveRecord::RecordInvalid, ArgumentError => e
+      form_error_messages(e).each do |msg|
+        flash.now[:alert] = msg
+      end
+      # The helper assigns before it raises, so @decision still carries the
+      # edits; re-render rather than reload so nothing typed is lost.
+      @page_title = "Decision Settings"
+      @sidebar_mode = 'resource'
+      @team = @current_collective.team
+      set_pin_vars
+      return render :settings, status: :unprocessable_entity
+    end
     redirect_to @decision.path
   end
 
@@ -703,6 +718,14 @@ class DecisionsController < ApplicationController
   end
 
   private
+
+  # Validation failures carry a message per bad field; a parse failure carries
+  # one message and no record.
+  def form_error_messages(error)
+    return [error.message] unless error.is_a?(ActiveRecord::RecordInvalid)
+
+    error.record.errors.full_messages
+  end
 
   def decision_params
     model_params.permit(

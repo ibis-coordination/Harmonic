@@ -327,4 +327,93 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     assert_equal({ "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] },
                  decision.voter_eligibility)
   end
+
+  # ---- duplicate ----
+
+  test "duplicating a restricted decision keeps both electorates" do
+    scoped do
+      Decision.find(@decision.id).update!(
+        voter_eligibility: { "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] },
+        proposer_eligibility: { "any_of" => [{ "type" => "role", "role" => "admin" }] }
+      )
+    end
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/duplicate"
+
+    assert_response :redirect
+    copy = scoped { Decision.where(question: "#{@decision.question} (copy)").last }
+    assert_not_nil copy
+    assert_equal({ "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] },
+                 copy.voter_eligibility,
+                 "a copy that quietly opens up the electorate is worse than no copy")
+    assert_equal({ "any_of" => [{ "type" => "role", "role" => "admin" }] },
+                 copy.proposer_eligibility)
+  end
+
+  # ---- HTML forms: unparseable input ----
+  #
+  # A typo'd handle is ordinary user error on a free-text field, so it belongs in
+  # the form's error path. Reaching the exception handler instead loses the whole
+  # draft.
+
+  test "the new-decision form reports an unresolvable handle instead of erroring" do
+    sign_in_as(@user, tenant: @tenant)
+
+    assert_no_difference -> { scoped { Decision.where(question: "Typo?").count } } do
+      post "/collectives/#{@collective.handle}/decide",
+           params: { question: "Typo?", proposer_eligibility: "user:@asfasdfsd",
+                     deadline_option: "1_week", }
+    end
+
+    assert_response :unprocessable_entity
+    assert_match(/asfasdfsd/, response.body)
+  end
+
+  test "the new-decision form keeps what was typed so it can be corrected" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/decide",
+         params: { question: "Typo?", proposer_eligibility: "user:@asfasdfsd",
+                   voter_eligibility: "role:admin", deadline_option: "1_week", }
+
+    assert_response :unprocessable_entity
+    assert_match(/value="user:@asfasdfsd"/, response.body)
+    assert_match(/value="role:admin"/, response.body,
+                 "the field that parsed fine must survive the round trip too")
+  end
+
+  test "the settings form reports an unresolvable handle instead of erroring" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
+         params: { question: @decision.question, voter_eligibility: "user:@asfasdfsd",
+                   deadline_option: "1_week", }
+
+    assert_response :unprocessable_entity
+    assert_match(/asfasdfsd/, response.body)
+    assert_nil scoped { Decision.find(@decision.id).voter_eligibility }
+  end
+
+  test "a parse failure names the field, since both are on the form at once" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/decide",
+         params: { question: "Typo?", proposer_eligibility: "user:@asfasdfsd",
+                   voter_eligibility: "role:admin", deadline_option: "1_week", }
+
+    assert_response :unprocessable_entity
+    assert_match(/proposer_eligibility.*asfasdfsd/i, response.body)
+  end
+
+  test "the create_decision action reports an unresolvable handle instead of erroring" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/decide/actions/create_decision",
+         params: { question: "Typo?", deadline: "7d", voter_eligibility: "user:@asfasdfsd" },
+         headers: { "Accept" => "text/markdown" }
+
+    assert_response :unprocessable_content
+    assert_match(/asfasdfsd/, response.body)
+  end
 end
