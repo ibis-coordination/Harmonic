@@ -203,6 +203,23 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
 
   # ---- HTML forms ----
 
+  test "the settings form submits unprefixed field names, as it renders them" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # The form is form_with(url:) with no model, so fields are top-level rather
+    # than nested under decision[...]. Post exactly what the browser would.
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
+         params: { question: @decision.question, voter_eligibility: "users:#{alice_handle}",
+                   proposer_eligibility: "role:admin", deadline_option: "1_week", }
+
+    assert_response :redirect
+    decision = scoped { Decision.find(@decision.id) }
+    assert_equal({ "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] },
+                 decision.voter_eligibility)
+    assert_equal({ "any_of" => [{ "type" => "role", "role" => "admin" }] },
+                 decision.proposer_eligibility)
+  end
+
   test "the settings form shows the current rules in the compact grammar" do
     scoped do
       Decision.find(@decision.id)
