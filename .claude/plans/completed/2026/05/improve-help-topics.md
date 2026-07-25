@@ -65,7 +65,7 @@ Each is a separate commit on the branch (most recent first):
 
 ## Out of scope but related
 
-- **v1 REST API read-only proposal** — see [.claude/plans/v1-api-readonly.md](.claude/plans/v1-api-readonly.md). The token-hardening work surfaced concerns about the v1 API's drift and the parallel write paths between REST and action routes. Pulling that forward as its own branch.
+- **v1 REST API read-only proposal** — see [.claude/plans/v1-api-readonly.md](v1-api-readonly.md). The token-hardening work surfaced concerns about the v1 API's drift and the parallel write paths between REST and action routes. Pulling that forward as its own branch.
 
 ## Implementation pattern (for the remaining topics)
 

@@ -4,7 +4,7 @@
 
 A "policy" commitment represents an ongoing rule or agreement — no deadline, no critical mass threshold. Members "sign" to indicate endorsement. Like decision log, this is simple because it removes features (deadline, critical mass) rather than adding new ones.
 
-**Depends on:** [Foundation](content-subtypes-foundation.md)
+**Depends on:** [Foundation](../04/content-subtypes-foundation.md)
 
 ## Database Migration
 

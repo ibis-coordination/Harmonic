@@ -1,5 +1,7 @@
 # Decision & Verification UI Polish
 
+> **Shipped** in 2cbeb6a4 (2026-06-26): constant chainlink icon + gated winner highlight.
+
 UI improvements and general polish for decision show pages and the verification page.
 
 ## Items

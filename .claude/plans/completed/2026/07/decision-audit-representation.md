@@ -1,5 +1,7 @@
 # Spike: Capture representation in the decision audit log
 
+> **Shipped** in b1a3a4ba (2026-07-04): representation recorded in the decision audit chain (schema v3).
+
 **Status:** Spike / high-level. Not scheduled for implementation yet — keep decisions open, resist over-specifying.
 
 ## Problem
@@ -11,11 +13,11 @@ session, the chain does not capture that representation at all.
 
 Worse, it actively conflates the two parties. During an active representation session the
 controller sets `@current_user = rep_session.effective_user`
-([application_controller.rb:341](../../app/controllers/application_controller.rb#L341)).
+([application_controller.rb:341](../../../../../app/controllers/application_controller.rb#L341)).
 That `effective_user` is the **represented party** (the principal / granting user). It is
 this user that flows down as `actor` into `DecisionActionService.cast_vote!` →
 `DecisionAuditService.record_vote!`
-([decision_audit_service.rb:68](../../app/services/decision_audit_service.rb#L68)).
+([decision_audit_service.rb:68](../../../../../app/services/decision_audit_service.rb#L68)).
 
 So the audit chain says *"Bob cast this vote"* when in fact *"Alice cast this vote as
 Bob's trustee."* The trustee's identity is recorded only in the separate
@@ -40,19 +42,19 @@ direct action from a represented one, and identify the representative.
 ## Current state (reference)
 
 - **Entry model:** `DecisionAuditEntry`
-  ([decision_audit_entry.rb](../../app/models/decision_audit_entry.rb)) — columns:
+  ([decision_audit_entry.rb](../../../../../app/models/decision_audit_entry.rb)) — columns:
   `actor_id`, `actor_handle`, `actor_token`, `actor_token_salt`, `option_title`,
   `accepted`, `preferred`, `metadata` (jsonb), `previous_hash`, `entry_hash`,
   `schema_version`, `sequence_number`.
 - **Hashing:** `DecisionAuditService`
-  ([decision_audit_service.rb](../../app/services/decision_audit_service.rb)).
+  ([decision_audit_service.rb](../../../../../app/services/decision_audit_service.rb)).
   - `CURRENT_SCHEMA_VERSION = 2`. v1 hashes raw `actor_id`/`actor_handle`; v2 replaces them
     in the hash with `actor_token = SHA256(decision_id | actor_id | actor_handle | salt)`
     so the salt can be destroyed on PII scrub without invalidating the chain.
   - The actor token is anchored to the participant's **first** entry in the decision
     (stable token per `(decision_id, actor_id)` even if they rename).
 - **Write chokepoint:** all mutations route through `DecisionActionService`
-  ([decision_action_service.rb](../../app/services/decision_action_service.rb)), which
+  ([decision_action_service.rb](../../../../../app/services/decision_action_service.rb)), which
   records the mutation and the audit entry in one transaction.
 - **Representation models:** `TrusteeGrant` (granting_user ↔ trustee_user, permissions,
   scope), `RepresentationSession` (`representative_user`, `trustee_grant` or `collective`,

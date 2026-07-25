@@ -119,7 +119,7 @@ See `.env.example`. Key vars: `AUTH_MODE` (oauth/honor_system), `HOSTNAME`, `PRI
 
 ## Plan Documents
 
-Store in `.claude/plans/`. Move completed plans to `.claude/plans/completed/YYYY/MM/`.
+Store in `.claude/plans/`. Move completed plans to `.claude/plans/completed/YYYY/MM/`. Move deferred or speculative plans (nothing scheduled; kept for their trigger conditions or reference value) to `.claude/plans/parked/`.
 
 ## Destructive Operations
 

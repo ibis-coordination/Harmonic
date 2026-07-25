@@ -1,6 +1,8 @@
 # Stage 3 — Agent sessions
 
-> Depends on Stages 1–2 (the `context` block exists). The invasive stage: rename `AiAgentTaskRun` → `AgentSession`, then add the required, validated `agent_session_id` gate — an internal **knowledge test** and a new **external session lifecycle**. Shared concepts in the [overview](action-context-overview.md).
+> **Parked 2026-07-24**: Stages 1–2 shipped (see [overview](../completed/2026/06/action-context-overview.md)); this stage — the `AiAgentTaskRun` → `AgentSession` rename and the `agent_session_id` gate — is not scheduled.
+
+> Depends on Stages 1–2 (the `context` block exists). The invasive stage: rename `AiAgentTaskRun` → `AgentSession`, then add the required, validated `agent_session_id` gate — an internal **knowledge test** and a new **external session lifecycle**. Shared concepts in the [overview](../completed/2026/06/action-context-overview.md).
 
 ## Part A — Rename `AiAgentTaskRun` → `AgentSession`
 

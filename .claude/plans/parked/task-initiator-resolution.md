@@ -1,5 +1,18 @@
 # Task Initiator Resolution
 
+> **Status: SPECULATIVE — not committed direction; candidate for scrapping (2026-07-24).**
+> This plan predates funding pools and the LLM gateway, which built its billing
+> motivation by other means: the run immutably stamps its billing customer at dispatch,
+> and `LLMGateway::PayerResolver` resolves the payer per call from the agent's funding
+> arrangement (pool draw or stamped customer) — never from the rule or the event actor.
+> Do not implement anything here without a fresh warrant. In particular, do not add the
+> `responsible_party` column: it is redundant on the individual-billing path and wrong
+> on the pool path (no single user pays a pool-funded run). The one observation that
+> outlives this plan is vocabulary, recorded in
+> [identity-glossary.md](../identity-glossary.md): `initiated_by` means the **cause
+> actor**, and its `rule.created_by` fallback (rows below) is an attribution impurity —
+> a small cleanup worth doing only if something comes to depend on `initiated_by`.
+
 ## Context
 
 We want to formalize who the "initiator" of an agent task run is, so that downstream features (dynamic billing, opening chat to non-parents, collective billing) can rely on a well-defined concept. The `initiated_by` field already exists on `AiAgentTaskRun`, but its semantics vary by context and it doesn't always represent the person who should bear responsibility (e.g., financial) for the task run.
@@ -82,7 +95,7 @@ Migration to add `responsible_party_id` (UUID, foreign key to `users`, not null)
 
 ### Step 2: Add model association and resolution logic
 
-**File**: [ai_agent_task_run.rb](app/models/ai_agent_task_run.rb)
+**File**: [ai_agent_task_run.rb](../../../app/models/ai_agent_task_run.rb)
 
 - Add `belongs_to :responsible_party, class_name: "User"`
 - Add a class method or factory method that resolves the responsible party based on context:

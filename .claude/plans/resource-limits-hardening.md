@@ -1,5 +1,10 @@
 # Resource Limits Hardening
 
+> **Status (reviewed 2026-07-24): active backlog.** Still the guardrails track that the
+> automations and north-star plans cite, but the audit below predates recent shipping
+> (LLM gateway, pools, personas, MCP) — re-verify its findings against current code
+> before implementing.
+
 A combined audit and remediation plan for two related axes of abuse resistance:
 
 1. **Rate limits** — request-frequency caps on endpoints (per IP, per user, per token)
@@ -133,7 +138,7 @@ Reference points (existing good limits):
 ### High (DB bloat / query slowdown)
 
 4. **Soft-deleted Decisions/Commitments never hard-deleted** — [app/models/concerns/soft_deletable.rb](app/models/concerns/soft_deletable.rb)
-   - Notes now hard-delete after a 30-day grace via `HardDeleteExpiredRecordsJob` (see [completed/2026/05/phased-deletion.md](.claude/plans/completed/2026/05/phased-deletion.md)). Decisions/Commitments still accumulate forever; phased-deletion was deferred for them pending the ownership-after-engagement / withdrawal-vs-delete design.
+   - Notes now hard-delete after a 30-day grace via `HardDeleteExpiredRecordsJob` (see [completed/2026/05/phased-deletion.md](completed/2026/05/phased-deletion.md)). Decisions/Commitments still accumulate forever; phased-deletion was deferred for them pending the ownership-after-engagement / withdrawal-vs-delete design.
    - **Fix**: Extend phased-deletion pipeline to Decisions/Commitments once their deletion semantics are decided. Tracking issue / design doc lives with the data-lifecycle plan.
 
 5. **Notification fanout unbounded per event** — [app/models/notification.rb](app/models/notification.rb), [app/models/notification_recipient.rb](app/models/notification_recipient.rb)

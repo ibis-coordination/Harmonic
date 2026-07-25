@@ -60,7 +60,7 @@ See [`test/integration/anonymous_read_access_route_sweep_test.rb`](test/integrat
 - Spot-check of historical main-collective content on production before flipping `ANON_READABLE_TENANT_SUBDOMAINS=app`
 - robots.txt / sitemap.xml / `X-Robots-Tag` / OG meta — recommended near-term follow-up, separate PR
 - External user comms — decided no (few existing users; expectation already documented in privacy doc)
-- `ApplicationController` refactor — see [`application-controller-auth-refactor.md`](../../../application-controller-auth-refactor.md) (still deferred)
+- `ApplicationController` refactor — see [`application-controller-auth-refactor.md`](../../../parked/application-controller-auth-refactor.md) (still deferred)
 
 ---
 

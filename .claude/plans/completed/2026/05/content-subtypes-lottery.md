@@ -4,7 +4,7 @@
 
 A "lottery" decision selects randomly from options instead of voting. The existing results view already sorts tied options by random ID, so a decision with zero votes is already a random ordering. The only work is to disable voting and present the results as a lottery.
 
-**Depends on:** [Foundation](content-subtypes-foundation.md)
+**Depends on:** [Foundation](../04/content-subtypes-foundation.md)
 
 ## Database Migration
 

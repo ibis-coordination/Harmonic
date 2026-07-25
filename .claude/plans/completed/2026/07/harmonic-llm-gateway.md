@@ -1,12 +1,14 @@
 # Harmonic LLM Gateway
 
+> **Shipped** through release 1.51.0 (2026-07-18). Remaining follow-ups tracked in [llm-gateway-launch-readiness.md](../../../llm-gateway-launch-readiness.md).
+
 A gateway service that makes LLM calls billed to a Harmonic prepaid credit balance,
 attributing each call to a payer — a single customer, or a collective's common pool where
 cost is spread across consenting members. It exists so a collective's members can pool
 their balances to fund their own agents.
 
 Related: [#464 common-pool LLM credits](https://github.com/ibis-coordination/Harmonic/issues/464).
-Depends on the Stripe AI Gateway billing already in production (see [docs/BILLING.md](../../docs/BILLING.md)).
+Depends on the Stripe AI Gateway billing already in production (see [docs/BILLING.md](../../../../../docs/BILLING.md)).
 
 ## Motivation
 
@@ -49,7 +51,7 @@ have one's balance spent). Never auto-enroll anyone into it.
 
 ## The seam: one variable, two implementations
 
-The existing relay code ([agent-runner/src/services/LLMClient.ts](../../agent-runner/src/services/LLMClient.ts))
+The existing relay code ([agent-runner/src/services/LLMClient.ts](../../../../../agent-runner/src/services/LLMClient.ts))
 already forwards to `llm.stripe.com` and parameterizes the *only* thing that matters for
 billing — a single header:
 
@@ -97,9 +99,9 @@ external client ──HTTPS──► llm.harmonic.social (Caddy) ──► llm-g
   selection, and pricing. Single source of truth.
 - **Reuses the agent-runner deployment template**: separate Docker container on the
   backend network, talking to Rails over the existing HMAC-signed `/internal/*` channel
-  ([internal/base_controller.rb](../../app/controllers/internal/base_controller.rb)). The
+  ([internal/base_controller.rb](../../../../../app/controllers/internal/base_controller.rb)). The
   public subdomain (via the Caddyfile generator,
-  [caddyfile_generator.rb](../../app/services/caddyfile_generator.rb)) is added only in the
+  [caddyfile_generator.rb](../../../../../app/services/caddyfile_generator.rb)) is added only in the
   external phase.
 
 ## The resolve contract (shared by single customer and pool)
@@ -229,7 +231,7 @@ stage 2 (their calls resolve to a pool instead of a single customer with no agen
 change).
 
 **The core is a lift-and-shift.** The existing stripe_gateway relay in
-[LLMClient.ts:81-170](../../agent-runner/src/services/LLMClient.ts#L81) (attach
+[LLMClient.ts:81-170](../../../../../agent-runner/src/services/LLMClient.ts#L81) (attach
 `Bearer STRIPE_GATEWAY_KEY` + `X-Stripe-Customer-ID`, POST `llm.stripe.com`, map 402/429,
 log `llm_request`) moves verbatim into the gateway; the only change is that the customer id
 is resolved via `select-payer` rather than passed in.
