@@ -31,7 +31,8 @@
       </section>
 
       <% unless @decision.closed? %>
-        <%= render 'eligibility_fields', form: form, decision: @decision, variant: :settings %>
+        <%= render EligibilityFieldsComponent.new(collective: @current_collective, decision: @decision,
+                                                  variant: :settings, rejected_input: @rejected_eligibility_input) %>
       <% end %>
 
       <% unless @decision.closed? %>

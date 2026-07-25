@@ -53,6 +53,7 @@ class DecisionsController < ApplicationController
         flash.now[:alert] = msg
       end
       @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
+      @rejected_eligibility_input = decision_params
       @decision = Decision.new(
         question: decision_params[:question],
         description: decision_params[:description],
@@ -178,6 +179,7 @@ class DecisionsController < ApplicationController
       end
       # The helper assigns before it raises, so @decision still carries the
       # edits; re-render rather than reload so nothing typed is lost.
+      @rejected_eligibility_input = decision_params
       @page_title = "Decision Settings"
       @sidebar_mode = 'resource'
       @team = @current_collective.team
