@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.59.0] - 2026-07-24
+
+### Fixed
+
+- **Comments on notes are always visible** (#531) — comments and backlinks rendered only inside the confirm-read branch of the note page, so viewers had to confirm reading before either appeared, they vanished again after every edit until reconfirmed, and anonymous viewers never saw them. Both now render unconditionally, matching decisions, commitments, and the markdown surface; the confirm-read button remains as a pure read signal. Also guards the confirm button's hover handlers against the mid-confirm DOM swap that spammed console errors. Deploy: web only, no migrations.
+
 ## [1.58.0] - 2026-07-24
 
 ### Security
