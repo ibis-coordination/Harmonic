@@ -39,7 +39,7 @@ class Decision < ApplicationRecord
   validate :eligibility_rules_are_valid
 
   # Who may vote, and who may propose options — two independently declared
-  # electorates, each a union of clauses. See EligibilityRule. Rules are always
+  # electorates, each a union of clauses. See UserSet. Rules are always
   # assigned whole; in-place mutation of a jsonb attribute is not dirty-tracked,
   # so it would skip both the save and the audit entry. The writers below drop
   # the memoized parse and results so a reassigned rule takes effect at once.
@@ -64,14 +64,14 @@ class Decision < ApplicationRecord
     super
   end
 
-  sig { returns(EligibilityRule) }
+  sig { returns(UserSet) }
   def voter_eligibility_rule
-    @voter_eligibility_rule ||= EligibilityRule.parse(voter_eligibility)
+    @voter_eligibility_rule ||= UserSet.parse(voter_eligibility)
   end
 
-  sig { returns(EligibilityRule) }
+  sig { returns(UserSet) }
   def proposer_eligibility_rule
-    @proposer_eligibility_rule ||= EligibilityRule.parse(proposer_eligibility)
+    @proposer_eligibility_rule ||= UserSet.parse(proposer_eligibility)
   end
 
   sig { params(user: T.nilable(User)).returns(T::Boolean) }
@@ -332,7 +332,7 @@ class Decision < ApplicationRecord
   # re-resolve the rule ten times — and a `list` clause costs two queries each
   # time.
   sig do
-    params(cache: T::Hash[String, T::Boolean], rule: EligibilityRule, user: T.nilable(User))
+    params(cache: T::Hash[String, T::Boolean], rule: UserSet, user: T.nilable(User))
       .returns(T::Boolean)
   end
   def memoized_eligibility(cache, rule, user)
@@ -348,8 +348,8 @@ class Decision < ApplicationRecord
 
     { voter_eligibility: voter_eligibility, proposer_eligibility: proposer_eligibility }.each do |attribute, value|
       rule = begin
-        EligibilityRule.parse(value)
-      rescue EligibilityRule::ParseError => e
+        UserSet.parse(value)
+      rescue UserSet::ParseError => e
         errors.add(attribute, e.message)
         next
       end
@@ -363,7 +363,7 @@ class Decision < ApplicationRecord
     return if is_vote? || voter_eligibility_rule.open?
 
     errors.add(:voter_eligibility, "does not apply to #{subtype} decisions, which do not take votes")
-  rescue EligibilityRule::ParseError
+  rescue UserSet::ParseError
     nil # already reported per attribute above
   end
 

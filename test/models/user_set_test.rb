@@ -1,6 +1,6 @@
 require "test_helper"
 
-class EligibilityRuleTest < ActiveSupport::TestCase
+class UserSetTest < ActiveSupport::TestCase
   def setup
     @tenant, @collective, @user = create_tenant_collective_user
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
@@ -18,18 +18,18 @@ class EligibilityRuleTest < ActiveSupport::TestCase
   end
 
   def rule(hash)
-    EligibilityRule.parse(hash)
+    UserSet.parse(hash)
   end
 
   # ---- default ----
 
   test "default is a single open clause" do
-    assert_equal({ "any_of" => [{ "type" => "open" }] }, EligibilityRule.default.to_h)
+    assert_equal({ "any_of" => [{ "type" => "open" }] }, UserSet.default.to_h)
   end
 
   test "default matches any user and reports no errors" do
-    assert EligibilityRule.default.matches?(@user, collective: @collective)
-    assert_empty EligibilityRule.default.validation_errors(collective: @collective)
+    assert UserSet.default.matches?(@user, collective: @collective)
+    assert_empty UserSet.default.validation_errors(collective: @collective)
   end
 
   # ---- clause matching ----
@@ -259,45 +259,45 @@ class EligibilityRuleTest < ActiveSupport::TestCase
   # ---- structural parse failures ----
 
   test "parse raises on a non-hash, non-string value" do
-    assert_raises(EligibilityRule::ParseError) { EligibilityRule.parse(42) }
+    assert_raises(UserSet::ParseError) { UserSet.parse(42) }
   end
 
   test "parse raises when any_of is missing" do
-    assert_raises(EligibilityRule::ParseError) { EligibilityRule.parse({ "type" => "open" }) }
+    assert_raises(UserSet::ParseError) { UserSet.parse({ "type" => "open" }) }
   end
 
   test "parse raises when any_of is not an array" do
-    assert_raises(EligibilityRule::ParseError) { EligibilityRule.parse({ "any_of" => "open" }) }
+    assert_raises(UserSet::ParseError) { UserSet.parse({ "any_of" => "open" }) }
   end
 
   test "parse raises when a clause is not a hash" do
-    assert_raises(EligibilityRule::ParseError) { EligibilityRule.parse({ "any_of" => ["open"] }) }
+    assert_raises(UserSet::ParseError) { UserSet.parse({ "any_of" => ["open"] }) }
   end
 
   # ---- compact grammar ----
 
   test "parses the compact open form" do
-    r = EligibilityRule.parse("open", collective: @collective)
+    r = UserSet.parse("open", collective: @collective)
     assert_equal({ "any_of" => [{ "type" => "open" }] }, r.to_h)
   end
 
   test "resolves handles to user ids" do
     alice = make_user("alice")
     bob = make_user("bob")
-    r = EligibilityRule.parse("users:#{alice.handle},#{bob.handle}", collective: @collective)
+    r = UserSet.parse("users:#{alice.handle},#{bob.handle}", collective: @collective)
     assert_equal [alice.id, bob.id], r.to_h["any_of"].first["user_ids"]
   end
 
   test "resolves a list truncated_id to a list id" do
     list = UserList.create!(creator: @user, owner: @user, name: "Voters")
-    r = EligibilityRule.parse("list:#{list.truncated_id}", collective: @collective)
+    r = UserSet.parse("list:#{list.truncated_id}", collective: @collective)
     assert_equal list.id, r.to_h["any_of"].first["list_id"]
   end
 
   test "parses a multi-clause compact string" do
     alice = make_user("alice")
     list = UserList.create!(creator: @user, owner: @user, name: "Voters")
-    r = EligibilityRule.parse("users:#{alice.handle} role:admin list:#{list.truncated_id}",
+    r = UserSet.parse("users:#{alice.handle} role:admin list:#{list.truncated_id}",
                               collective: @collective)
 
     assert_equal 3, r.to_h["any_of"].size
@@ -307,30 +307,30 @@ class EligibilityRuleTest < ActiveSupport::TestCase
   end
 
   test "raises on an unresolvable handle" do
-    assert_raises(EligibilityRule::ParseError) do
-      EligibilityRule.parse("users:nobody-here", collective: @collective)
+    assert_raises(UserSet::ParseError) do
+      UserSet.parse("users:nobody-here", collective: @collective)
     end
   end
 
   test "raises on a malformed compact clause" do
-    assert_raises(EligibilityRule::ParseError) do
-      EligibilityRule.parse("users", collective: @collective)
+    assert_raises(UserSet::ParseError) do
+      UserSet.parse("users", collective: @collective)
     end
   end
 
   test "round-trips through the compact grammar" do
     alice = make_user("alice")
     list = UserList.create!(creator: @user, owner: @user, name: "Voters")
-    original = EligibilityRule.parse(
+    original = UserSet.parse(
       "users:#{alice.handle} role:admin list:#{list.truncated_id}", collective: @collective
     )
-    round_tripped = EligibilityRule.parse(original.to_s(collective: @collective), collective: @collective)
+    round_tripped = UserSet.parse(original.to_s(collective: @collective), collective: @collective)
 
     assert_equal original.to_h, round_tripped.to_h
   end
 
   test "to_s renders the open default" do
-    assert_equal "open", EligibilityRule.default.to_s(collective: @collective)
+    assert_equal "open", UserSet.default.to_s(collective: @collective)
   end
 
   # ---- describe ----
@@ -348,6 +348,6 @@ class EligibilityRuleTest < ActiveSupport::TestCase
   end
 
   test "describe of the default says everyone" do
-    assert_match(/every/i, EligibilityRule.default.describe(collective: @collective))
+    assert_match(/every/i, UserSet.default.describe(collective: @collective))
   end
 end

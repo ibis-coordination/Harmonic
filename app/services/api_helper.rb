@@ -981,13 +981,13 @@ class ApiHelper
       next if params[key].nil?
 
       if params[key].blank?
-        attrs[key] = EligibilityRule.default.to_h
+        attrs[key] = UserSet.default.to_h
         next
       end
 
       begin
-        attrs[key] = EligibilityRule.parse(params[key], collective: current_collective).to_h
-      rescue EligibilityRule::ParseError => e
+        attrs[key] = UserSet.parse(params[key], collective: current_collective).to_h
+      rescue UserSet::ParseError => e
         raise ArgumentError, e.message
       end
     end

@@ -161,7 +161,7 @@ class CollectiveImportService
   # which is the safe direction for a reference that failed to travel.
   sig { params(rule: T.untyped).returns(T::Hash[String, T.untyped]) }
   def remap_eligibility(rule)
-    return EligibilityRule.default.to_h unless rule.is_a?(Hash) && rule["any_of"].is_a?(Array)
+    return UserSet.default.to_h unless rule.is_a?(Hash) && rule["any_of"].is_a?(Array)
 
     clauses = rule["any_of"].map do |clause|
       next clause unless clause.is_a?(Hash) && clause["type"] == "users"

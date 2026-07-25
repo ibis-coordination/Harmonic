@@ -200,8 +200,8 @@ class DecisionEligibilityTest < ActiveSupport::TestCase
 
   # ---- rule accessors ----
 
-  test "exposes parsed rules as EligibilityRule values" do
-    assert_kind_of EligibilityRule, @decision.voter_eligibility_rule
-    assert_kind_of EligibilityRule, @decision.proposer_eligibility_rule
+  test "exposes parsed rules as UserSet values" do
+    assert_kind_of UserSet, @decision.voter_eligibility_rule
+    assert_kind_of UserSet, @decision.proposer_eligibility_rule
   end
 end

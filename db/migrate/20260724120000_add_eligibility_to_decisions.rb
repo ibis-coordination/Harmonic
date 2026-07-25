@@ -1,5 +1,5 @@
 # Two independently declared electorates per decision: who may vote, and who
-# may propose options. Each is a union of clauses (see EligibilityRule).
+# may propose options. Each is a union of clauses (see UserSet).
 #
 # One jsonb column per set rather than typed columns per clause field: clause
 # payloads vary in shape, the clause list is variable-length, and

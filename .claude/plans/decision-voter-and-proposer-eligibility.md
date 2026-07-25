@@ -107,7 +107,7 @@ Defaults make every existing row and unmodified create path behave as today.
 In-place mutation of a jsonb attribute is not dirty-tracked, so it would skip
 both the audit entry and the save.
 
-### `EligibilityRule` value object
+### `UserSet` value object
 
 A PORO (`app/models/eligibility_rule.rb`, not `ActiveRecord`) owns the grammar
 so `Decision` stays thin and the logic is unit-testable without a database:
@@ -280,7 +280,7 @@ from the UI or API** — shipping a control that promises restriction and delive
 none is worse than shipping nothing. Phases 1–2 are prerequisites; 3 and 4 are
 independent of each other.
 
-1. **`EligibilityRule` value object.** Parse (jsonb and compact grammar),
+1. **`UserSet` value object.** Parse (jsonb and compact grammar),
    `to_h`/`to_s`, validate, `matches?`, `describe`. No schema, no database.
    *Tests:* every clause type against member / non-member / identity user / nil
    user / dangling reference; two- and three-clause unions; every validation

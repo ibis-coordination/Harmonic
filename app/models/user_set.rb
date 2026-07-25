@@ -1,13 +1,18 @@
 # typed: true
 
-# A declared electorate: who may vote on a decision, or who may propose options
-# for one. A rule is a UNION of clauses — a user is eligible if any clause
-# matches — so every clause only ever widens the set. That keeps a rule
-# renderable as a plain sentence with no precedence to explain.
+# A set of users described by composition rather than enumeration — a derived
+# UserList. Its first callers are a decision's two electorates (who may vote,
+# who may propose options), but nothing here is decision-specific: the same
+# expression is meant to answer "who may comment on this note", "who may join
+# this commitment", and whatever comes next. Call sites keep their own
+# vocabulary for what the set means to them; this class only answers who is in
+# it.
 #
-# Rules are stored as jsonb on Decision and edited as a whole value, never
-# mutated in place (in-place mutation of a jsonb attribute is not dirty-tracked,
-# so it would skip both the save and the audit entry).
+# A set is a UNION of clauses — a user belongs if any clause matches — so every
+# clause only ever widens it. That keeps a set renderable as one plain sentence
+# with no precedence to explain. Difference (`none_of`) and intersection are
+# deliberate future additions: the envelope is keyed rather than a bare array so
+# they can be added without migrating stored values.
 #
 #   {"any_of": [
 #     {"type": "users", "user_ids": ["<uuid>", "<uuid>"]},
@@ -15,15 +20,23 @@
 #     {"type": "list",  "list_id": "<uuid>"}
 #   ]}
 #
-# The agent-facing surfaces speak a compact equivalent, resolved to UUIDs on the
-# way in so a stored rule never rots when someone is renamed:
+# Stored as jsonb and always assigned whole, never mutated in place — in-place
+# mutation of a jsonb attribute is not dirty-tracked, so it would skip both the
+# save and the audit entry. An absent set means no restriction; there is no
+# clause for "everyone", because that is a property of the call site rather than
+# a set of users.
 #
-#   users:alice,bob role:admin list:abc123
+# The agent-facing surfaces speak a compact equivalent that follows the search
+# filter grammar — space-separated `key:value` clauses, comma-separated values,
+# optional `@` on handles — resolved to UUIDs on the way in so a stored set
+# never rots when someone is renamed:
+#
+#   user:alice,@bob role:admin list:abc123
 #
 # This is a value object, not an ActiveRecord — `collective` is passed to the
-# methods that need it rather than held, so the same rule can be resolved
+# methods that need it rather than held, so the same set can be resolved
 # without carrying hidden state.
-class EligibilityRule
+class UserSet
   extend T::Sig
 
   class ParseError < StandardError; end
@@ -43,7 +56,7 @@ class EligibilityRule
     @clauses = clauses.freeze
   end
 
-  sig { returns(EligibilityRule) }
+  sig { returns(UserSet) }
   def self.default
     new([{ "type" => "open" }])
   end
@@ -52,9 +65,9 @@ class EligibilityRule
   # ParseError for structurally unusable input; semantic problems (unknown
   # role, a list from another collective) are reported by #validation_errors so
   # a model can surface them as ordinary validation failures.
-  sig { params(value: T.untyped, collective: T.nilable(Collective)).returns(EligibilityRule) }
+  sig { params(value: T.untyped, collective: T.nilable(Collective)).returns(UserSet) }
   def self.parse(value, collective: nil)
-    return value if value.is_a?(EligibilityRule)
+    return value if value.is_a?(UserSet)
 
     case value
     when String then parse_compact(value, collective: collective)
@@ -63,7 +76,7 @@ class EligibilityRule
     end
   end
 
-  sig { params(value: T::Hash[T.untyped, T.untyped]).returns(EligibilityRule) }
+  sig { params(value: T::Hash[T.untyped, T.untyped]).returns(UserSet) }
   def self.parse_hash(value)
     hash = value.deep_stringify_keys
     clauses = hash["any_of"]
@@ -88,7 +101,7 @@ class EligibilityRule
 
   # "users:alice,bob role:admin list:abc123" — whitespace-separated clauses,
   # handles and truncated ids resolved against `collective`.
-  sig { params(value: String, collective: T.nilable(Collective)).returns(EligibilityRule) }
+  sig { params(value: String, collective: T.nilable(Collective)).returns(UserSet) }
   def self.parse_compact(value, collective: nil)
     tokens = value.strip.split(/\s+/).reject(&:empty?)
     raise ParseError, "Eligibility rule cannot be blank" if tokens.empty?
@@ -210,7 +223,7 @@ class EligibilityRule
 
   sig { params(other: T.untyped).returns(T::Boolean) }
   def ==(other)
-    return false unless other.is_a?(EligibilityRule)
+    return false unless other.is_a?(UserSet)
 
     other.to_h == to_h
   end
