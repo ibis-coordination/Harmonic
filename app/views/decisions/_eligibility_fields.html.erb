@@ -14,7 +14,7 @@
 
 <datalist id="eligibility-handles">
   <% member_handles.each do |handle| %>
-    <option value="users:<%= handle %>"></option>
+    <option value="user:<%= handle %>"></option>
   <% end %>
 </datalist>
 
@@ -23,7 +23,7 @@
   <p class="pulse-section-description">
     Leave these empty unless this decision belongs to a smaller group than the collective.
     A rule is a list of clauses separated by spaces, and anyone matching any clause qualifies —
-    for example <code>users:alice,bob role:admin</code>.
+    for example <code>user:alice,bob role:admin</code>.
     Use <code>members</code> on its own, or combine <code>role:&lt;name&gt;</code>,
     <code>list:&lt;id&gt;</code>, and <code>user:&lt;handle&gt;,&lt;handle&gt;</code>.
   </p>

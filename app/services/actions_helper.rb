@@ -9,9 +9,10 @@ class ActionsHelper
   # Shared by the voter and proposer eligibility params on the decision actions.
   ELIGIBILITY_PARAM_DESCRIPTION =
     "Who is eligible, as a union of space-separated clauses — anyone matching " \
-    "any clause qualifies. Clauses: 'open' (default), 'members', 'role:<name>', " \
-    "'list:<id>', 'users:<handle>,<handle>'. 'open' and 'members' must stand " \
-    "alone. Example: 'users:alice,bob role:admin'".freeze
+    "any clause qualifies. Clauses: 'members', 'role:<name>', 'list:<id>', " \
+    "'user:<handle>,<handle>'. 'members' must stand alone. Handles may carry a " \
+    "leading @. Omit or send empty for no restriction. " \
+    "Example: 'user:alice,@bob role:admin'".freeze
 
   # Authorization for actions a human must initiate for themselves or someone
   # they represent — e.g. creating AI agents or API tokens. The name is honest

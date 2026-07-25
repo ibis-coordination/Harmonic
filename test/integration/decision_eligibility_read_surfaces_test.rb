@@ -57,13 +57,26 @@ class DecisionEligibilityReadSurfacesTest < ActionDispatch::IntegrationTest
 
   # ---- api_json ----
 
-  test "api_json reports both rules" do
+  test "api_json reports rules in the compact grammar it accepts on write" do
     restrict_voting_to(@alice)
     json = scoped { Decision.find(@decision.id).api_json }
 
-    assert_equal({ "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] },
-                 json[:voter_eligibility])
+    assert_equal "user:#{scoped { @alice.tenant_user.handle }}", json[:voter_eligibility]
     assert_nil json[:proposer_eligibility]
+  end
+
+  test "an api_json rule round-trips back through the write surface" do
+    restrict_voting_to(@alice)
+    emitted = scoped { Decision.find(@decision.id).api_json[:voter_eligibility] }
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
+         params: { proposer_eligibility: emitted },
+         headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    rule = scoped { Decision.find(@decision.id).proposer_eligibility }
+    assert_equal({ "any_of" => [{ "type" => "users", "user_ids" => [@alice.id] }] }, rule)
   end
 
   # ---- markdown ----

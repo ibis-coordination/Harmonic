@@ -636,6 +636,19 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     assert_not imported.eligible_voter?(imported.created_by)
   end
 
+  test "an unknown user-set clause type fails the import rather than importing silently" do
+    service = CollectiveImportService.new(data_import: @data_import)
+    rule = { "any_of" => [{ "type" => "cohort", "cohort_id" => SecureRandom.uuid }] }
+
+    error = assert_raises(RuntimeError) { service.send(:remap_eligibility, rule) }
+    assert_match(/unknown user-set clause type/i, error.message)
+  end
+
+  test "a nil rule remaps to nil" do
+    service = CollectiveImportService.new(data_import: @data_import)
+    assert_nil service.send(:remap_eligibility, nil)
+  end
+
   test "imports decision audit entries: verify_all reports expected statuses end-to-end" do
     # End-to-end: build a multi-entry chain on the source (actor entries + a
     # system entry), round-trip it through export/import, then run the full

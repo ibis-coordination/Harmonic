@@ -55,7 +55,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
-         params: { voter_eligibility: "users:#{alice_handle}" },
+         params: { voter_eligibility: "user:#{alice_handle}" },
          headers: { "Accept" => "text/markdown" }
 
     assert_response :success
@@ -80,7 +80,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
-         params: { voter_eligibility: "users:#{alice_handle} role:admin" },
+         params: { voter_eligibility: "user:#{alice_handle} role:admin" },
          headers: { "Accept" => "text/markdown" }
 
     assert_response :success
@@ -92,7 +92,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
-         params: { voter_eligibility: "users:nobody-at-all" },
+         params: { voter_eligibility: "user:nobody-at-all" },
          headers: { "Accept" => "text/markdown" }
 
     assert_response :unprocessable_content
@@ -105,7 +105,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
-         params: { voter_eligibility: "users:#{outsider.id}" },
+         params: { voter_eligibility: "user:#{outsider.id}" },
          headers: { "Accept" => "text/markdown" }
 
     assert_response :unprocessable_content
@@ -165,7 +165,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
-         params: { voter_eligibility: "users:#{alice_handle}" },
+         params: { voter_eligibility: "user:#{alice_handle}" },
          headers: { "Accept" => "text/markdown" }
     assert_response :success
 
@@ -195,7 +195,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
 
     post "/collectives/#{@collective.handle}/decide/actions/create_decision",
          params: { question: "Born restricted?", deadline: "7d",
-                   voter_eligibility: "users:#{alice_handle}", },
+                   voter_eligibility: "user:#{alice_handle}", },
          headers: { "Accept" => "text/markdown" }
     assert_response :success
 
@@ -211,7 +211,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
 
     post "/collectives/#{@collective.handle}/decide/actions/create_decision",
          params: { question: "Restricted from birth?", deadline: "7d",
-                   voter_eligibility: "users:#{alice_handle}", },
+                   voter_eligibility: "user:#{alice_handle}", },
          headers: { "Accept" => "text/markdown" }
 
     assert_response :success
@@ -238,7 +238,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
-         params: { decision: { voter_eligibility: "users:#{alice_handle}" } }
+         params: { decision: { voter_eligibility: "user:#{alice_handle}" } }
 
     assert_response :redirect
     rule = scoped { Decision.find(@decision.id).voter_eligibility }
@@ -253,7 +253,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     # The form is form_with(url:) with no model, so fields are top-level rather
     # than nested under decision[...]. Post exactly what the browser would.
     post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
-         params: { question: @decision.question, voter_eligibility: "users:#{alice_handle}",
+         params: { question: @decision.question, voter_eligibility: "user:#{alice_handle}",
                    proposer_eligibility: "role:admin", deadline_option: "1_week", }
 
     assert_response :redirect
@@ -275,7 +275,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_match(/name="voter_eligibility"/, response.body)
-    assert_match(/value="users:#{Regexp.escape(alice_handle)}"/, response.body)
+    assert_match(/value="user:#{Regexp.escape(alice_handle)}"/, response.body)
   end
 
   test "the new-decision form offers both eligibility fields defaulted to open" do
@@ -292,7 +292,7 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/decide",
-         params: { question: "From the form?", voter_eligibility: "users:#{alice_handle}",
+         params: { question: "From the form?", voter_eligibility: "user:#{alice_handle}",
                    deadline_option: "1_week", }
 
     decision = scoped { Decision.where(question: "From the form?").last }

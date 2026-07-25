@@ -266,8 +266,30 @@ class UserSetTest < ActiveSupport::TestCase
   test "resolves handles to user ids" do
     alice = make_user("alice")
     bob = make_user("bob")
-    r = UserSet.parse("users:#{alice.handle},#{bob.handle}", collective: @collective)
+    r = UserSet.parse("user:#{alice.handle},#{bob.handle}", collective: @collective)
     assert_equal [alice.id, bob.id], r.to_h["any_of"].first["user_ids"]
+  end
+
+  test "accepts an optional @ on handles, as the search grammar does" do
+    alice = make_user("alice")
+    bob = make_user("bob")
+    r = UserSet.parse("user:@#{alice.handle},#{bob.handle}", collective: @collective)
+
+    assert_equal [alice.id, bob.id], r.to_h["any_of"].first["user_ids"]
+  end
+
+  test "the plural users: key is not the grammar" do
+    alice = make_user("alice")
+    assert_raises(UserSet::ParseError) do
+      UserSet.parse("users:#{alice.handle}", collective: @collective)
+    end
+  end
+
+  test "to_s renders the singular user key" do
+    alice = make_user("alice")
+    r = rule({ "any_of" => [{ "type" => "users", "user_ids" => [alice.id] }] })
+
+    assert_equal "user:#{alice.handle}", r.to_s(collective: @collective)
   end
 
   test "resolves a list truncated_id to a list id" do
@@ -279,7 +301,7 @@ class UserSetTest < ActiveSupport::TestCase
   test "parses a multi-clause compact string" do
     alice = make_user("alice")
     list = UserList.create!(creator: @user, owner: @user, name: "Voters")
-    r = UserSet.parse("users:#{alice.handle} role:admin list:#{list.truncated_id}",
+    r = UserSet.parse("user:#{alice.handle} role:admin list:#{list.truncated_id}",
                               collective: @collective)
 
     assert_equal 3, r.to_h["any_of"].size
@@ -290,13 +312,13 @@ class UserSetTest < ActiveSupport::TestCase
 
   test "raises on an unresolvable handle" do
     assert_raises(UserSet::ParseError) do
-      UserSet.parse("users:nobody-here", collective: @collective)
+      UserSet.parse("user:nobody-here", collective: @collective)
     end
   end
 
   test "raises on a malformed compact clause" do
     assert_raises(UserSet::ParseError) do
-      UserSet.parse("users", collective: @collective)
+      UserSet.parse("user", collective: @collective)
     end
   end
 
@@ -304,7 +326,7 @@ class UserSetTest < ActiveSupport::TestCase
     alice = make_user("alice")
     list = UserList.create!(creator: @user, owner: @user, name: "Voters")
     original = UserSet.parse(
-      "users:#{alice.handle} role:admin list:#{list.truncated_id}", collective: @collective
+      "user:#{alice.handle} role:admin list:#{list.truncated_id}", collective: @collective
     )
     round_tripped = UserSet.parse(original.to_s(collective: @collective), collective: @collective)
 

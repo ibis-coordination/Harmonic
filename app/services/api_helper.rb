@@ -964,7 +964,7 @@ class ApiHelper
     rep_session
   end
 
-  # Eligibility rules arrive as the compact grammar ("users:alice,bob
+  # Eligibility rules arrive as the compact grammar ("user:alice,bob
   # role:admin") from the agent surfaces and the HTML form, or as a rule hash
   # from JSON callers.
   #

@@ -184,10 +184,14 @@ memo is dropped by the rule writers and by `reload` — the latter swaps
 ### Compact grammar for markdown, MCP, and the API
 
 Storage is UUID-based; the agent-facing surface takes and renders a compact
-space-separated form, resolved on write:
+form that follows the **search filter grammar** — space-separated `key:value`
+clauses, comma-separated values, and an optional `@` on handles, matching
+search's deliberate `creator:@alice` / `creator:alice` equivalence. Keys are
+singular with multiple values, as `creator:`/`voter:`/`participant:` already
+are; the stored clause type stays `users` because there it names a JSON array.
 
 ```
-voter_eligibility: users:alice,bob role:admin list:abc123
+voter_eligibility: user:alice,@bob role:admin list:abc123
 ```
 
 Handles are input-only and resolve to UUIDs immediately, so a stored rule never

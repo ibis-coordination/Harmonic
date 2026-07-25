@@ -95,7 +95,7 @@ class UserSet
   end
   private_class_method :normalize_clause
 
-  # "users:alice,bob role:admin list:abc123" — whitespace-separated clauses,
+  # "user:alice,@bob role:admin list:abc123" — whitespace-separated clauses,
   # handles and truncated ids resolved against `collective`.
   sig { params(value: String, collective: T.nilable(Collective)).returns(UserSet) }
   def self.parse_compact(value, collective: nil)
@@ -125,8 +125,8 @@ class UserSet
       raise ParseError, "'list:' requires a list id" if argument.blank?
 
       { "type" => "list", "list_id" => resolve_list_id(argument, collective) }
-    when "users"
-      raise ParseError, "'users:' requires at least one handle" if argument.blank?
+    when "user"
+      raise ParseError, "'user:' requires at least one handle" if argument.blank?
 
       handles = argument.split(",").map(&:strip).reject(&:empty?)
       { "type" => "users", "user_ids" => handles.map { |h| resolve_user_id(h, collective) }.uniq }
@@ -139,8 +139,11 @@ class UserSet
   # Handles live on TenantUser, not User, so they resolve within the
   # collective's tenant. They are accepted as input only — the resolved UUID is
   # what gets stored, so a rule survives a rename.
-  sig { params(handle: String, collective: T.nilable(Collective)).returns(String) }
-  def self.resolve_user_id(handle, collective)
+  sig { params(raw_handle: String, collective: T.nilable(Collective)).returns(String) }
+  def self.resolve_user_id(raw_handle, collective)
+    # A leading @ is optional, matching the search filter grammar, where
+    # `creator:@alice` and `creator:alice` are deliberately identical.
+    handle = raw_handle.delete_prefix("@")
     return handle if uuid?(handle)
     raise ParseError, "Cannot resolve handle '#{handle}' without a collective" if collective.nil?
 
@@ -298,7 +301,7 @@ class UserSet
                 else
                   {}
                 end
-      "users:#{user_ids.map { |id| handles[id] || id }.join(",")}"
+      "user:#{user_ids.map { |id| handles[id] || id }.join(",")}"
     else
       clause["type"].to_s
     end

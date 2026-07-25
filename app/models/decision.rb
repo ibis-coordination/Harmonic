@@ -146,8 +146,12 @@ class Decision < ApplicationRecord
       updated_at: updated_at,
       decision_maker_id: decision_maker&.id,
       voter_count: voter_count,
-      voter_eligibility: voter_eligibility,
-      proposer_eligibility: proposer_eligibility,
+      # The compact grammar rather than the stored jsonb: it is the same format
+      # these fields accept on write, so a rule read here can be written back
+      # unchanged, and the wire contract does not move when the internal shape
+      # grows (difference, intersection, nesting). nil means no restriction.
+      voter_eligibility: voter_eligibility_rule&.to_s(collective: collective),
+      proposer_eligibility: proposer_eligibility_rule&.to_s(collective: collective),
       # participants: decision_participants.map(&:api_json),
       # options: options.map(&:api_json),
       # votes: votes.map(&:api_json),
