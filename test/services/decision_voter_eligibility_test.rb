@@ -33,6 +33,16 @@ class DecisionVoterEligibilityTest < ActiveSupport::TestCase
     )
   end
 
+  # Another collective's outward-facing identity, joined to the collective that
+  # holds the decision — the shape collective representation actually takes.
+  def guest_collective_identity
+    guest = create_collective(tenant: @tenant, created_by: @user,
+                              name: "Guest Collective", handle: "guest-collective")
+    identity = guest.identity_user
+    @collective.add_user!(identity)
+    identity
+  end
+
   def restrict_voting_to(*users)
     @decision.update!(voter_eligibility: {
       "any_of" => [{ "type" => "users", "user_ids" => users.map(&:id) }],
@@ -130,6 +140,58 @@ class DecisionVoterEligibilityTest < ActiveSupport::TestCase
 
     assert_raises(ArgumentError) do
       DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: alice)
+    end
+  end
+
+  # ---- a collective voting in another collective ----
+  #
+  # A collective faces outward through its identity user: it participates in
+  # OTHER collectives while its own space is where its members deliberate. Under
+  # collective representation the session swaps current_user to that identity
+  # (RepresentationSession#effective_user), so the participant behind the vote is
+  # the collective, and eligibility asks whether the COLLECTIVE is in the
+  # electorate — not the human at the keyboard.
+
+  test "collective representation acts as the collective's identity user" do
+    other = create_collective(tenant: @tenant, created_by: @user,
+                              name: "Guest Collective", handle: "guest-collective")
+    session = RepresentationSession.new(collective: other)
+
+    assert session.collective_representation?
+    assert_equal other.identity_user.id, session.effective_user.id
+  end
+
+  test "a guest collective named in the electorate may vote" do
+    guest = guest_collective_identity
+    restrict_voting_to(guest)
+    vote = build_vote(guest)
+
+    assert_nothing_raised do
+      DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
+    end
+    assert vote.persisted?
+  end
+
+  test "a guest collective outside the electorate may not vote, even for an eligible representative" do
+    guest = guest_collective_identity
+    alice = make_user("alice")
+    restrict_voting_to(alice)
+    vote = build_vote(guest)
+
+    # Alice is personally eligible, but this vote would be recorded as the guest
+    # collective's, and that collective is not in the electorate.
+    assert_raises(ArgumentError) do
+      DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: alice)
+    end
+  end
+
+  test "a members rule admits a guest collective that has joined" do
+    guest = guest_collective_identity
+    @decision.update!(voter_eligibility: { "any_of" => [{ "type" => "members" }] })
+    vote = build_vote(guest)
+
+    assert_nothing_raised do
+      DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: @user)
     end
   end
 

@@ -137,6 +137,16 @@ memo is dropped by the rule writers and by `reload` — the latter swaps
   semantics this narrows rather than widens — the safe direction — and avoids
   locking out eligible voters over an unrelated broken reference. The decision
   page surfaces the broken clause to those who can edit settings.
+- **A collective votes in OTHER collectives, through its identity user.** A
+  collective faces outward through that identity while its own space is where
+  its members deliberate, so it never votes on its own decisions. Under
+  collective representation the session swaps `current_user` to the identity
+  (`RepresentationSession#effective_user`), so the participant behind the vote
+  is the collective and eligibility asks whether the COLLECTIVE is in the
+  electorate, not the human at the keyboard. Naming a guest collective works
+  because `Collective#create_identity_user!` joins the identity to the tenant's
+  main collective, giving it a real `CollectiveMember` row; a `users:` clause
+  naming a collective in its own collective is correctly refused.
 - **Identity users mirror `ActionAuthorization`**: `collective.identity_user?(user)`
   satisfies `members`, so collective identities (and the automations acting as
   them) do not silently lose abilities they have everywhere else. A restrictive
@@ -348,6 +358,13 @@ independent of each other.
   results are advisory. Once thresholds exist, "counted but ineligible" is a
   correctness question, likely resolved by excluding them from the tally at
   close rather than deleting them.
+- **Should `members` admit a collective's own identity in its own collective?**
+  The clause mirrors `ActionAuthorization`'s `:collective_member`, which treats
+  `identity_user?` as membership so automations can act in their own collective.
+  But a collective is not a member of itself, so for *voting* this may be the
+  wrong inheritance. Only reachable when something acts as the identity inside
+  its own collective; left as-is rather than diverging from the authorization
+  check without a concrete case.
 - **Should the creator always retain proposer eligibility?** A creator who
   restricts proposing to a rule they do not match locks themselves out of adding
   options (they can still edit settings). The UI makes this hard to reach by
