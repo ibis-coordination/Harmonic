@@ -250,8 +250,8 @@ MCP can still set both independently; the AND rule is documented there.
    a `Decision`, per the listing convention. On routes
    where `current_resource` resolves to a `DecisionParticipant` rather than the
    decision, this layer no-ops and `cast_vote!` is the guard.
-3. HTML: `submit_votes` early-returns with an alert; `show.html.erb` renders the
-   ballot read-only for ineligible viewers.
+3. HTML: `submit_votes` early-returns with an alert, and the options partials
+   render the ballot read-only for ineligible viewers.
 
 **Proposing**
 
@@ -259,6 +259,20 @@ MCP can still set both independently; the AND rule is documented there.
    the controller header labels in one edit.
 2. The `add_options` action gets the parallel
    `all_of(:collective_member, :eligible_proposer)`, same constraints.
+3. HTML: `create_option_and_return_options_partial` refuses with a 403.
+
+**The two HTML routes consult the declared rule themselves.**
+`ActionAuthorizationCheck` gates only `POST /actions/<name>`, so a route whose
+path carries no action name — `submit_votes`, `options.html` — is reached by
+none of it. Leaving them to the service layer means enforcing whatever
+`cast_vote!` and `can_add_options?` happen to raise on, which is narrower than
+the declared rule (no capability, trustee-grant, or user-block check) and fires
+only after side effects are written: an ineligible ballot post saved a receipt
+preference and a `DecisionParticipant` first, and an ineligible option post
+escaped as a bare `RuntimeError` carrying record ids. Both call
+`ActionAuthorization.authorized?` for the action they implement, so the HTML and
+`/actions/` paths run the same gate without either becoming the other's
+special case.
 
 ### Audit
 
