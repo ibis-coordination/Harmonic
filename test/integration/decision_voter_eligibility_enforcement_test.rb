@@ -46,6 +46,12 @@ class DecisionVoterEligibilityEnforcementTest < ActionDispatch::IntegrationTest
     })
   end
 
+  def restrict_proposing_to(*users)
+    @decision.update!(proposer_eligibility: {
+      "any_of" => [{ "type" => "users", "user_ids" => users.map(&:id) }],
+    })
+  end
+
   def scoped
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
@@ -205,6 +211,52 @@ class DecisionVoterEligibilityEnforcementTest < ActionDispatch::IntegrationTest
     assert_match(/name="votes\[0\]\[accepted\]"/, response.body)
   end
 
+  test "an ineligible member gets no vote control of any kind" do
+    restrict_voting_to(@alice)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    sign_in_as(@bob, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+
+    assert_response :success
+    assert_no_match(/pulse-acceptance-checkbox/, response.body, "no accept checkbox")
+    assert_no_match(/pulse-star-checkbox/, response.body, "no preference star")
+    assert_no_match(/submit_votes/, response.body, "no ballot form to post")
+    assert_no_match(/name="vote_receipt_email"/, response.body, "no receipt option")
+  end
+
+  # The two sets are independent, so each control has to follow its own rule
+  # rather than a single "can participate" notion.
+
+  test "a member who may vote but not propose sees the ballot and no add-option input" do
+    restrict_voting_to(@bob)
+    restrict_proposing_to(@alice)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    sign_in_as(@bob, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+
+    assert_response :success
+    assert_match(/pulse-acceptance-checkbox/, response.body)
+    assert_no_match(/pulse-add-option-input/, response.body)
+  end
+
+  test "a member who may propose but not vote sees the add-option input and no ballot" do
+    restrict_voting_to(@alice)
+    restrict_proposing_to(@bob)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    sign_in_as(@bob, tenant: @tenant)
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}"
+
+    assert_response :success
+    assert_match(/pulse-add-option-input/, response.body)
+    assert_no_match(/pulse-acceptance-checkbox/, response.body)
+  end
+
   test "the live options refresh is read-only for an ineligible member" do
     restrict_voting_to(@alice)
     Collective.clear_thread_scope
@@ -216,6 +268,26 @@ class DecisionVoterEligibilityEnforcementTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match(/Option A/, response.body)
     assert_no_match(/name="votes\[0\]\[accepted\]"/, response.body)
+  end
+
+  test "the actions index offers vote to an eligible member and not an ineligible one" do
+    restrict_voting_to(@alice)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+
+    # The agent-facing UI is the actions index, so it has to track eligibility
+    # the way the ballot does.
+    sign_in_as(@bob, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions",
+        headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_no_match(/actions\/vote/, response.body)
+
+    sign_in_as(@alice, tenant: @tenant)
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/actions",
+        headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_match(/actions\/vote/, response.body)
   end
 
   # ---- markdown action ----
