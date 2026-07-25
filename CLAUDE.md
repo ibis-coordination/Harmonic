@@ -9,6 +9,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 - [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) — UI styling patterns (live reference at `/dev/styleguide`)
 - [docs/AGENT_RUNNER.md](docs/AGENT_RUNNER.md) — Agent-runner service
 - [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md) — Automation system
+- [docs/BILLING.md](docs/BILLING.md) — Billing, credits, and the LLM gateway
 
 ## Common Commands
 
@@ -44,11 +45,6 @@ cd agent-runner && npm test && npm run typecheck && npm run build
 
 Do not write implementation code without corresponding tests. Do not defer tests to a later step — write them alongside or before the implementation.
 
-## Code Style (Ruby)
-
-- Double quotes, trailing commas in multiline literals, max 150 char lines
-- RuboCop config in `.rubocop.yml`
-
 ## Architecture
 
 **Tech stack**: Rails 8.1, Ruby 3.3.7, PostgreSQL, Redis/Sidekiq, Hotwire (Turbo + Stimulus)
@@ -78,13 +74,18 @@ Configured via `AUTH_MODE` env var: `oauth` (production) or `honor_system` (deve
 |-------|---------|--|-------|---------|
 | `Note` | Posts/content | | `Cycle` | Time-bounded activity windows |
 | `Decision` | Acceptance voting | | `Link` | Bidirectional references |
-| `Commitment` | Action pledges with critical mass | | | |
+| `Commitment` | Action pledges with critical mass | | `AutomationRule` (+`Run`) | Event/schedule/webhook-triggered automation |
+| `Notification` (+`Recipient`) | In-app/push/webhook delivery | | `FundingPool` (+`Enrollment`) | Pooled credits funding collective agents |
+| `ApiToken` | Token auth, one type each | | `LlmUsageRecord` | LLM gateway usage ledger |
+| `TrusteeGrant` | Delegated authority for agents | | | |
 
-Shared concerns: `HasTruncatedId`, `Linkable`, `Pinnable`, `Attachable`, `Commentable`
+Shared concerns: `HasTruncatedId`, `Linkable`, `Pinnable`, `Attachable`, `Commentable`, `SoftDeletable`/`HasDeletedAt`
 
-### Dual Interface
+### Interfaces
 
 The app serves HTML for humans and Markdown + API actions for LLMs (same routes, `Accept: text/markdown`). RESTful JSON API at `/api/v1/` with token-based auth (scopes: `read`, `write`).
+
+**MCP is the primary agent interface**: hosted endpoint at `POST /mcp` (`app/controllers/mcp/`) with tools `execute_action`, `fetch_page`, `get_help`, `search`; connect guides at `/help/mcp`. The markdown UI and REST API are lower-level data access for automated systems. Every `ApiToken` is locked to exactly one type — `rest`, `mcp`, or `llm_gateway` (the latter two are agent-only).
 
 ## Testing
 
@@ -103,15 +104,7 @@ Base URL: `https://app.harmonic.local` (not localhost — subdomain-based tenanc
 
 ## Static Analysis
 
-These run in pre-commit hooks and CI:
-
-```bash
-./scripts/check-tenant-safety.sh    # Banned .unscoped usage
-./scripts/check-debug-code.sh       # Debug code (binding.pry, console.log, etc.)
-./scripts/check-secrets.sh          # Potential secrets/API keys
-./scripts/check-style-guide.sh      # Hardcoded colors / naming in Pulse CSS
-./scripts/check-job-inheritance.sh  # Job base class inheritance
-```
+Pre-commit and CI run the `scripts/check-*.sh` suite plus Sorbet and TypeScript checks. `scripts/hooks/pre-commit` is the authoritative list; each check script explains its rule in its header comment.
 
 ## Environment Variables
 
