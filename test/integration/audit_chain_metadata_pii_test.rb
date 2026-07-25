@@ -14,6 +14,7 @@ require "test_helper"
 class AuditChainMetadataPiiTest < ActiveSupport::TestCase
   ALLOWED_KEYS = %w[
     question description subtype deadline options_open decision_maker_id
+    voter_eligibility proposer_eligibility
     old_title new_title
     round randomness
   ].freeze

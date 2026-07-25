@@ -32,6 +32,8 @@ class DecisionAuditService
       subtype: decision.subtype,
       deadline: decision.deadline&.iso8601,
       options_open: decision.options_open.to_s,
+      voter_eligibility: decision.voter_eligibility.to_json,
+      proposer_eligibility: decision.proposer_eligibility.to_json,
     }
     initial_values[:decision_maker_id] = decision.decision_maker_id if decision.decision_maker_id.present?
     record!(

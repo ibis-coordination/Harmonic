@@ -41,6 +41,10 @@
       <% end %>
 
       <% unless @decision.closed? %>
+        <%= render 'eligibility_fields', form: form, decision: @decision %>
+      <% end %>
+
+      <% unless @decision.closed? %>
         <section class="pulse-settings-section">
           <h2 class="pulse-section-title">Deadline</h2>
           <%= render 'shared/deadline_input_fields', form: form, resource: @decision, close_now_option: true %>

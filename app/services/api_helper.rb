@@ -203,6 +203,7 @@ class ApiHelper
       }
       decision_maker_param = params[:decision_maker] || params[:decision_maker_id]
       create_attrs[:decision_maker] = resolve_user(decision_maker_param) if decision_maker_param.present?
+      create_attrs.merge!(eligibility_attrs)
       decision = Decision.new(create_attrs)
       DecisionActionService.create_decision!(decision: decision, actor: current_user, representation_session: current_representation_session)
       track_task_run_resource(decision, action_type: "create")
@@ -963,6 +964,27 @@ class ApiHelper
     rep_session
   end
 
+  # Eligibility rules arrive as the compact grammar ("users:alice,bob
+  # role:admin") from the agent surfaces and the HTML form, or as a rule hash
+  # from JSON callers. Absent and blank params are left alone, so an update that
+  # says nothing about eligibility does not silently reset it — resetting takes
+  # an explicit "open".
+  sig { returns(T::Hash[Symbol, T.untyped]) }
+  private def eligibility_attrs
+    attrs = T.let({}, T::Hash[Symbol, T.untyped])
+    [:voter_eligibility, :proposer_eligibility].each do |key|
+      next unless params.has_key?(key)
+      next if params[key].blank?
+
+      begin
+        attrs[key] = EligibilityRule.parse(params[key], collective: current_collective).to_h
+      rescue EligibilityRule::ParseError => e
+        raise ArgumentError, e.message
+      end
+    end
+    attrs
+  end
+
   sig { returns(Decision) }
   def update_decision_settings
     decision = T.must(current_decision)
@@ -986,6 +1008,7 @@ class ApiHelper
       if params.has_key?(dm_param_key)
         decision.decision_maker = params[dm_param_key].present? ? resolve_user(params[dm_param_key]) : nil
       end
+      eligibility_attrs.each { |attribute, value| decision.public_send(:"#{attribute}=", value) }
 
       DecisionActionService.update_decision!(decision: decision, actor: current_user, representation_session: current_representation_session)
 

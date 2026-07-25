@@ -21,6 +21,20 @@ class DecisionActionService
     end
   end
 
+  # Audit metadata holds strings. Structured columns (the eligibility rules)
+  # have to be JSON-encoded rather than stringified — `to_s` on a Hash yields a
+  # Ruby literal ({"any_of"=>[...]}), which is not machine-readable and would
+  # make the audit record of an electorate change useless to anything but a
+  # human squinting at it.
+  sig { params(value: T.untyped).returns(T.nilable(String)) }
+  def self.audit_value(value)
+    case value
+    when Time then value.iso8601
+    when Hash, Array then value.to_json
+    else value&.to_s
+    end
+  end
+
   sig do
     params(
       decision: Decision,
@@ -31,7 +45,7 @@ class DecisionActionService
   def self.update_decision!(decision:, actor:, representation_session: nil)
     ActiveRecord::Base.transaction do
       changes = decision.changes.except("updated_at").transform_values do |v|
-        v.map { |val| val.is_a?(Time) ? val.iso8601 : val&.to_s }
+        v.map { |val| audit_value(val) }
       end
       decision.save!
       audit_entry = if changes.any?

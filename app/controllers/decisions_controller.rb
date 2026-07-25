@@ -33,6 +33,8 @@ class DecisionsController < ApplicationController
         deadline: deadline_from_params,
         subtype: decision_nested[:subtype],
         decision_maker_id: decision_nested[:decision_maker_id],
+        voter_eligibility: params[:voter_eligibility] || decision_nested[:voter_eligibility],
+        proposer_eligibility: params[:proposer_eligibility] || decision_nested[:proposer_eligibility],
       }
       @decision = @current_decision = api_helper(params: helper_params).create_decision
       # Handle file attachments separately (HTML form specific)
@@ -163,6 +165,8 @@ class DecisionsController < ApplicationController
     unless @decision.closed?
       helper_params[:options_open] = decision_params[:options_open]
       helper_params[:deadline] = deadline_from_params
+      helper_params[:voter_eligibility] = decision_params[:voter_eligibility]
+      helper_params[:proposer_eligibility] = decision_params[:proposer_eligibility]
     end
     @decision = api_helper(params: helper_params).update_decision_settings
     redirect_to @decision.path
@@ -174,7 +178,7 @@ class DecisionsController < ApplicationController
     @page_title = "Actions | Decision Settings"
     set_pin_vars
     actions = [
-      { name: 'update_decision_settings', params_string: '(question, description, options_open, deadline)' },
+      { name: 'update_decision_settings', params_string: ActionsHelper::ACTION_DEFINITIONS['update_decision_settings'][:params_string] },
     ]
     if @is_pinned
       actions << { name: 'unpin_decision', params_string: '()' }
@@ -704,7 +708,8 @@ class DecisionsController < ApplicationController
     model_params.permit(
       :question, :description, :options_open,
       :duration, :duration_unit, :files,
-      :subtype, :decision_maker_id
+      :subtype, :decision_maker_id,
+      :voter_eligibility, :proposer_eligibility
     )
   end
 

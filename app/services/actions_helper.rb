@@ -6,6 +6,13 @@
 class ActionsHelper
   extend T::Sig
 
+  # Shared by the voter and proposer eligibility params on the decision actions.
+  ELIGIBILITY_PARAM_DESCRIPTION =
+    "Who is eligible, as a union of space-separated clauses — anyone matching " \
+    "any clause qualifies. Clauses: 'open' (default), 'members', 'role:<name>', " \
+    "'list:<id>', 'users:<handle>,<handle>'. 'open' and 'members' must stand " \
+    "alone. Example: 'users:alice,bob role:admin'".freeze
+
   # Authorization for actions a human must initiate for themselves or someone
   # they represent — e.g. creating AI agents or API tokens. The name is honest
   # about both conditions it enforces: the caller must be a human user type, AND
@@ -492,7 +499,7 @@ class ActionsHelper
     # Decision actions
     "create_decision" => {
       description: "Create a new decision. Use subtype 'executive' for executive decisions where a designated decision maker selects options and issues a final statement instead of group voting.",
-      params_string: "(question, description, options_open, deadline, subtype, decision_maker)",
+      params_string: "(question, description, options_open, deadline, subtype, decision_maker, voter_eligibility, proposer_eligibility)",
       params: [
         { name: "question", type: "string", description: "The question being decided" },
         { name: "description", type: "string", description: "Additional context for the decision" },
@@ -502,19 +509,23 @@ class ActionsHelper
         { name: "subtype", type: "string", required: false, description: "Decision subtype: 'vote' (default), 'executive', or 'lottery'" },
         { name: "decision_maker", type: "string", required: false,
           description: "For executive decisions: handle (e.g. '@dan') or user ID of the decision maker (defaults to creator)", },
+        { name: "voter_eligibility", type: "string", required: false, description: ELIGIBILITY_PARAM_DESCRIPTION },
+        { name: "proposer_eligibility", type: "string", required: false, description: ELIGIBILITY_PARAM_DESCRIPTION },
       ],
       authorization: :collective_member,
       visibility: :by_collective,
     },
     "update_decision_settings" => {
       description: "Update the decision settings",
-      params_string: "(question, description, options_open, deadline)",
+      params_string: "(question, description, options_open, deadline, voter_eligibility, proposer_eligibility)",
       params: [
         { name: "question", type: "string", description: "The question being decided" },
         { name: "description", type: "string", description: "Additional context for the decision" },
         { name: "options_open", type: "boolean", description: "Whether participants can add options" },
         { name: "deadline", type: "datetime",
           description: "When the decision closes. Accepts ISO 8601, a Unix timestamp, or relative time like 7d, 3h, or 1w.", },
+        { name: "voter_eligibility", type: "string", required: false, description: ELIGIBILITY_PARAM_DESCRIPTION },
+        { name: "proposer_eligibility", type: "string", required: false, description: ELIGIBILITY_PARAM_DESCRIPTION },
       ],
       authorization: :resource_owner,
       visibility: :by_collective,
