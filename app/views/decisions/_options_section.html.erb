@@ -27,6 +27,15 @@
           <% end %>
         </span>
       </ul>
+    <% elsif !@decision.eligible_voter?(@current_user) %>
+      <%# Outside the electorate: options are visible, the ballot is not. The
+          message stays generic — naming the rule would disclose who is in it. %>
+      <span class="pulse-section-hint">Voting on this decision is restricted. You can view the options but not vote.</span>
+      <ul class="pulse-options-list">
+        <span data-decision-target="list">
+          <%= render 'options_list_items' %>
+        </span>
+      </ul>
     <% else %>
       <%# Vote: checkboxes + submit button %>
       <span class="pulse-section-hint" data-decision-target="votingHint" style="<%= @decision.options.empty? ? 'display: none;' : '' %>">Check all options you would accept. Star options you prefer.</span>

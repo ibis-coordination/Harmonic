@@ -535,7 +535,7 @@ class ActionsHelper
         { name: "votes", type: "array[object]",
           description: "Array of vote objects, each with: option_title (string), accept (boolean), prefer (boolean)", },
       ],
-      authorization: :collective_member,
+      authorization: ActionAuthorization.all_of(:collective_member, :eligible_voter),
       visibility: :by_collective,
     },
     "pin_decision" => {

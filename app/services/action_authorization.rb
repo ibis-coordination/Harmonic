@@ -85,6 +85,17 @@ module ActionAuthorization
       # case needed. This was previously a carve-out (#469) that #477 made vestigial.
       collective.user_is_member?(user)
     },
+    # A decision's declared electorate. Permissive when the resource is absent
+    # (listings) or is not a Decision — some routes resolve a DecisionParticipant
+    # as the resource, and DecisionActionService.cast_vote! is the guard there.
+    eligible_voter: lambda { |user, context|
+      return false unless user
+
+      decision = context[:resource]
+      return true unless decision.is_a?(Decision)
+
+      decision.eligible_voter?(user)
+    },
     resource_owner: lambda { |user, context|
       return false unless user
 
@@ -228,6 +239,15 @@ module ActionAuthorization
 
     # No other collective_identity types should exist
     false
+  end
+
+  # Conjunction of authorization rules, for action definitions that need EVERY
+  # rule to pass. An array in an :authorization is OR, so an action needing AND
+  # must say so explicitly — writing `[:collective_member, :eligible_voter]`
+  # would widen access rather than narrow it.
+  sig { params(rules: T.untyped).returns(Proc) }
+  def self.all_of(*rules)
+    ->(user, context) { rules.all? { |rule| check_authorization(rule, user, context) } }
   end
 
   # Check authorization against a specific authorization rule.

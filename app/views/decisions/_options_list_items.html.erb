@@ -8,7 +8,11 @@
       <input type="checkbox" class="pulse-acceptance-checkbox" id="option<%= option.id %>" name="selections_map[<%= index %>][selected]" value="1" />
       <label for="option<%= option.id %>" class="pulse-option-label" id="option-label<%= option.id %>"><%= markdown_inline(option.title) %></label>
     </li>
-  <% elsif @decision.is_executive? || @decision.is_lottery? %>
+  <% elsif @decision.is_executive? || @decision.is_lottery? || !@decision.eligible_voter?(@current_user) %>
+    <%# Read-only: no ballot for lotteries, executive non-decision-makers, or
+        viewers outside this decision's electorate. Branching here rather than in
+        _options_section covers the live refresh too, which renders this partial
+        on its own through DecisionsController#options_partial. %>
     <li class="pulse-option-item" data-option-id="<%= option.id %>" style="padding: 4px 0;">
       <%= markdown_inline(option.title) %>
     </li>

@@ -73,6 +73,15 @@ class DecisionActionService
     ).returns(T::Hash[Symbol, T.untyped])
   end
   def self.cast_vote!(decision:, vote:, actor:, is_update: false, representation_session: nil)
+    # Eligibility follows the participant's user, not `actor` — a trustee voting
+    # on someone's behalf is judged against the represented user's standing, and
+    # the REST path can target a participant directly. Only `vote` decisions are
+    # gated: executive closes write votes as the decision maker through
+    # ApiHelper#create_executive_selections!, and lottery decisions take no votes.
+    if decision.is_vote? && !decision.eligible_voter?(vote.decision_participant&.user)
+      raise ArgumentError, "You are not eligible to vote on this decision."
+    end
+
     ActiveRecord::Base.transaction do
       vote.save!
       audit_entry = DecisionAuditService.record_vote!(
