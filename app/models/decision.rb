@@ -36,6 +36,53 @@ class Decision < ApplicationRecord
   validates :description, length: { maximum: MAX_DESCRIPTION_LENGTH }
   validates :deadline, presence: true
   validates :subtype, inclusion: { in: SUBTYPES }
+  validate :eligibility_rules_are_valid
+
+  # Who may vote, and who may propose options — two independently declared
+  # electorates, each a union of clauses. See EligibilityRule. Rules are always
+  # assigned whole; in-place mutation of a jsonb attribute is not dirty-tracked,
+  # so it would skip both the save and the audit entry. The writers below drop
+  # the memoized parse and results so a reassigned rule takes effect at once.
+  sig { params(value: T.untyped).returns(T.untyped) }
+  def voter_eligibility=(value)
+    reset_eligibility_memos!
+    super
+  end
+
+  sig { params(value: T.untyped).returns(T.untyped) }
+  def proposer_eligibility=(value)
+    reset_eligibility_memos!
+    super
+  end
+
+  # `reload` swaps @attributes but leaves plain ivars alone, so the memos have
+  # to be dropped here too or a reloaded decision keeps answering from the rule
+  # it was holding before.
+  sig { params(options: T.untyped).returns(T.self_type) }
+  def reload(options = nil)
+    reset_eligibility_memos!
+    super
+  end
+
+  sig { returns(EligibilityRule) }
+  def voter_eligibility_rule
+    @voter_eligibility_rule ||= EligibilityRule.parse(voter_eligibility)
+  end
+
+  sig { returns(EligibilityRule) }
+  def proposer_eligibility_rule
+    @proposer_eligibility_rule ||= EligibilityRule.parse(proposer_eligibility)
+  end
+
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
+  def eligible_voter?(user)
+    memoized_eligibility(@eligible_voters ||= {}, voter_eligibility_rule, user)
+  end
+
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
+  def eligible_proposer?(user)
+    memoized_eligibility(@eligible_proposers ||= {}, proposer_eligibility_rule, user)
+  end
 
   sig { returns(T::Boolean) }
   def is_vote?
@@ -274,6 +321,45 @@ class Decision < ApplicationRecord
   end
 
   private
+
+  sig { void }
+  def reset_eligibility_memos!
+    @voter_eligibility_rule = nil
+    @proposer_eligibility_rule = nil
+    @eligible_voters = nil
+    @eligible_proposers = nil
+  end
+
+  # Memoized per user id because the eligibility check sits inside loops:
+  # ApiHelper#create_votes calls cast_vote! once per submitted vote against a
+  # single memoized decision instance, so a ten-option ballot would otherwise
+  # re-resolve the rule ten times — and a `list` clause costs two queries each
+  # time.
+  sig do
+    params(cache: T::Hash[String, T::Boolean], rule: EligibilityRule, user: T.nilable(User))
+      .returns(T::Boolean)
+  end
+  def memoized_eligibility(cache, rule, user)
+    return false if user.nil?
+    return T.must(cache[user.id]) if cache.key?(user.id)
+
+    cache[user.id] = rule.matches?(user, collective: T.must(collective))
+  end
+
+  sig { void }
+  def eligibility_rules_are_valid
+    return if collective.nil?
+
+    { voter_eligibility: voter_eligibility, proposer_eligibility: proposer_eligibility }.each do |attribute, value|
+      rule = begin
+        EligibilityRule.parse(value)
+      rescue EligibilityRule::ParseError => e
+        errors.add(attribute, e.message)
+        next
+      end
+      rule.validation_errors(collective: T.must(collective)).each { |message| errors.add(attribute, message) }
+    end
+  end
 
   # Track the creator of this decision
   def user_item_status_updates

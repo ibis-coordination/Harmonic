@@ -761,7 +761,9 @@ CREATE TABLE public.decisions (
     lottery_beacon_randomness character varying,
     deadline_event_fired_at timestamp(6) without time zone,
     audit_chain_hash character varying,
-    hard_delete_after timestamp(6) without time zone
+    hard_delete_after timestamp(6) without time zone,
+    voter_eligibility jsonb DEFAULT '{"any_of": [{"type": "open"}]}'::jsonb NOT NULL,
+    proposer_eligibility jsonb DEFAULT '{"any_of": [{"type": "open"}]}'::jsonb NOT NULL
 );
 
 
@@ -10629,6 +10631,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260724120000'),
 ('20260723120000'),
 ('20260719130000'),
 ('20260719120000'),

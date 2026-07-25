@@ -115,8 +115,11 @@ so `Decision` stays thin and the logic is unit-testable without a database:
 `to_s`, `validation_errors(collective:)`, `describe`.
 
 `Decision#eligible_voter?(user)` / `#eligible_proposer?(user)` delegate, and
-memoize per `user_id` on the instance — `can_add_options?` is called once per
-option row during render and a `list` clause is a query.
+memoize per `user_id` on the instance, since the check sits inside loops:
+`ApiHelper#create_votes` calls `cast_vote!` once per submitted vote against a
+single memoized decision, and a `list` clause costs two queries each time. The
+memo is dropped by the rule writers and by `reload` — the latter swaps
+`@attributes` but leaves plain ivars alone.
 
 ### Resolution
 
