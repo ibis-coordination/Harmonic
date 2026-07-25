@@ -140,6 +140,8 @@ class Decision < ApplicationRecord
       updated_at: updated_at,
       decision_maker_id: decision_maker&.id,
       voter_count: voter_count,
+      voter_eligibility: voter_eligibility,
+      proposer_eligibility: proposer_eligibility,
       # participants: decision_participants.map(&:api_json),
       # options: options.map(&:api_json),
       # votes: votes.map(&:api_json),

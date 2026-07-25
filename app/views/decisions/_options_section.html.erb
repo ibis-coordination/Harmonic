@@ -38,6 +38,10 @@
       </ul>
     <% else %>
       <%# Vote: checkboxes + submit button %>
+      <% unless @decision.voter_eligibility_rule.open? %>
+        <%# Safe to name the electorate here — the viewer is part of it. %>
+        <span class="pulse-section-hint">Voting is limited to <%= @decision.voter_eligibility_rule.describe(collective: @current_collective) %>.</span>
+      <% end %>
       <span class="pulse-section-hint" data-decision-target="votingHint" style="<%= @decision.options.empty? ? 'display: none;' : '' %>">Check all options you would accept. Star options you prefer.</span>
       <%= render 'acceptance_voting_tooltip' unless @decision.options.empty? %>
 

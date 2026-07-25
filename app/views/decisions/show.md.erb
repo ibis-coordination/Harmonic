@@ -15,6 +15,18 @@ This decision has been deleted<%= " by the author" if @decision.deleted_by_id ==
 <% if @decision.is_executive? && @decision.decision_maker_id.present? && @decision.decision_maker_id != @decision.created_by_id -%>
 | decision_maker | [@<%= @decision.effective_decision_maker.handle %>](<%= @decision.effective_decision_maker.path %>) |
 <% end -%>
+<% unless @decision.voter_eligibility_rule.open? -%>
+<%#  Disclosure is asymmetric on purpose: describing the electorate to someone
+     outside it would leak who is in it. -%>
+<% if @decision.eligible_voter?(@current_user) -%>
+| voting | restricted — you are eligible to vote |
+<% else -%>
+| voting | restricted — you are not eligible to vote |
+<% end -%>
+<% end -%>
+<% if !@decision.proposer_eligibility_rule.open? && !@decision.eligible_proposer?(@current_user) -%>
+| adding options | restricted — you are not eligible to add options |
+<% end -%>
 | deadline | <%= @decision.deadline %> |
 | time remaining | <%= @decision.deadline > Time.now ? distance_of_time_in_words(Time.now, @decision.deadline) : 'Deadline passed' %> |
 

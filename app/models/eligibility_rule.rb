@@ -194,6 +194,12 @@ class EligibilityRule
     errors.uniq
   end
 
+  # True when the rule imposes no restriction, so callers can skip reporting it.
+  sig { returns(T::Boolean) }
+  def open?
+    clauses.any? { |clause| EXCLUSIVE_TYPES.include?(clause["type"]) }
+  end
+
   sig { params(collective: Collective).returns(String) }
   def describe(collective:)
     return "Everyone with access" if clauses.any? { |c| EXCLUSIVE_TYPES.include?(c["type"]) }

@@ -596,6 +596,46 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
     assert_equal :imported, DecisionAuditVerifier.verify_representative_binding(imported_entry)
   end
 
+  # --- Eligibility rules ---
+
+  test "round-trips a users eligibility clause, remapping ids to the target" do
+    scope_to_source!
+    Decision.create!(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      question: "Electorate round-trip?", deadline: 1.week.from_now, options_open: true, subtype: "vote",
+      voter_eligibility: { "any_of" => [{ "type" => "users", "user_ids" => [@source_user.id] }] },
+    )
+
+    _data_import, imported_collective = export_and_import_source!
+
+    imported = Decision.where(collective_id: imported_collective.id,
+                              question: "Electorate round-trip?").first
+    clause = imported.voter_eligibility["any_of"].first
+    assert_equal "users", clause["type"]
+    assert_equal 1, clause["user_ids"].length
+    assert_equal imported.created_by_id, clause["user_ids"].first,
+                 "user ids inside an eligibility clause must be remapped like every other id"
+  end
+
+  test "a list eligibility clause survives import as a dangling reference" do
+    scope_to_source!
+    source_list = UserList.create!(creator: @source_user, owner: @source_user, name: "Source Voters")
+    Decision.create!(
+      tenant: @source_tenant, collective: @source_collective, created_by: @source_user,
+      question: "Listed electorate?", deadline: 1.week.from_now, options_open: true, subtype: "vote",
+      voter_eligibility: { "any_of" => [{ "type" => "list", "list_id" => source_list.id }] },
+    )
+
+    _data_import, imported_collective = export_and_import_source!
+
+    imported = Decision.where(collective_id: imported_collective.id,
+                              question: "Listed electorate?").first
+    assert_equal "list", imported.voter_eligibility["any_of"].first["type"]
+    # UserList is not exported, so the clause resolves to nobody rather than
+    # silently widening the electorate.
+    assert_not imported.eligible_voter?(imported.created_by)
+  end
+
   test "imports decision audit entries: verify_all reports expected statuses end-to-end" do
     # End-to-end: build a multi-entry chain on the source (actor entries + a
     # system entry), round-trip it through export/import, then run the full
@@ -1840,6 +1880,13 @@ class CollectiveImportServiceTest < ActiveSupport::TestCase
 
   # Helper: export the source collective and import into the target tenant.
   # Yields the imported collective (with scope set) so tests can assert against it.
+  # The setup block leaves the thread scoped to the target tenant with no
+  # collective, so tests that build source-side data first have to scope back.
+  def scope_to_source!
+    Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @source_tenant.subdomain, handle: @source_collective.handle)
+  end
+
   def export_and_import_source!
     # Export
     Tenant.scope_thread_to_tenant(subdomain: @source_tenant.subdomain)

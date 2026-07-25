@@ -153,6 +153,24 @@ class CollectiveImportService
 
   # --- ID mapping ---
 
+  # An eligibility rule carries ids, so it needs the same remapping as every
+  # other reference. `users` clauses remap through the same id map as
+  # created_by and friends. `list` clauses cannot: UserList is not part of the
+  # export, so the id is left as it stands and the clause resolves to nobody in
+  # the target collective — narrowing the electorate rather than widening it,
+  # which is the safe direction for a reference that failed to travel.
+  sig { params(rule: T.untyped).returns(T::Hash[String, T.untyped]) }
+  def remap_eligibility(rule)
+    return EligibilityRule.default.to_h unless rule.is_a?(Hash) && rule["any_of"].is_a?(Array)
+
+    clauses = rule["any_of"].map do |clause|
+      next clause unless clause.is_a?(Hash) && clause["type"] == "users"
+
+      clause.merge("user_ids" => Array(clause["user_ids"]).map { |id| map_id(id) || id })
+    end
+    { "any_of" => clauses }
+  end
+
   sig { params(source_id: T.nilable(String)).returns(T.nilable(String)) }
   def map_id(source_id)
     return nil if source_id.nil?
@@ -417,6 +435,8 @@ class CollectiveImportService
         question: d["question"],
         description: d["description"],
         options_open: d["options_open"],
+        voter_eligibility: remap_eligibility(d["voter_eligibility"]),
+        proposer_eligibility: remap_eligibility(d["proposer_eligibility"]),
         deadline: d["deadline"] ? Time.zone.parse(d["deadline"]) : nil,
         created_by_id: map_id!(d["source_created_by_id"]),
         updated_by_id: map_id(d["source_updated_by_id"]) || map_id!(d["source_created_by_id"]),
