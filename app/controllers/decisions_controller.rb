@@ -284,6 +284,19 @@ class DecisionsController < ApplicationController
   end
 
   def create_option_and_return_options_partial
+    # Mirrors submit_votes: no action name in the path, so ActionAuthorizationCheck
+    # does not reach this route and the declared `add_options` rule has to be
+    # consulted here. Without it, an ineligible poster surfaces as a bare
+    # RuntimeError from the API helper — a 500 carrying record ids.
+    unless ActionAuthorization.authorized?("add_options", @current_user, {
+      collective: @current_collective,
+      resource: current_decision,
+      representation_session: @current_representation_session,
+    })
+      render plain: "Forbidden: you are not eligible to add options to this decision.", status: :forbidden
+      return
+    end
+
     api_helper.create_decision_option
     options_partial
   end
@@ -337,6 +350,21 @@ class DecisionsController < ApplicationController
     end
     if @decision.is_lottery?
       redirect_to @decision.path, alert: "Lottery decisions do not accept votes."
+      return
+    end
+
+    # The `vote` action's declared authorization is the source of truth for who
+    # may vote. This route carries no action name in its path, so
+    # ActionAuthorizationCheck does not reach it and the ballot has to consult
+    # the rule itself — otherwise the HTML path enforces only what
+    # DecisionActionService.cast_vote! happens to raise on, which is narrower
+    # than the declared rule and fires after side effects have been written.
+    unless ActionAuthorization.authorized?("vote", @current_user, {
+      collective: @current_collective,
+      resource: @decision,
+      representation_session: @current_representation_session,
+    })
+      redirect_to @decision.path, alert: "You are not eligible to vote on this decision."
       return
     end
 

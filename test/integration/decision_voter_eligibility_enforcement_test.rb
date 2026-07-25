@@ -118,6 +118,38 @@ class DecisionVoterEligibilityEnforcementTest < ActionDispatch::IntegrationTest
     assert_match(/eligible/i, flash[:alert].to_s)
   end
 
+  test "a rejected ballot submission writes nothing, not even a participant" do
+    restrict_voting_to(@alice)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    sign_in_as(@bob, tenant: @tenant)
+
+    # The receipt-email preference is saved before the votes are cast, so a
+    # guard that only fires inside cast_vote! still leaves this behind.
+    assert_no_difference -> { scoped { DecisionParticipant.where(decision_id: @decision.id).count } } do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+           params: { votes: [{ option_title: "Option A", accepted: "1", preferred: "0" }],
+                     vote_receipt_email: "1", }
+    end
+
+    assert_response :redirect
+  end
+
+  test "a non-member cannot submit votes through the HTML ballot" do
+    outsider = create_user(email: "out-#{SecureRandom.hex(4)}@example.com", name: "Outsider")
+    @tenant.add_user!(outsider)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    sign_in_as(outsider, tenant: @tenant)
+
+    # The `vote` action declares :collective_member; the ballot must not be a
+    # way around it, rule or no rule.
+    assert_no_difference -> { scoped { Vote.where(decision_id: @decision.id).count } } do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/submit_votes",
+           params: { votes: [{ option_title: "Option A", accepted: "1", preferred: "0" }] }
+    end
+  end
+
   test "an eligible member can submit votes through the HTML ballot" do
     restrict_voting_to(@alice)
     Collective.clear_thread_scope

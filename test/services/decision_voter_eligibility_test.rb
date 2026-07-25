@@ -195,6 +195,55 @@ class DecisionVoterEligibilityTest < ActiveSupport::TestCase
     end
   end
 
+  # ---- tightening the rule under a decision already in progress ----
+
+  test "votes cast before the rule tightens are retained and still count" do
+    alice = make_user("alice")
+    bob = make_user("bob")
+    vote = build_vote(bob)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: bob)
+
+    restrict_voting_to(alice)
+
+    # Deliberate: results are advisory, so a vote cast while eligible stands,
+    # and the audit chain records who narrowed the electorate and when. The
+    # first thing quorum and threshold have to revisit.
+    assert Vote.exists?(vote.id), "an existing vote must survive the electorate narrowing"
+    assert_equal 1, @decision.reload.votes.count
+    assert_not @decision.eligible_voter?(bob), "bob is nonetheless no longer eligible"
+  end
+
+  test "a voter made ineligible cannot update the vote they already cast" do
+    alice = make_user("alice")
+    bob = make_user("bob")
+    vote = build_vote(bob)
+    DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: bob)
+    restrict_voting_to(alice)
+
+    vote.accepted = 0
+    assert_raises(ArgumentError) do
+      DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: bob, is_update: true)
+    end
+    assert_equal 1, vote.reload.accepted, "the retained vote keeps its original value"
+  end
+
+  test "the guard re-reads eligibility, so a rule tightened after authorization still blocks" do
+    alice = make_user("alice")
+    bob = make_user("bob")
+    # Bob passes the authorization layer at this moment.
+    assert ActionAuthorization.authorized?("vote", bob, { collective: @collective, resource: @decision })
+
+    # The rule narrows before the write lands — the interleaving the layered
+    # design exists for.
+    restrict_voting_to(alice)
+    vote = build_vote(bob)
+
+    assert_raises(ArgumentError) do
+      DecisionActionService.cast_vote!(decision: @decision, vote: vote, actor: bob)
+    end
+    assert_not vote.persisted?
+  end
+
   # ---- subtypes ----
 
   test "executive selections are not blocked by voter eligibility" do

@@ -40,6 +40,17 @@ class DecisionProposerEligibilityTest < ActionDispatch::IntegrationTest
     DecisionParticipantManager.new(decision: decision, user: user).find_or_create_participant
   end
 
+  # Signing in as another user leaves the thread unscoped, so reads that follow
+  # a request have to re-scope to see the decision's collective.
+  def scoped
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
+    yield
+  ensure
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+  end
+
   def restrict_proposing_to(*users, decision: @decision)
     decision.update!(proposer_eligibility: {
       "any_of" => [{ "type" => "users", "user_ids" => users.map(&:id) }],
@@ -167,6 +178,35 @@ class DecisionProposerEligibilityTest < ActionDispatch::IntegrationTest
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
     assert Option.where(decision_id: @decision.id, title: "Legitimate").exists?
+  end
+
+  test "an ineligible member cannot add an option through the HTML route" do
+    restrict_proposing_to(@alice)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    sign_in_as(@bob, tenant: @tenant)
+
+    # Hiding the form is not enforcement; the route has to refuse the post.
+    assert_no_difference -> { scoped { Option.where(decision_id: @decision.id).count } } do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/options.html",
+           params: { title: "Snuck in" }
+    end
+
+    assert_response :forbidden
+  end
+
+  test "an eligible member can add an option through the HTML route" do
+    restrict_proposing_to(@alice)
+    Collective.clear_thread_scope
+    Tenant.clear_thread_scope
+    sign_in_as(@alice, tenant: @tenant)
+
+    assert_difference -> { scoped { Option.where(decision_id: @decision.id).count } }, 1 do
+      post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/options.html",
+           params: { title: "Allowed" }
+    end
+
+    assert_response :success
   end
 
   test "an ineligible member does not see the add-option form" do
