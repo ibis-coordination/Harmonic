@@ -26,7 +26,7 @@ class HelpPagesTest < ActionDispatch::IntegrationTest
   TOPICS = [
     "privacy", "collectives", "notes", "reminder-notes", "table-notes",
     "decisions", "executive-decisions", "lottery-decisions",
-    "commitments", "calendar-events", "policies", "cycles", "search", "links", "lists",
+    "commitments", "calendar-events", "policies", "cycles", "search", "links", "lists", "user-sets",
     "agents", "trio", "automations", "api", "rest-api", "markdown-ui", "notifications", "representation",
   ].freeze
 

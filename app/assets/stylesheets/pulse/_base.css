@@ -58,4 +58,11 @@ a:hover {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   z-index: 100;
   padding: 8px;
+  /* Tooltip content is explanatory prose wherever the trigger sits, so it sets
+     body text rather than inheriting from the element it is placed in — an
+     icon next to a heading would otherwise render its tooltip at heading size
+     and weight. 14px/400 is the style guide's body text. */
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
 }

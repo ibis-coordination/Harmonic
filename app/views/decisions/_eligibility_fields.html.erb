@@ -1,11 +1,19 @@
 <%#
-  Who may vote, and who may propose options. Both are unions of clauses, edited
-  here as the compact grammar so a rule built through the API — including a
-  multi-clause union — round-trips through this form instead of being flattened
-  by a narrower control.
+  Who may propose options, and who may vote. Both are user sets, edited here as
+  the compact grammar so a set built through the API — including a multi-clause
+  union — round-trips through this form instead of being flattened by a
+  narrower control.
 
-  Locals: form, decision (nil on the new-decision form).
+  Locals:
+    form
+    decision — nil on the new-decision form
+    variant  — :settings (sections divide with border-bottom) or :form (the
+               new-decision form, whose sections divide with border-top).
+               Rendering the wrong one puts two rules side by side.
 %>
+<% variant = local_assigns.fetch(:variant, :settings) %>
+<% section_class = variant == :form ? "pulse-form-section" : "pulse-settings-section" %>
+<% label_class = variant == :form ? "pulse-form-label" : "pulse-label" %>
 <% rule_for = ->(attribute) {
      next nil if decision.nil?
      decision.public_send(:"#{attribute}_rule")&.to_s(collective: @current_collective)
@@ -18,27 +26,27 @@
   <% end %>
 </datalist>
 
-<section class="pulse-settings-section">
-  <h2 class="pulse-section-title">Who can take part</h2>
-  <p class="pulse-section-description">
-    Leave these empty unless this decision belongs to a smaller group than the collective.
-    A rule is a list of clauses separated by spaces, and anyone matching any clause qualifies —
-    for example <code>user:alice,bob role:admin</code>.
-    Use <code>members</code> on its own, or combine <code>role:&lt;name&gt;</code>,
-    <code>list:&lt;id&gt;</code>, and <code>user:&lt;handle&gt;,&lt;handle&gt;</code>.
-  </p>
+<section class="<%= section_class %>">
+  <h2 class="pulse-section-title">
+    Who can participate
+    <%= render TooltipComponent.new do %>
+      Leave empty to allow everyone. Specify a narrower set with
+      <a href="/help/user-sets">user set syntax</a> — for example
+      <code>user:@alice,@bob role:admin</code>.
+    <% end %>
+  </h2>
 
-  <p class="pulse-form-row">
-    <label for="voter_eligibility" class="pulse-label">Who can vote</label>
-    <%= form.text_field :voter_eligibility, value: rule_for.call(:voter_eligibility),
-                        list: "eligibility-handles", class: "pulse-form-input",
-                        placeholder: "everyone" %>
-  </p>
-
-  <p class="pulse-form-row">
-    <label for="proposer_eligibility" class="pulse-label">Who can add options</label>
+  <div class="pulse-form-group">
+    <label for="proposer_eligibility" class="<%= label_class %>">Who can add options</label>
     <%= form.text_field :proposer_eligibility, value: rule_for.call(:proposer_eligibility),
                         list: "eligibility-handles", class: "pulse-form-input",
                         placeholder: "everyone" %>
-  </p>
+  </div>
+
+  <div class="pulse-form-group">
+    <label for="voter_eligibility" class="<%= label_class %>">Who can vote</label>
+    <%= form.text_field :voter_eligibility, value: rule_for.call(:voter_eligibility),
+                        list: "eligibility-handles", class: "pulse-form-input",
+                        placeholder: "everyone" %>
+  </div>
 </section>

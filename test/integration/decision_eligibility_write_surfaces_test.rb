@@ -278,7 +278,34 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
     assert_match(/value="user:#{Regexp.escape(alice_handle)}"/, response.body)
   end
 
-  test "the new-decision form offers both eligibility fields defaulted to open" do
+  test "neither form still offers the superseded options_open dropdown" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # "who can add options" is proposer_eligibility now; creator-only is
+    # expressible as user:<creator>. options_open survives as a column and an
+    # API param for export/import and audit-metadata compatibility, but two
+    # controls for one question is one too many.
+    get "/collectives/#{@collective.handle}/decide"
+    assert_response :success
+    assert_no_match(/name="options_open"/, response.body)
+
+    get "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings"
+    assert_response :success
+    assert_no_match(/name="options_open"/, response.body)
+  end
+
+  test "saving settings without options_open leaves it alone" do
+    scoped { Decision.find(@decision.id).update!(options_open: false) }
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings",
+         params: { question: @decision.question, deadline_option: "1_week" }
+
+    assert_response :redirect
+    assert_equal false, scoped { Decision.find(@decision.id).options_open }
+  end
+
+  test "the new-decision form offers both eligibility fields" do
     sign_in_as(@user, tenant: @tenant)
 
     get "/collectives/#{@collective.handle}/decide"

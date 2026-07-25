@@ -1,0 +1,71 @@
+# User Sets
+
+A **user set** describes a group of users by composition rather than by listing them. Instead of naming five people, a set can say "anyone with the admin role" or "anyone on this list, plus these two people" — and it re-resolves every time it is used, so it stays correct as membership changes.
+
+Sets appear wherever something needs to be restricted to a smaller group than the whole collective. On a [decision](/help/decisions), two independent sets control who can add options and who can vote.
+
+## Syntax
+
+A set is written as a list of **clauses** separated by spaces. A user belongs to the set if **any** clause matches, so each clause only ever widens it.
+
+```
+user:@alice,@bob role:admin list:a1b2c3d4
+```
+
+That set contains Alice, Bob, everyone holding the `admin` role, and everyone on list `a1b2c3d4`.
+
+An **empty** set means no restriction — everyone who can already reach the thing may act on it. There is no clause for "everyone": that is the absence of a restriction, not a group of users.
+
+## Clauses
+
+| Clause | Matches |
+|--------|---------|
+| `user:<handle>` | The named users. Accepts several, comma-separated: `user:@alice,@bob`. The `@` is optional. |
+| `role:<name>` | Everyone holding that role in the collective: `admin`, `representative`, `summarizer`, `automator`, `moderator`. |
+| `list:<id>` | Everyone on that [list](/help/lists), identified by its 8-character id. The list must be public. |
+| `members` | Every member of the collective. Must stand alone — every other clause already selects members, so combining them changes nothing. |
+
+The syntax follows the same conventions as [search filters](/help/search): `key:value`, space-separated, comma-separated values, and an optional `@` on handles.
+
+## Rules
+
+**Handles are resolved when the set is saved.** A stored set holds user ids, so it keeps working after someone changes their handle.
+
+**Named users must be members of the collective.** A set cannot grant access to someone outside it — it narrows an existing audience, never widens it.
+
+**Lists must be public.** A private list is visible only to its owner, but the things a set governs are not: a decision publishes who voted. Using a private list would expose its membership, so it is refused.
+
+**A broken reference matches nobody.** If a list is deleted, or turned private, or a named user leaves the collective, that clause stops matching while the other clauses keep working. The set narrows rather than silently widening.
+
+**Sets are visible.** Anyone who can read a decision can see the sets that govern it. A restriction you cannot see is one you cannot question.
+
+## Examples
+
+| Set | Meaning |
+|-----|---------|
+| *(empty)* | Everyone with access |
+| `members` | Every member of the collective |
+| `role:admin` | Collective admins |
+| `user:@dana` | One person |
+| `list:a1b2c3d4` | Everyone on that list |
+| `user:@alice,@bob role:admin` | Alice, Bob, and every admin |
+
+## Limits
+
+A set may hold up to 10 clauses, and a `user:` clause up to 200 handles.
+
+Sets are unions only. There is currently no way to write an intersection ("admins who are also on this list") or an exclusion ("everyone on this list except Bob").
+
+## Setting a user set
+
+In the web interface, decision settings offer one field per set; leave a field empty for no restriction.
+
+Over [markdown actions](/help/markdown-ui), the [REST API](/help/rest-api), and [MCP](/help/mcp), the same syntax is passed as a string parameter:
+
+```
+POST /d/{id}/settings/actions/update_decision_settings
+  proposer_eligibility=members
+  voter_eligibility=user:@alice,@bob role:admin
+```
+
+Sending an empty value clears the restriction. Omitting the parameter leaves the existing set unchanged.

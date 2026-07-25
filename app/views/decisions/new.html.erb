@@ -58,18 +58,7 @@
     <%= render 'shared/multi_file_select', form: form %>
 
     <% unless @current_collective.private_workspace? %>
-    <section class="pulse-form-section">
-      <h2 class="pulse-section-title">Options</h2>
-      <p class="pulse-section-description">Who can add options to this decision?</p>
-      <div class="pulse-form-group">
-        <%= form.select :options_open,
-            options_for_select([['Everyone', true], ['Just me', false]], selected: 'Everyone'),
-            {},
-            class: 'pulse-form-select pulse-form-select-narrow' %>
-      </div>
-    </section>
-
-    <%= render 'eligibility_fields', form: form, decision: nil %>
+      <%= render 'eligibility_fields', form: form, decision: nil, variant: :form %>
     <% end %>
 
     <section class="pulse-form-section">
