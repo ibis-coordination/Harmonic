@@ -99,12 +99,23 @@ class DecisionProposerEligibilityTest < ActionDispatch::IntegrationTest
     assert @decision.can_add_options?(participant_for(@user))
   end
 
-  test "options_open false and a rule excluding the creator lets nobody add" do
+  test "a proposer set supersedes options_open false" do
     @decision.update!(options_open: false)
     restrict_proposing_to(@alice)
 
+    # options_open can no longer be set by anyone, so a decision carrying false
+    # from before would otherwise be creator-only forever, whatever set is
+    # named. The explicit control wins over the vestigial one — which is also
+    # what stops the conjunction resolving to nobody.
+    assert @decision.can_add_options?(participant_for(@alice))
     assert_not @decision.can_add_options?(participant_for(@user))
-    assert_not @decision.can_add_options?(participant_for(@alice))
+  end
+
+  test "options_open false still governs when no proposer set is named" do
+    @decision.update!(options_open: false)
+
+    assert @decision.can_add_options?(participant_for(@user))
+    assert_not @decision.can_add_options?(participant_for(@bob))
   end
 
   test "a closed decision refuses options regardless of the rule" do

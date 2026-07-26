@@ -242,14 +242,27 @@ naming `proposer_eligibility` and showing the creator-only form. The column,
 `can_add_options?`, and export/import are untouched, so decisions that already
 carry `options_open: false` keep behaving exactly as they did.
 
-**Open: which wins when both are set.** Today neither — they conjoin, so the
-narrower applies and `options_open: false` plus a rule excluding the creator
-resolves to nobody. Unreachable through the UI, reachable through the API. No
-decision currently carries both, so the choice is still free: either declare
-that a proposer set supersedes the coarse switch, or migrate `options_open:
-false` to a creator `user:` clause and drop the term from evaluation. Both get
-harder once decisions hold both fields, because the honest translation of a
-conjunction needs an intersection the union-only grammar cannot express.
+**A named proposer set supersedes the switch.** Not a conjunction: when
+`proposer_eligibility` is present, `options_open` is not consulted.
+
+This is forced by removing the parameter. Nothing can set `options_open` any
+more, so under a conjunction a decision carrying `false` from before would be
+creator-only permanently, whatever set was named — the settings dropdown used to
+be the way out and no longer exists. Superseding restores the release valve:
+name a set and the coarse switch stops applying. It also makes the combination
+that resolves to nobody (`false` plus a set excluding the creator) unreachable.
+
+The cost is that naming a set can *widen* an old creator-only decision. That is
+the right direction: it takes an explicit edit by someone who can already change
+the settings, and it is what they asked for.
+
+A decision that names no set is untouched, so everything predating eligibility
+behaves exactly as it did.
+
+**Still available: converge on one control.** Migrate `options_open: false` to a
+creator `user:` clause and drop the term from evaluation entirely. Now that
+precedence is explicit that migration is pure data movement with no behaviour
+change attached, so it stays cheap rather than getting harder over time.
 
 ### Enforcement
 

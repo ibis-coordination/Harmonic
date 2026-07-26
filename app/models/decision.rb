@@ -208,13 +208,14 @@ class Decision < ApplicationRecord
     #
     # The column stays because decisions created before that carry a value,
     # `api_json` reports it, and collective and user-data export/import
-    # round-trip it. So it is still read here, as a conjunction with the rule:
-    # both must pass, which means every decision predating eligibility behaves
-    # exactly as it did, and no rule can widen what the old switch closed.
-    #
-    # Nothing currently sets both, so which one wins when they disagree is
-    # still an open choice rather than a constraint — see the plan doc.
+    # round-trip it. It still governs a decision that names no proposer set, so
+    # every decision predating eligibility behaves exactly as it did.
     return "You are not eligible to add options to this decision." unless eligible_proposer?(participant.user)
+    # A named set supersedes the switch rather than intersecting with it. Since
+    # nothing can set options_open any more, intersecting would leave a decision
+    # carrying false from before creator-only forever, whatever set was named —
+    # and would let the two combine into nobody at all.
+    return nil if proposer_eligibility.present?
     return nil if options_open? || participant.user_id == created_by_id
 
     "Only the creator can add options to this decision."
