@@ -207,27 +207,49 @@ successful redirect that changed nothing.
 
 ### Composition with `options_open`
 
-`options_open` is untouched — the column, its export/import serialization, its
-audit metadata. Proposer eligibility composes with it:
+`options_open` keeps its column, its export/import serialization, and its audit
+metadata. Proposer eligibility composes with it as a conjunction — the branches
+live in `Decision#add_options_refusal`, which returns the reason or nil, with
+`can_add_options?` delegating so the yes/no and the why cannot drift:
 
 ```ruby
-def can_add_options?(participant)
-  # ...existing guards (nil, closed, authenticated, MAX_OPTIONS)...
-  return false unless eligible_proposer?(participant.user)
-  options_open? || participant.user_id == created_by_id
-end
+return "You are not eligible to add options to this decision." unless eligible_proposer?(participant.user)
+return nil if options_open? || participant.user_id == created_by_id
+"Only the creator can add options to this decision."
 ```
 
 `options_open` is the coarse switch (everyone / creator only), eligibility the
 fine-grained restriction. The AND is additive, so a default-valued decision
-behaves byte-for-byte as today. **The forms no longer offer an `options_open`
-control at all** — "who can add options" is proposer eligibility now, and
-creator-only is expressible as a `user:` clause naming the creator. Two controls
-for one question is one too many, and dropping the dropdown is also what keeps
-the form from producing the incoherent combination (`options_open: false` plus a
-rule the creator does not match, which resolves to nobody). The column, its
-export/import serialization, and its audit metadata are untouched, and API and
-MCP can still set both independently; the AND rule is documented there.
+behaves byte-for-byte as today.
+
+**`options_open` is no longer offered anywhere a person or an agent is told to
+look.** The forms dropped the dropdown, `ACTION_DEFINITIONS` dropped the param
+from `create_decision` and `update_decision_settings`, and the markdown new and
+settings pages no longer describe or display it — the settings table had an
+"Options Open" row directly above "Who Can Add Options", which is the confusion
+in miniature. Creator-only is expressible as a `user:` clause naming the
+creator, so nothing is lost.
+
+Export and import serialize the **column**, not the action param, so removing
+the param does not touch portability.
+
+**The parameter is refused, not ignored.** A caller passing
+`options_open: false` wants a creator-only decision; handing back an open one
+would be a different decision than the one they asked for. Keeping it working
+but undocumented would be worse still — nobody can discover it and nobody
+maintains it. `ApiHelper#reject_options_open_param!` raises an `ArgumentError`
+naming `proposer_eligibility` and showing the creator-only form. The column,
+`can_add_options?`, and export/import are untouched, so decisions that already
+carry `options_open: false` keep behaving exactly as they did.
+
+**Open: which wins when both are set.** Today neither — they conjoin, so the
+narrower applies and `options_open: false` plus a rule excluding the creator
+resolves to nobody. Unreachable through the UI, reachable through the API. No
+decision currently carries both, so the choice is still free: either declare
+that a proposer set supersedes the coarse switch, or migrate `options_open:
+false` to a creator `user:` clause and drop the term from evaluation. Both get
+harder once decisions hold both fields, because the honest translation of a
+conjunction needs an intersection the union-only grammar cannot express.
 
 ### Enforcement
 

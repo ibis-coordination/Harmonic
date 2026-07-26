@@ -500,11 +500,10 @@ class ActionsHelper
     # Decision actions
     "create_decision" => {
       description: "Create a new decision. Use subtype 'executive' for executive decisions where a designated decision maker selects options and issues a final statement instead of group voting.",
-      params_string: "(question, description, options_open, deadline, subtype, decision_maker, voter_eligibility, proposer_eligibility)",
+      params_string: "(question, description, deadline, subtype, decision_maker, voter_eligibility, proposer_eligibility)",
       params: [
         { name: "question", type: "string", description: "The question being decided" },
         { name: "description", type: "string", description: "Additional context for the decision" },
-        { name: "options_open", type: "boolean", description: "Whether participants can add options" },
         { name: "deadline", type: "datetime", required: false,
           description: "When the decision closes. Optional — omit it to close the decision manually. Accepts ISO 8601, a Unix timestamp, or relative time like 7d, 3h, or 1w.", },
         { name: "subtype", type: "string", required: false, description: "Decision subtype: 'vote' (default), 'executive', or 'lottery'" },
@@ -518,11 +517,10 @@ class ActionsHelper
     },
     "update_decision_settings" => {
       description: "Update the decision settings",
-      params_string: "(question, description, options_open, deadline, voter_eligibility, proposer_eligibility)",
+      params_string: "(question, description, deadline, voter_eligibility, proposer_eligibility)",
       params: [
         { name: "question", type: "string", description: "The question being decided" },
         { name: "description", type: "string", description: "Additional context for the decision" },
-        { name: "options_open", type: "boolean", description: "Whether participants can add options" },
         { name: "deadline", type: "datetime",
           description: "When the decision closes. Accepts ISO 8601, a Unix timestamp, or relative time like 7d, 3h, or 1w.", },
         { name: "voter_eligibility", type: "string", required: false, description: ELIGIBILITY_PARAM_DESCRIPTION },

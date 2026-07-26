@@ -187,13 +187,17 @@ class ApiHelper
 
   sig { returns(Decision) }
   def create_decision
+    reject_options_open_param!
     decision = T.let(nil, T.nilable(Decision))
     ActiveRecord::Base.transaction do
       create_attrs = {
         question: params[:question],
         description: params[:description],
         subtype: params[:subtype] || "vote",
-        options_open: params[:options_open] || true,
+        # Every new decision is created options-open; proposer_eligibility is
+        # what narrows it. See reject_options_open_param! for why the param is
+        # refused rather than quietly honoured.
+        options_open: true,
         # Deadline is optional. Omitting it means the decision is closed manually,
         # represented by a far-future deadline (see requires_manual_close?) — the
         # same convention as the HTML form's "no deadline" option. When present it
@@ -966,6 +970,27 @@ class ApiHelper
     rep_session
   end
 
+  # `options_open` answered the same question as proposer_eligibility, less
+  # precisely, so it is no longer a parameter of either decision action.
+  #
+  # Refused rather than ignored: a caller passing options_open: false wants a
+  # creator-only decision, and silently returning an open one would be a
+  # different decision than the one they asked for. Refused rather than kept
+  # working, because an undocumented parameter that still functions is one
+  # nobody can discover and nobody maintains.
+  #
+  # The column itself is untouched — decisions created before this keep their
+  # value, `can_add_options?` still reads it, and export/import still carries
+  # it, none of which goes through this parameter.
+  sig { void }
+  private def reject_options_open_param!
+    return unless params.has_key?(:options_open) && !params[:options_open].nil?
+
+    raise ArgumentError,
+          "options_open is no longer a parameter. Use proposer_eligibility to say who may add " \
+          "options — for creator-only, name yourself: proposer_eligibility: \"user:@#{current_user.handle}\"."
+  end
+
   # Eligibility rules arrive as the compact grammar ("user:alice,bob
   # role:admin") from the agent surfaces and the HTML form, or as a rule hash
   # from JSON callers.
@@ -1003,15 +1028,10 @@ class ApiHelper
     decision = T.must(current_decision)
     raise "Unauthorized: only creator can edit settings" unless decision.can_edit_settings?(current_user)
 
+    reject_options_open_param!
     ActiveRecord::Base.transaction do
       decision.question = params[:question] if params[:question].present?
       decision.description = params[:description] if params[:description].present?
-      # options_open is a boolean, so we need to check has_key? AND the value is not nil
-      if params.has_key?(:options_open) && !params[:options_open].nil?
-        raise "Cannot change options policy on a closed decision" if decision.closed?
-
-        decision.options_open = params[:options_open]
-      end
       if params[:deadline].present?
         raise "Cannot change deadline on a closed decision" if decision.closed?
 

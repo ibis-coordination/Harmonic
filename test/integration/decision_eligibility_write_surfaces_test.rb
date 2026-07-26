@@ -328,6 +328,45 @@ class DecisionEligibilityWriteSurfacesTest < ActionDispatch::IntegrationTest
                  decision.voter_eligibility)
   end
 
+  test "options_open is refused with a pointer to proposer_eligibility" do
+    sign_in_as(@user, tenant: @tenant)
+
+    # Silently creating an open decision would hand back something other than
+    # what was asked for, so the parameter is refused rather than ignored.
+    assert_no_difference -> { scoped { Decision.where(question: "Creator only?").count } } do
+      post "/collectives/#{@collective.handle}/decide/actions/create_decision",
+           params: { question: "Creator only?", deadline: "7d", options_open: false }.to_json,
+           headers: { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+    end
+
+    assert_response :unprocessable_content
+    assert_match(/proposer_eligibility/, response.body)
+  end
+
+  test "options_open is refused on the settings action too" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
+         params: { options_open: false }.to_json,
+         headers: { "Accept" => "text/markdown", "Content-Type" => "application/json" }
+
+    assert_response :unprocessable_content
+    assert_match(/proposer_eligibility/, response.body)
+  end
+
+  test "a decision that already has options_open false keeps it" do
+    scoped { Decision.find(@decision.id).update!(options_open: false) }
+    sign_in_as(@user, tenant: @tenant)
+
+    # The column still governs historical decisions; only the parameter is gone.
+    post "/collectives/#{@collective.handle}/d/#{@decision.truncated_id}/settings/actions/update_decision_settings",
+         params: { question: "Renamed" },
+         headers: { "Accept" => "text/markdown" }
+
+    assert_response :success
+    assert_equal false, scoped { Decision.find(@decision.id).options_open }
+  end
+
   # ---- duplicate ----
 
   test "duplicating a restricted decision keeps both electorates" do

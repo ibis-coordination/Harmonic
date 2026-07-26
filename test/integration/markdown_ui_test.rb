@@ -221,7 +221,6 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
       params: {
         question: "Test decision question?",
         description: "A test decision",
-        options_open: true,
         deadline: 1.week.from_now.to_date.to_s,
       }.to_json,
       headers: @headers

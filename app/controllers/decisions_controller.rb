@@ -29,7 +29,6 @@ class DecisionsController < ApplicationController
       helper_params = {
         question: params[:question] || decision_nested[:question],
         description: params[:description] || decision_nested[:description],
-        options_open: params[:options_open] || decision_nested[:options_open],
         deadline: deadline_from_params,
         subtype: decision_nested[:subtype],
         decision_maker_id: decision_nested[:decision_maker_id],
@@ -166,7 +165,6 @@ class DecisionsController < ApplicationController
       description: decision_params[:description],
     }
     unless @decision.closed?
-      helper_params[:options_open] = decision_params[:options_open]
       helper_params[:deadline] = deadline_from_params
       helper_params[:voter_eligibility] = decision_params[:voter_eligibility]
       helper_params[:proposer_eligibility] = decision_params[:proposer_eligibility]
@@ -766,7 +764,7 @@ class DecisionsController < ApplicationController
 
   def decision_params
     model_params.permit(
-      :question, :description, :options_open,
+      :question, :description,
       :duration, :duration_unit, :files,
       :subtype, :decision_maker_id,
       :voter_eligibility, :proposer_eligibility
