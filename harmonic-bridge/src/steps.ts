@@ -22,6 +22,8 @@ import { spawn as spawnProcess } from "node:child_process";
 import type { Writable } from "node:stream";
 import { writeClaudeMcpConfig } from "./claude-mcp-config.js";
 import { applyClaudeCodeHarness } from "./claude-code-harness.js";
+import { writeGooseConfig } from "./goose-config.js";
+import { applyGooseHarness } from "./goose-harness.js";
 
 export type Step =
   | { readonly kind: "built_in"; readonly name: string }
@@ -64,6 +66,16 @@ export const BUILT_INS: Readonly<Record<string, BuiltInImpl>> = Object.freeze({
   },
   "claude-code-harness": async (ctx) => {
     await applyClaudeCodeHarness({ agentDir: ctx.agentDir });
+  },
+  "goose-per-agent-mcp-config": async (ctx) => {
+    await writeGooseConfig({
+      agentDir: ctx.agentDir,
+      agentHandle: ctx.agentHandle,
+      mcpEndpoint: ctx.mcpEndpoint,
+    });
+  },
+  "goose-harness": async (ctx) => {
+    await applyGooseHarness({ agentDir: ctx.agentDir, agentHandle: ctx.agentHandle });
   },
 });
 

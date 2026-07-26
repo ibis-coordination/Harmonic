@@ -6,8 +6,8 @@
 // only when absent, set timeout_seconds only when absent. Safe on every add,
 // and idempotent.
 //
-// Pairs with `goose-per-agent-config`, which writes the config.yaml this wake
-// command's HOME and XDG_CONFIG_HOME point at.
+// Pairs with `goose-per-agent-mcp-config`, which writes the config.yaml this
+// wake command's HOME and XDG_CONFIG_HOME point at.
 //
 // Goose is the first supported harness with no interactive login: its provider
 // credential is an environment variable (GOOSE_PROVIDER, GOOSE_MODEL, and the
