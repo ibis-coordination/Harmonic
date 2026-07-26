@@ -69,8 +69,9 @@ Each module has its own `.test.ts` file. The full suite runs via `npm test` agai
 ## Security model
 
 - **HMAC verification.** Every inbound request runs through `verifyWebhook` from `webhook.ts` before any process spawns. Failures (missing headers, bad signature, expired timestamp, length-mismatch) drop the request with 401. Signature comparison uses `crypto.timingSafeEqual` after a length pre-check.
-- **Secret resolution at wake time.** Resolved secrets exist in the wake process's environment only. They are not written to disk by harmonic-bridge, not logged, and not passed as the resolver subprocess's argv — resolvers receive the reference body (`Personal/harmonic-dev/token`), not the secret value.
-- **Per-agent isolation.** Each agent has its own webhook URL path, secret, working directory, queue, env, and log files. A leaked secret never compromises another agent.
+- **Secret resolution at wake time.** Resolved secrets exist in the wake process's environment only. They are not written to disk by harmonic-bridge, not logged, and not passed as the resolver subprocess's argv — resolvers receive the reference body (`Personal/harmonic-dev/token`), not the secret value. This bounds secrets at rest; it is not a barrier between the agent and the secret, which is delivered to the wake process on purpose.
+- **The agent is inside the trust boundary.** The wake process holds its secrets in env and runs as the daemon's own user, so an agent with shell tools can read anything that user can — including the file-backend secrets store and other agents' files. All agents on one daemon are a single trust domain; separation requires separate OS users or hosts.
+- **Per-agent isolation.** Each agent has its own webhook URL path, secret, working directory, queue, env, and log files, and its own independently-revocable Harmonic credentials. This is organization plus Harmonic-side credential scoping, not OS-level isolation between agents on the same host.
 - **No TLS termination.** harmonic-bridge binds on a local port. Your reverse proxy handles TLS, certificate management, and any rate limiting. This keeps harmonic-bridge small and gives you a stack you already know how to operate.
 - **No agent-enumeration leak.** Unknown agent and malformed route both return 404 with no body — a probe can't tell which agent handles exist on the host from outside.
 

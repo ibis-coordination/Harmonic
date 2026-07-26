@@ -177,7 +177,7 @@ The catch worth knowing: an `after_add` step runs in *your shell's* environment,
 
 ## Secrets
 
-harmonic-bridge does not integrate with any specific secrets manager. Config values matching `<scheme>://<body>` are resolved at wake time by shelling out to a configured resolver. The resolver's stdout is the secret, used once for that wake, never written to disk by harmonic-bridge.
+harmonic-bridge does not integrate with any specific secrets manager. Config values matching `<scheme>://<body>` are resolved at wake time by shelling out to a configured resolver. The resolver's stdout is the secret, used once for that wake, never written to disk by harmonic-bridge. That bounds where secrets sit at rest — it is not a barrier between the agent and the secret, which is delivered to the wake process on purpose (see [Security model](#security-model)).
 
 ```yaml
 # ~/.harmonic-bridge/config.yml
@@ -230,8 +230,9 @@ The daemon writes `~/.harmonic-bridge/daemon.pid` on start (removed on graceful 
 ## Security model
 
 - **HMAC verification.** Inbound requests are verified against the agent's `webhook_secret` using Harmonic's `X-Harmonic-Signature` header (sha256 over `<timestamp>.<body>` with a 5-minute replay window). Failures drop the request before any process spawns.
-- **Secret resolution at wake time.** Resolved secrets live in the wake process's memory only. They are not written to disk by the daemon, not logged, and not passed as the resolver subprocess's argv (resolvers receive the reference body, not the secret).
-- **Per-agent isolation.** Each agent's secrets, working directory, queue, and log files are independent. A leaked secret never compromises another agent.
+- **Secret resolution at wake time.** Resolved secrets live in the wake process's memory only. They are not written to disk by the daemon, not logged, and not passed as the resolver subprocess's argv (resolvers receive the reference body, not the secret). This limits where secrets sit at rest; it does not limit what the agent can do with them (next point).
+- **The agent is inside the trust boundary.** Resolution exists to hand the secret to the wake command: the agent holds `HARMONIC_BRIDGE_TOKEN` (and everything in its `env:` block) on every wake, and can print it, store it, or send it anywhere its tools reach. The wake process also runs as the daemon's own user, so an agent with shell tools can read anything that user can — the file-backend secrets store, the daemon config, other agents' files (`0600` guards against other users, not the agent's own). Give an agent only secrets you would give the harness prompt driving it, and treat all agents on one daemon as a single trust domain; agents that must not read each other's credentials belong under different OS users or on different hosts.
+- **Per-agent isolation.** Each agent's secrets, working directory, queue, and log files are independent, and each agent holds its own Harmonic credentials, revocable without touching the others. This is organization plus Harmonic-side credential scoping — not OS-level isolation between agents on the same host (previous point).
 - **`add`-side defenses.** Network-supplied agent handles are validated against `/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/` before being used as a path component. `public_url` must be `https://`. HTTP timeouts (30s) prevent a hung Harmonic from pinning the CLI.
 - **No TLS termination.** harmonic-bridge listens on a local port; your reverse proxy handles TLS.
 
