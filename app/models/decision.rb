@@ -140,6 +140,8 @@ class Decision < ApplicationRecord
       subtype: subtype,
       question: question,
       description: description,
+      # Read-only: reported because decisions still carry it, but refused as a
+      # write parameter. See add_options_refusal.
       options_open: options_open,
       deadline: deadline,
       created_at: created_at,
@@ -197,9 +199,21 @@ class Decision < ApplicationRecord
     return "You must be signed in to add options." if participant.nil? || !participant.authenticated?
     return "This decision is closed." if closed?
     return "This decision already has the maximum of #{MAX_OPTIONS} options." if options.count >= MAX_OPTIONS
-    # options_open is the coarse switch (everyone / creator only), proposer
-    # eligibility the fine-grained restriction. Both must pass, so a
-    # default-valued decision behaves exactly as it did before eligibility.
+    # `options_open` is a legacy coarse switch (everyone / creator only) that
+    # predates proposer eligibility, which answers the same question and can
+    # express more. It is no longer settable anywhere: the forms dropped the
+    # control, and both decision actions refuse the parameter outright (see
+    # ApiHelper#reject_options_open_param!). Creator-only is now a `user:`
+    # clause naming the creator.
+    #
+    # The column stays because decisions created before that carry a value,
+    # `api_json` reports it, and collective and user-data export/import
+    # round-trip it. So it is still read here, as a conjunction with the rule:
+    # both must pass, which means every decision predating eligibility behaves
+    # exactly as it did, and no rule can widen what the old switch closed.
+    #
+    # Nothing currently sets both, so which one wins when they disagree is
+    # still an open choice rather than a constraint — see the plan doc.
     return "You are not eligible to add options to this decision." unless eligible_proposer?(participant.user)
     return nil if options_open? || participant.user_id == created_by_id
 
