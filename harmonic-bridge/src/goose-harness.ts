@@ -7,7 +7,7 @@
 // and idempotent.
 //
 // Pairs with `goose-per-agent-mcp-config`, which writes the config.yaml this
-// wake command's HOME and XDG_CONFIG_HOME point at.
+// wake command's XDG_CONFIG_HOME points at.
 //
 // Goose is the first supported harness with no interactive login: its provider
 // credential is an environment variable (GOOSE_PROVIDER, GOOSE_MODEL, and the
@@ -31,15 +31,15 @@ const MAX_TOOL_REPETITIONS = 3;
 
 const DEFAULT_TIMEOUT_SECONDS = 900;
 
-// HOME and XDG_CONFIG_HOME are both set so the per-agent config is found
-// whether Goose resolves its config root via XDG or via $HOME/.config.
+// XDG_CONFIG_HOME alone selects the per-agent config root (honored by goose
+// on macOS and Linux). HOME stays untouched so the agent keeps the daemon
+// user's real dotfiles — gitconfig, ssh — for its shell work.
 //
 // --with-builtin developer belongs here rather than in the written config: it
 // keeps the agent's local tool surface visible in the command the operator
 // reads and edits.
 const WAKE_COMMAND =
-  'HOME="$HARMONIC_BRIDGE_AGENT_DIR/home" \\\n' +
-  'XDG_CONFIG_HOME="$HARMONIC_BRIDGE_AGENT_DIR/home/.config" \\\n' +
+  'XDG_CONFIG_HOME="$HARMONIC_BRIDGE_AGENT_DIR/config" \\\n' +
   "goose run \\\n" +
   "  --no-session \\\n" +
   "  --quiet \\\n" +

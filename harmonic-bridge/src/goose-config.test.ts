@@ -24,7 +24,7 @@ test("goose-config: writes the extension under the relocated config root", async
   t.after(() => rmSync(dir, { recursive: true, force: true }));
 
   const filePath = await writeGooseConfig({ agentDir: dir, ...ARGS });
-  assert.equal(filePath, path.join(dir, "home", ".config", "goose", "config.yaml"));
+  assert.equal(filePath, path.join(dir, "config", "goose", "config.yaml"));
 
   const config = readConfig(dir);
   const ext = config["extensions"]["harmonic-alice"];

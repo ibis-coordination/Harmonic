@@ -61,7 +61,7 @@ test("runStep built_in: goose-per-agent-mcp-config writes the relocated config r
   try {
     const result = await runStep({ kind: "built_in", name: "goose-per-agent-mcp-config" }, makeContext(dir));
     assert.equal(result.ok, true);
-    const configPath = path.join(dir, "home", ".config", "goose", "config.yaml");
+    const configPath = path.join(dir, "config", "goose", "config.yaml");
     assert.ok(existsSync(configPath));
     const config = parseYaml(readFileSync(configPath, "utf8")) as Record<string, any>;
     assert.equal(config["extensions"]["harmonic-alice"]["uri"], "https://app.harmonic.example/mcp");

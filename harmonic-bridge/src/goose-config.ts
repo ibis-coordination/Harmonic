@@ -5,8 +5,8 @@
 // `~/.config/goose/config.yaml` would therefore load every agent's extension in
 // every wake, while only the current wake's token is in scope — so all but one
 // would fail to authenticate on every run. Instead each agent gets its own
-// config root inside its agent dir, and the wake command points Goose at it by
-// exporting both HOME and XDG_CONFIG_HOME.
+// config root inside its agent dir, and the wake command points Goose at it
+// via XDG_CONFIG_HOME.
 //
 // That relocation is safe here in a way it would not be for Codex: Goose
 // deliberately does not read provider credentials from config.yaml — they come
@@ -31,10 +31,11 @@ export interface WriteGooseConfigArgs {
 
 /**
  * The XDG config root for an agent — the value the wake command exports as
- * XDG_CONFIG_HOME, and `$HOME/.config` for the HOME it exports alongside it.
+ * XDG_CONFIG_HOME. Goose honors it alone on macOS and Linux (verified against
+ * 1.44.0), so HOME stays untouched.
  */
 export function gooseConfigRoot(agentDir: string): string {
-  return path.join(agentDir, "home", ".config");
+  return path.join(agentDir, "config");
 }
 
 export async function writeGooseConfig(args: WriteGooseConfigArgs): Promise<string> {

@@ -45,10 +45,11 @@ test("goose-harness: replaces the stub wake_command and writes system-prompt.md"
   const yml = readYml(dir);
   const wake = yml["wake_command"] as string;
 
-  // Both config-root variables, so the per-agent config is found whether Goose
-  // resolves via XDG or via $HOME/.config.
-  assert.match(wake, /HOME="\$HARMONIC_BRIDGE_AGENT_DIR\/home"/);
-  assert.match(wake, /XDG_CONFIG_HOME="\$HARMONIC_BRIDGE_AGENT_DIR\/home\/\.config"/);
+  // XDG_CONFIG_HOME alone is honored on macOS and Linux (verified against
+  // goose 1.44.0), so HOME stays untouched and the agent keeps its real
+  // dotfiles — gitconfig, ssh — for shell work.
+  assert.match(wake, /XDG_CONFIG_HOME="\$HARMONIC_BRIDGE_AGENT_DIR\/config"/);
+  assert.doesNotMatch(wake, /\bHOME=/, "must not relocate HOME");
 
   assert.match(wake, /goose run/);
   // The payload is the instruction; the harness prompt is system context.
