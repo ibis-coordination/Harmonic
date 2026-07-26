@@ -36,8 +36,12 @@ class AiAgentBridgeSetupsController < ApplicationController
     # sprite names become DNS subdomains (<name>-<suffix>.sprites.app). Built
     # from the canonical stored handle, not params (Brakeman taint).
     sprite_name = "harmonic-#{@ai_agent_handle}".downcase.gsub(/[^a-z0-9-]+/, "-")
+    # Harness-neutral base command. The page appends `--harness <slug>` from
+    # the operator's selection, so no harness is assumed here — the same
+    # property the CLI has when the flag is omitted.
     @sprite_setup_command =
-      "npx @ibis-coordination/harmonic-bridge setup-sprite --from #{@public_setup_url} --sprite-name #{sprite_name} --harness claude-code"
+      "npx @ibis-coordination/harmonic-bridge setup-sprite --from #{@public_setup_url} --sprite-name #{sprite_name}"
+    @sprite_harnesses = HarmonicBridgeSetup::SPRITE_HARNESSES
   end
 
   # GET /ai-agents/:handle/bridge-setup

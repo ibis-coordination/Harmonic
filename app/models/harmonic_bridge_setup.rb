@@ -43,6 +43,30 @@ class HarmonicBridgeSetup < ApplicationRecord
   belongs_to :automation_rule, optional: true
 
   DEFAULT_LIFETIME = T.let(15.minutes, ActiveSupport::Duration)
+
+  # Harnesses `harmonic-bridge setup-sprite --harness <slug>` can preconfigure.
+  # The slugs are duplicated from the CLI's own registry across a language
+  # boundary; a test asserts the two lists still agree.
+  #
+  # Omitting --harness is always valid and assumes nothing, so this list is
+  # what the page offers, not what it requires.
+  SPRITE_HARNESSES = T.let(
+    [
+      {
+        slug: "claude-code",
+        label: "Claude Code",
+        note: "Finishes with a one-time login inside the sprite.",
+      },
+      {
+        slug: "goose",
+        label: "goose",
+        note: "No login. Reads its provider credentials from the sprite's environment " \
+              "(GOOSE_PROVIDER, GOOSE_MODEL, and the provider's own API key variable), " \
+              "which you set. Installed during setup.",
+      },
+    ].freeze,
+    T::Array[T::Hash[Symbol, String]]
+  )
   DEFAULT_EVENTS = T.let(["notifications.delivered", "reminders.delivered"].freeze, T::Array[String])
   # Distinguishes a freshly-minted (URL-less) bridge rule from arbitrary
   # other rules on the same agent. Used by redeem!'s post-lock conflict
@@ -103,6 +127,7 @@ class HarmonicBridgeSetup < ApplicationRecord
     with_lock do
       raise Expired if expired?
       raise Redeemed unless redeemed_at.nil?
+
       # `no_existing_notification_webhook_for_agent` runs at create time and
       # is TOCTOU — two setups racing through create both see an empty
       # world. Re-check here inside the lock, against the current state of
