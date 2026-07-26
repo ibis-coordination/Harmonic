@@ -30,6 +30,7 @@ function makeFakeExec(overrides?: {
   listFails?: boolean;
   spriteExists?: boolean;
   claudeAuthed?: boolean;
+  gooseReady?: boolean;
   addFails?: boolean;
 }): { exec: Exec; calls: FakeCall[] } {
   const calls: FakeCall[] = [];
@@ -58,6 +59,9 @@ function makeFakeExec(overrides?: {
         // The Sprites base image ships ~/.claude (settings, hooks, skills)
         // without credentials, so a bare directory check always passes.
         return { code: 0, stdout: "", stderr: "" };
+      }
+      if (script.includes("GOOSE_PROVIDER")) {
+        return { code: overrides?.gooseReady ? 0 : 1, stdout: "", stderr: "" };
       }
       if (script.includes("services list")) return { code: 0, stdout: "[]", stderr: "" };
       if (script.includes("services create") || script.includes("services restart")) {
@@ -136,6 +140,7 @@ test("setup-sprite: rejects unknown --harness values and names the supported one
   assert.equal(r.code, 64);
   assert.match(r.err, /unknown harness "totally-fake"/);
   assert.match(r.err, /claude-code/);
+  assert.match(r.err, /goose/);
 });
 
 test("setup-sprite: without --harness, no harness assumptions are made", async () => {
@@ -231,6 +236,54 @@ test("setup-sprite: skips the login handoff when claude is already authed in the
   });
   assert.equal(r.code, 0, r.err);
   assert.equal(interactive.calls.length, 0);
+});
+
+test("setup-sprite: --harness goose installs goose and opts into its after_add steps", async () => {
+  const fake = makeFakeExec({ gooseReady: true });
+  const interactive = makeFakeInteractive();
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "goose"], {
+    exec: fake.exec,
+    execInteractive: interactive.execInteractive,
+  });
+  assert.equal(r.code, 0, r.err);
+
+  const config = configWrittenBy(fake.calls);
+  assert.match(config, /goose-per-agent-mcp-config/);
+  assert.match(config, /goose-harness/);
+  assert.doesNotMatch(config, /claude/, "the goose config must not carry claude steps");
+
+  // Unlike Claude Code, Codex, and Gemini CLI, goose is not in the Sprites
+  // base image, so it has to be installed.
+  const allScripts = fake.calls.map((c) => c.script ?? "").join("\n");
+  assert.match(allScripts, /download_cli\.sh/, "goose must be installed in the sprite");
+
+  // Goose has no login flow — its credential is an environment variable.
+  assert.equal(interactive.calls.length, 0, "goose must not prompt for an interactive login");
+});
+
+test("setup-sprite: goose with no provider environment names the variables to set", async () => {
+  const fake = makeFakeExec({ gooseReady: false });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "goose"], {
+    exec: fake.exec,
+  });
+
+  assert.notEqual(r.code, 0, "must fail when the harness cannot wake");
+  // Same shape as a failed login: the connection already succeeded, and one
+  // manual step remains.
+  assert.match(fake.calls.map((c) => c.script ?? "").join("\n"), /harmonic-bridge add/);
+  assert.match(r.err, /connected/);
+  assert.match(r.err, /GOOSE_PROVIDER/);
+  assert.match(r.err, /GOOSE_MODEL/);
+  assert.match(r.err, /API key/i, "must say a provider key is needed, since its name varies by provider");
+});
+
+test("setup-sprite: the claude-code path installs no other harness", async () => {
+  const fake = makeFakeExec({ claudeAuthed: true });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "claude-code"], {
+    exec: fake.exec,
+  });
+  assert.equal(r.code, 0, r.err);
+  assert.doesNotMatch(fake.calls.map((c) => c.script ?? "").join("\n"), /download_cli\.sh/);
 });
 
 test("setup-sprite: reuses an existing sprite instead of creating", async () => {

@@ -44,11 +44,18 @@ export interface SetupSpriteOpts {
 interface HarnessDefinition {
   /** after_add steps this harness contributes to the daemon config. */
   readonly afterAdd: readonly string[];
-  /** In-sprite check script: exit 0 when auth already present. */
-  readonly authCheckScript: string;
-  /** Interactive argv (run on the laptop) to complete auth in the sprite. */
-  readonly authCommand: (spriteName: string) => readonly string[];
-  readonly authInstructions: string;
+  /** In-sprite install script, for harnesses the base image doesn't ship. */
+  readonly installScript?: string;
+  /** In-sprite check script: exit 0 when the harness can actually wake. */
+  readonly readyCheckScript: string;
+  /** What to tell the operator when the check fails. */
+  readonly readyInstructions: string;
+  /**
+   * Interactive argv (run on the laptop) that completes setup in the sprite.
+   * Absent for harnesses with nothing to run — a missing credential there is
+   * something the operator sets, not something this command can drive.
+   */
+  readonly readyCommand?: (spriteName: string) => readonly string[];
 }
 
 const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
@@ -56,14 +63,33 @@ const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
     afterAdd: ["claude-code-per-agent-mcp-config", "claude-code-harness"],
     // The Sprites base image ships ~/.claude (settings, hooks) with no
     // credentials — only the credentials file proves a completed login.
-    authCheckScript: "test -f /home/sprite/.claude/.credentials.json",
+    readyCheckScript: "test -f /home/sprite/.claude/.credentials.json",
     // --tty is required: without a pseudo-TTY claude runs in print mode,
     // where /login is unavailable (and exits 0 anyway).
-    authCommand: (spriteName) => ["sprite", "exec", "--tty", "-s", spriteName, "--", "claude", "/login"],
-    authInstructions:
+    readyCommand: (spriteName) => ["sprite", "exec", "--tty", "-s", spriteName, "--", "claude", "/login"],
+    readyInstructions:
       "Claude Code needs a one-time login inside the sprite. In the Claude session\n" +
       "that opens, complete the login (open the printed URL, authorize, paste the\n" +
       "code back), then exit Claude (/exit) to continue.",
+  },
+  goose: {
+    afterAdd: ["goose-per-agent-mcp-config", "goose-harness"],
+    // goose is not in the Sprites base image (Claude Code, Codex, and Gemini
+    // CLI are). CONFIGURE=false skips the installer's interactive setup — the
+    // per-agent config is written by the after_add steps, and the provider
+    // credential comes from the environment.
+    installScript:
+      "curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh | CONFIGURE=false bash",
+    // goose has no login and no credential file, so readiness is: the binary
+    // resolves, and the provider environment the wake will inherit is set.
+    // The provider's own key variable is named per provider, so it can't be
+    // checked generically — only named in the instructions.
+    readyCheckScript: 'command -v goose >/dev/null 2>&1 && [ -n "$GOOSE_PROVIDER" ] && [ -n "$GOOSE_MODEL" ]',
+    readyInstructions:
+      "goose has no login step — it reads its provider credential from the\n" +
+      "environment. Set GOOSE_PROVIDER, GOOSE_MODEL, and your provider's API key\n" +
+      "variable in the sprite's environment (see the Sprites documentation), so the\n" +
+      "harmonic-bridge service inherits them at wake time.",
   },
 });
 
@@ -125,6 +151,13 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
     `ln -sf "$(npm prefix -g)/bin/harmonic-bridge" ${BRIDGE_BIN} && ${BRIDGE_BIN} help >/dev/null`,
   );
   if (install.code !== 0) return fail(stderr, "install harmonic-bridge", install);
+
+  // 3b. Install the harness itself, for harnesses the base image lacks.
+  if (harness?.installScript) {
+    stdout.write(`Installing ${harnessName} in the sprite…\n`);
+    const harnessInstall = await inSprite(harness.installScript);
+    if (harnessInstall.code !== 0) return fail(stderr, `install ${harnessName}`, harnessInstall);
+  }
 
   // 4. The sprite's public URL becomes the daemon's public_url.
   const urlResult = await exec(["sprite", "url", "-s", spriteName]);
@@ -189,28 +222,38 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
   }
   stdout.write(probeNote);
 
-  // 9. Harness auth, last (only with an explicit --harness): it is the one
-  //    human-paced step, so everything time-sensitive already happened. If
-  //    it fails, the agent is fully connected and exactly one manual
-  //    command remains — no re-run, the URL is already consumed.
+  // 9. Harness readiness, last (only with an explicit --harness): it is the
+  //    one human-paced step, so everything time-sensitive already happened.
+  //    If it fails, the agent is fully connected and exactly one manual
+  //    step remains — no re-run, the URL is already consumed.
   if (harness && harnessName) {
-    const check = await inSprite(harness.authCheckScript);
+    const check = await inSprite(harness.readyCheckScript);
     if (check.code !== 0) {
-      stdout.write(`\n${harness.authInstructions}\n\n`);
-      const authCode = await execInteractive(harness.authCommand(spriteName));
+      // Some harnesses have an interactive command that fixes this; others
+      // need the operator to set something this command cannot reach. Only
+      // the former needs a preamble — for the latter these instructions are
+      // the failure message itself, written once, below.
+      let interactiveCode = 0;
+      if (harness.readyCommand) {
+        stdout.write(`\n${harness.readyInstructions}\n\n`);
+        interactiveCode = await execInteractive(harness.readyCommand(spriteName));
+      }
       // The exit code proves nothing (claude exits 0 even when /login is
-      // unavailable) — only the credentials check does.
-      const verify = await inSprite(harness.authCheckScript);
-      if (authCode !== 0 || verify.code !== 0) {
+      // unavailable) — only re-running the check does.
+      const verify = harness.readyCommand ? await inSprite(harness.readyCheckScript) : check;
+      if (interactiveCode !== 0 || verify.code !== 0) {
+        const remaining = harness.readyCommand
+          ? `Finish it with:\n  ${harness.readyCommand(spriteName).join(" ")}\n`
+          : `${harness.readyInstructions}\n`;
         stderr.write(
-          `harmonic-bridge setup-sprite: ${harnessName} auth did not complete.\n` +
-          `The agent is connected to Harmonic, but wakes will fail until the login is done.\n` +
-          `Finish it with:\n  ${harness.authCommand(spriteName).join(" ")}\n`,
+          `harmonic-bridge setup-sprite: ${harnessName} is not ready to wake.\n` +
+          `The agent is connected to Harmonic, but wakes will fail until this is resolved.\n` +
+          remaining,
         );
         return 1;
       }
     } else {
-      stdout.write(`${harnessName} already authenticated in the sprite.\n`);
+      stdout.write(`${harnessName} is ready in the sprite.\n`);
     }
   }
 
