@@ -180,6 +180,8 @@ class CollectiveExportService
         "question" => d.question,
         "description" => d.description,
         "options_open" => d.options_open,
+        "voter_eligibility" => d.voter_eligibility,
+        "proposer_eligibility" => d.proposer_eligibility,
         "deadline" => d.deadline&.iso8601,
         "source_created_by_id" => d.created_by_id,
         "source_updated_by_id" => d.updated_by_id,

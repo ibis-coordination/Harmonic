@@ -6,19 +6,46 @@
 #
 # `metadata` is a free-form jsonb column on `DecisionAuditEntry`. PII scrubbing
 # only NULLs `actor_id`, `actor_handle`, `actor_token_salt` and their
-# `representative_*` counterparts — it does NOT touch `metadata`. Therefore,
-# **callers of record_* must not put actor- or representative-identifying
-# information into metadata**: no display names, emails, handles, personal
-# pronouns, or anything that could re-identify either party.
+# `representative_*` counterparts — it does NOT touch `metadata`. Nothing does:
+# metadata is inside the entry hash (see hash_input_v1/v2/v3), so rewriting it
+# would invalidate that entry and every entry after it.
 #
-# Decision-content fields (question, description, option titles, deadlines)
-# ARE acceptable in metadata — they are content the actor authored about the
-# decision, not identifiers of the actor themselves. Scrubbing the actor's
-# identity preserves the content of decisions they participated in, by design.
+# Therefore **callers of record_* must not put human-meaningful identifiers
+# into metadata**: no display names, emails, handles, or personal pronouns.
+# Those identify a person outside this database and cannot be taken back.
 #
-# All current call sites have been audited and are clean: metadata only ever
-# contains decision attributes or system values (e.g., beacon round/randomness).
-# `audit_chain_metadata_pii_test.rb` pins this shape against future drift.
+# Two kinds of thing ARE acceptable, and the distinction is deliberate:
+#
+# 1. Decision content — question, description, option titles, deadlines, and
+#    system values like beacon round/randomness. Content the actor authored
+#    about the decision, not identifiers of the actor. Scrubbing an actor's
+#    identity preserves the content of decisions they took part in, by design.
+#
+# 2. Opaque user references — `decision_maker_id`, and the user ids inside
+#    `voter_eligibility` / `proposer_eligibility`. These name third parties in
+#    the decision's *configuration*, which is a fact about the decision its
+#    owner authored, in the same way an option title is.
+#
+# == Known limitation: user ids in metadata outlive a scrub
+#
+# A user id is a pseudonymous identifier, and today "deletion" is a scrub that
+# leaves the `users` row in place (see Collective#archive!), so the id still
+# dereferences. A scrubbed user therefore keeps appearing in electorates and as
+# a decision maker, on an append-only chain, even though their `actor_id` is
+# NULLed everywhere they acted. This is accepted rather than unnoticed: the
+# alternatives are to drop the electorate from the chain entirely — which
+# removes the ability to contest who was allowed to vote, the reason for
+# recording it — or to bind ids through a destroyable salt the way `actor_token`
+# already does, which is worth doing but belongs to the chain as a whole rather
+# than to one field.
+#
+# The upgrade path is indirection: if user sets become their own records, the
+# chain holds a reference to a set and the members live in a mutable table a
+# scrub can rewrite without touching a hash. That is the intended direction.
+#
+# `audit_chain_metadata_pii_test.rb` pins this shape against future drift, at
+# every nesting depth — a permitted key may carry a nested structure, and the
+# eligibility rules do.
 class DecisionAuditService
   extend T::Sig
 
@@ -33,6 +60,10 @@ class DecisionAuditService
       deadline: decision.deadline&.iso8601,
       options_open: decision.options_open.to_s,
     }
+    # Omitted rather than recorded as "null" when absent — an absent user set
+    # means no restriction, which is the same thing as having nothing to say.
+    initial_values[:voter_eligibility] = decision.voter_eligibility.to_json if decision.voter_eligibility
+    initial_values[:proposer_eligibility] = decision.proposer_eligibility.to_json if decision.proposer_eligibility
     initial_values[:decision_maker_id] = decision.decision_maker_id if decision.decision_maker_id.present?
     record!(
       decision: decision,

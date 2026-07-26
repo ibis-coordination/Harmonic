@@ -5,6 +5,22 @@ require "zip"
 class CollectiveImportService
   extend T::Sig
 
+  # Which fields of each user-set clause hold ids that must be remapped into the
+  # target instance. Declared per clause type rather than special-cased inline,
+  # so a clause added later cannot silently import a source-instance id that
+  # resolves to the wrong user — an unknown type raises instead of passing
+  # through untouched.
+  USER_SET_ID_FIELDS = T.let({
+    "members" => [],
+    "role" => [],
+    # UserList is not part of the export, so a list id has nothing to map to. It
+    # is carried verbatim and resolves to nobody in the target collective —
+    # narrowing the set rather than widening it, the safe direction for a
+    # reference that failed to travel.
+    "list" => [],
+    "users" => ["user_ids"],
+  }.freeze, T::Hash[String, T::Array[String]])
+
   sig { params(data_import: DataImport).void }
   def initialize(data_import:)
     @data_import = data_import
@@ -152,6 +168,23 @@ class CollectiveImportService
   end
 
   # --- ID mapping ---
+
+  sig { params(rule: T.untyped).returns(T.nilable(T::Hash[String, T.untyped])) }
+  def remap_eligibility(rule)
+    return nil unless rule.is_a?(Hash) && rule["any_of"].is_a?(Array)
+
+    clauses = rule["any_of"].map do |clause|
+      raise "Malformed user-set clause in import: #{clause.inspect}" unless clause.is_a?(Hash)
+
+      fields = USER_SET_ID_FIELDS[clause["type"]]
+      raise "Unknown user-set clause type in import: #{clause["type"].inspect}" if fields.nil?
+
+      fields.reduce(clause) do |acc, field|
+        acc.merge(field => Array(acc[field]).map { |id| map_id(id) || id })
+      end
+    end
+    { "any_of" => clauses }
+  end
 
   sig { params(source_id: T.nilable(String)).returns(T.nilable(String)) }
   def map_id(source_id)
@@ -417,6 +450,8 @@ class CollectiveImportService
         question: d["question"],
         description: d["description"],
         options_open: d["options_open"],
+        voter_eligibility: remap_eligibility(d["voter_eligibility"]),
+        proposer_eligibility: remap_eligibility(d["proposer_eligibility"]),
         deadline: d["deadline"] ? Time.zone.parse(d["deadline"]) : nil,
         created_by_id: map_id!(d["source_created_by_id"]),
         updated_by_id: map_id(d["source_updated_by_id"]) || map_id!(d["source_created_by_id"]),

@@ -187,13 +187,17 @@ class ApiHelper
 
   sig { returns(Decision) }
   def create_decision
+    reject_options_open_param!
     decision = T.let(nil, T.nilable(Decision))
     ActiveRecord::Base.transaction do
       create_attrs = {
         question: params[:question],
         description: params[:description],
         subtype: params[:subtype] || "vote",
-        options_open: params[:options_open] || true,
+        # Every new decision is created options-open; proposer_eligibility is
+        # what narrows it. See reject_options_open_param! for why the param is
+        # refused rather than quietly honoured.
+        options_open: true,
         # Deadline is optional. Omitting it means the decision is closed manually,
         # represented by a far-future deadline (see requires_manual_close?) — the
         # same convention as the HTML form's "no deadline" option. When present it
@@ -203,6 +207,7 @@ class ApiHelper
       }
       decision_maker_param = params[:decision_maker] || params[:decision_maker_id]
       create_attrs[:decision_maker] = resolve_user(decision_maker_param) if decision_maker_param.present?
+      create_attrs.merge!(eligibility_attrs)
       decision = Decision.new(create_attrs)
       DecisionActionService.create_decision!(decision: decision, actor: current_user, representation_session: current_representation_session)
       track_task_run_resource(decision, action_type: "create")
@@ -623,9 +628,11 @@ class ApiHelper
         decision: T.must(current_decision),
         user: current_user
       ).find_or_create_participant
-      unless T.must(current_decision).can_add_options?(current_decision_participant)
-        raise "Cannot add options to decision #{T.must(current_decision).id} for user #{current_user.id}"
-      end
+      refusal = T.must(current_decision).add_options_refusal(current_decision_participant)
+      # ArgumentError rather than a bare RuntimeError: every caller already
+      # treats that as bad input and renders it, so the refusal reaches the
+      # person instead of escaping as a 500 carrying record ids.
+      raise ArgumentError, refusal if refusal
 
       titles.each do |title|
         option = Option.new(
@@ -963,20 +970,68 @@ class ApiHelper
     rep_session
   end
 
+  # `options_open` answered the same question as proposer_eligibility, less
+  # precisely, so it is no longer a parameter of either decision action.
+  #
+  # Refused rather than ignored: a caller passing options_open: false wants a
+  # creator-only decision, and silently returning an open one would be a
+  # different decision than the one they asked for. Refused rather than kept
+  # working, because an undocumented parameter that still functions is one
+  # nobody can discover and nobody maintains.
+  #
+  # The column itself is untouched — decisions created before this keep their
+  # value, `can_add_options?` still reads it, and export/import still carries
+  # it, none of which goes through this parameter.
+  sig { void }
+  private def reject_options_open_param!
+    return unless params.has_key?(:options_open) && !params[:options_open].nil?
+
+    raise ArgumentError,
+          "options_open is no longer a parameter. Use proposer_eligibility to say who may add " \
+          "options — for creator-only, name yourself: proposer_eligibility: \"user:@#{current_user.handle}\"."
+  end
+
+  # Eligibility rules arrive as the compact grammar ("user:alice,bob
+  # role:admin") from the agent surfaces and the HTML form, or as a rule hash
+  # from JSON callers.
+  #
+  # Absent means "no change", so a partial update that says nothing about
+  # eligibility does not reset it. Present-but-empty means "no restriction" —
+  # the settings form always submits both fields, so someone who clears one to
+  # lift a restriction has to get what they asked for rather than a successful
+  # redirect that changed nothing.
+  sig { returns(T::Hash[Symbol, T.untyped]) }
+  private def eligibility_attrs
+    attrs = T.let({}, T::Hash[Symbol, T.untyped])
+    [:voter_eligibility, :proposer_eligibility].each do |key|
+      next unless params.has_key?(key)
+      next if params[key].nil?
+
+      if params[key].blank?
+        attrs[key] = nil
+        next
+      end
+
+      begin
+        attrs[key] = UserSet.parse(params[key], collective: current_collective).to_h
+      rescue UserSet::ParseError => e
+        # Named, because both fields are edited side by side and the parse
+        # message on its own says nothing about which one was rejected.
+        raise ArgumentError, "#{key}: #{e.message}"
+      end
+    end
+    attrs
+  end
+
   sig { returns(Decision) }
   def update_decision_settings
     decision = T.must(current_decision)
     raise "Unauthorized: only creator can edit settings" unless decision.can_edit_settings?(current_user)
 
+    reject_options_open_param!
     ActiveRecord::Base.transaction do
       decision.question = params[:question] if params[:question].present?
       decision.description = params[:description] if params[:description].present?
-      # options_open is a boolean, so we need to check has_key? AND the value is not nil
-      if params.has_key?(:options_open) && !params[:options_open].nil?
-        raise "Cannot change options policy on a closed decision" if decision.closed?
-
-        decision.options_open = params[:options_open]
-      end
       if params[:deadline].present?
         raise "Cannot change deadline on a closed decision" if decision.closed?
 
@@ -986,6 +1041,7 @@ class ApiHelper
       if params.has_key?(dm_param_key)
         decision.decision_maker = params[dm_param_key].present? ? resolve_user(params[dm_param_key]) : nil
       end
+      eligibility_attrs.each { |attribute, value| decision.public_send(:"#{attribute}=", value) }
 
       DecisionActionService.update_decision!(decision: decision, actor: current_user, representation_session: current_representation_session)
 
@@ -1261,30 +1317,6 @@ class ApiHelper
     resource
   end
 
-  # Update option title
-  sig { params(option: Option).returns(Option) }
-  def update_option(option)
-    ActiveRecord::Base.transaction do
-      option.title = params[:title] if params[:title].present?
-      DecisionActionService.update_option!(option: option, actor: current_user, representation_session: current_representation_session)
-      if current_representation_session
-        current_representation_session.record_event!(
-          request: request,
-          action_name: "update_option",
-          resource: option,
-          context_resource: option.decision
-        )
-      end
-    end
-    option
-  end
-
-  # Delete an option
-  sig { params(option: Option).void }
-  def delete_option(option)
-    DecisionActionService.remove_option!(decision: T.must(option.decision), option: option, actor: current_user, representation_session: current_representation_session)
-  end
-
   # Duplicate a decision
   sig { returns(Decision) }
   def duplicate_decision
@@ -1297,6 +1329,10 @@ class ApiHelper
         subtype: original.subtype,
         options_open: original.options_open,
         deadline: original.deadline,
+        # Carried over deliberately: a copy that dropped them would widen the
+        # electorate silently, which is the failure direction that matters.
+        voter_eligibility: original.voter_eligibility,
+        proposer_eligibility: original.proposer_eligibility,
         created_by: current_user
       )
       DecisionActionService.create_decision!(decision: new_decision, actor: current_user, representation_session: current_representation_session)

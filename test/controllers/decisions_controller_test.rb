@@ -1264,7 +1264,7 @@ class DecisionsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user, tenant: @tenant)
 
     post "/collectives/#{@collective.handle}/decide/actions/create_decision",
-      params: { question: "Handle test?", description: "", options_open: true,
+      params: { question: "Handle test?", description: "",
                 deadline: 1.week.from_now, subtype: "executive",
                 decision_maker: "@#{dm_handle}" },
       headers: { "Accept" => "text/markdown" }

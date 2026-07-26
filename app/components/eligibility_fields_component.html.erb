@@ -1,0 +1,25 @@
+<datalist id="eligibility-handles">
+  <% member_handles.each do |handle| %>
+    <option value="user:<%= handle %>"></option>
+  <% end %>
+</datalist>
+
+<section class="<%= section_class %>">
+  <h2 class="pulse-section-title">
+    Who can participate
+    <%= render TooltipComponent.new do %>
+      Leave empty to allow everyone. Specify a narrower set with
+      <a href="/help/user-sets">user set syntax</a> — for example
+      <code>user:@alice,@bob role:admin</code>.
+    <% end %>
+  </h2>
+
+  <% FIELDS.each do |field| %>
+    <div class="pulse-form-group">
+      <label for="<%= field[:name] %>" class="<%= label_class %>"><%= field[:label] %></label>
+      <%= text_field_tag field[:name], value_for(field[:name]),
+                         list: "eligibility-handles", class: "pulse-form-input",
+                         placeholder: "everyone" %>
+    </div>
+  <% end %>
+</section>

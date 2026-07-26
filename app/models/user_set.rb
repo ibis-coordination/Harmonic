@@ -1,0 +1,326 @@
+# typed: true
+
+# A set of users described by composition rather than enumeration — a derived
+# UserList. Its first callers are a decision's two electorates (who may vote,
+# who may propose options), but nothing here is decision-specific: the same
+# expression is meant to answer "who may comment on this note", "who may join
+# this commitment", and whatever comes next. Call sites keep their own
+# vocabulary for what the set means to them; this class only answers who is in
+# it.
+#
+# A set is a UNION of clauses — a user belongs if any clause matches — so every
+# clause only ever widens it. That keeps a set renderable as one plain sentence
+# with no precedence to explain. Difference (`none_of`) and intersection are
+# deliberate future additions: the envelope is keyed rather than a bare array so
+# they can be added without migrating stored values.
+#
+#   {"any_of": [
+#     {"type": "users", "user_ids": ["<uuid>", "<uuid>"]},
+#     {"type": "role",  "role": "admin"},
+#     {"type": "list",  "list_id": "<uuid>"}
+#   ]}
+#
+# Stored as jsonb and always assigned whole, never mutated in place — in-place
+# mutation of a jsonb attribute is not dirty-tracked, so it would skip both the
+# save and the audit entry. An absent set means no restriction; there is no
+# clause for "everyone", because that is a property of the call site rather than
+# a set of users.
+#
+# The agent-facing surfaces speak a compact equivalent that follows the search
+# filter grammar — space-separated `key:value` clauses, comma-separated values,
+# optional `@` on handles — resolved to UUIDs on the way in so a stored set
+# never rots when someone is renamed:
+#
+#   user:alice,@bob role:admin list:abc123
+#
+# This is a value object, not an ActiveRecord — `collective` is passed to the
+# methods that need it rather than held, so the same set can be resolved
+# without carrying hidden state.
+class UserSet
+  extend T::Sig
+
+  class ParseError < StandardError; end
+
+  CLAUSE_TYPES = ["members", "role", "list", "users"].freeze
+  # `members` covers every other clause — a list member, a role holder, and a
+  # named user are all collective members — so it is meaningless beside another
+  # clause and rejected there rather than silently ignored.
+  EXCLUSIVE_TYPES = ["members"].freeze
+  MAX_CLAUSES = 10
+  MAX_USER_IDS = 200
+
+  sig { returns(T::Array[T::Hash[String, T.untyped]]) }
+  attr_reader :clauses
+
+  sig { params(clauses: T::Array[T::Hash[String, T.untyped]]).void }
+  def initialize(clauses)
+    @clauses = clauses.freeze
+  end
+
+  # Accepts a stored jsonb hash or the compact string grammar. Raises
+  # ParseError for structurally unusable input; semantic problems (unknown
+  # role, a list from another collective) are reported by #validation_errors so
+  # a model can surface them as ordinary validation failures.
+  sig { params(value: T.untyped, collective: T.nilable(Collective)).returns(UserSet) }
+  def self.parse(value, collective: nil)
+    return value if value.is_a?(UserSet)
+
+    case value
+    when String then parse_compact(value, collective: collective)
+    when Hash   then parse_hash(value)
+    else raise ParseError, "Eligibility rule must be a string or an object"
+    end
+  end
+
+  sig { params(value: T::Hash[T.untyped, T.untyped]).returns(UserSet) }
+  def self.parse_hash(value)
+    hash = value.deep_stringify_keys
+    clauses = hash["any_of"]
+    raise ParseError, "Eligibility rule must have an 'any_of' array" unless clauses.is_a?(Array)
+
+    new(clauses.map { |clause| normalize_clause(clause) })
+  end
+  private_class_method :parse_hash
+
+  sig { params(clause: T.untyped).returns(T::Hash[String, T.untyped]) }
+  def self.normalize_clause(clause)
+    raise ParseError, "Each eligibility clause must be an object" unless clause.is_a?(Hash)
+
+    clause = clause.deep_stringify_keys
+    normalized = { "type" => clause["type"] }
+    normalized["role"] = clause["role"] if clause.key?("role")
+    normalized["list_id"] = clause["list_id"] if clause.key?("list_id")
+    normalized["user_ids"] = Array(clause["user_ids"]).uniq if clause.key?("user_ids")
+    normalized
+  end
+  private_class_method :normalize_clause
+
+  # "user:alice,@bob role:admin list:abc123" — whitespace-separated clauses,
+  # handles and truncated ids resolved against `collective`.
+  sig { params(value: String, collective: T.nilable(Collective)).returns(UserSet) }
+  def self.parse_compact(value, collective: nil)
+    tokens = value.strip.split(/\s+/).reject(&:empty?)
+    raise ParseError, "Eligibility rule cannot be blank" if tokens.empty?
+
+    new(tokens.map { |token| parse_compact_token(token, collective) })
+  end
+  private_class_method :parse_compact
+
+  sig { params(token: String, collective: T.nilable(Collective)).returns(T::Hash[String, T.untyped]) }
+  def self.parse_compact_token(token, collective)
+    type, _, argument = token.partition(":")
+
+    case type
+    when "open"
+      raise ParseError, "There is no 'open' clause — leave the value empty for no restriction"
+    when "members"
+      raise ParseError, "'members' does not take a value" if argument.present?
+
+      { "type" => "members" }
+    when "role"
+      raise ParseError, "'role:' requires a role name" if argument.blank?
+
+      { "type" => "role", "role" => argument }
+    when "list"
+      raise ParseError, "'list:' requires a list id" if argument.blank?
+
+      { "type" => "list", "list_id" => resolve_list_id(argument, collective) }
+    when "user"
+      raise ParseError, "'user:' requires at least one handle" if argument.blank?
+
+      handles = argument.split(",").map(&:strip).reject(&:empty?)
+      { "type" => "users", "user_ids" => handles.map { |h| resolve_user_id(h, collective) }.uniq }
+    else
+      raise ParseError, "Unknown eligibility clause '#{token}'"
+    end
+  end
+  private_class_method :parse_compact_token
+
+  # Handles live on TenantUser, not User, so they resolve within the
+  # collective's tenant. They are accepted as input only — the resolved UUID is
+  # what gets stored, so a rule survives a rename.
+  sig { params(raw_handle: String, collective: T.nilable(Collective)).returns(String) }
+  def self.resolve_user_id(raw_handle, collective)
+    # A leading @ is optional, matching the search filter grammar, where
+    # `creator:@alice` and `creator:alice` are deliberately identical.
+    handle = raw_handle.delete_prefix("@")
+    return handle if uuid?(handle)
+    raise ParseError, "Cannot resolve handle '#{handle}' without a collective" if collective.nil?
+
+    tenant_user = TenantUser.tenant_scoped_only(T.must(collective.tenant_id)).find_by(handle: handle)
+    raise ParseError, "No user with handle '#{handle}'" if tenant_user.nil?
+
+    T.must(tenant_user.user_id)
+  end
+  private_class_method :resolve_user_id
+
+  sig { params(reference: String, collective: T.nilable(Collective)).returns(String) }
+  def self.resolve_list_id(reference, collective)
+    return reference if uuid?(reference)
+
+    scope = collective ? UserList.where(collective_id: collective.id) : UserList
+    list = scope.find_by(truncated_id: reference)
+    raise ParseError, "No list '#{reference}'" if list.nil?
+
+    list.id
+  end
+  private_class_method :resolve_list_id
+
+  sig { params(value: String).returns(T::Boolean) }
+  def self.uuid?(value)
+    value.match?(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/)
+  end
+
+  sig { returns(T::Hash[String, T.untyped]) }
+  def to_h
+    { "any_of" => clauses.map(&:dup) }
+  end
+
+  sig { params(collective: T.nilable(Collective)).returns(String) }
+  def to_s(collective: nil)
+    clauses.map { |clause| compact_clause(clause, collective) }.join(" ")
+  end
+
+  # A user is eligible if ANY clause matches. A clause whose reference no longer
+  # resolves — a deleted list, a removed user — matches nobody rather than
+  # voiding the whole rule: under union semantics that narrows the electorate
+  # instead of widening it, and it does not lock out voters who match a
+  # different clause.
+  sig { params(user: T.nilable(User), collective: Collective).returns(T::Boolean) }
+  def matches?(user, collective:)
+    return false if user.nil?
+
+    clauses.any? { |clause| clause_matches?(clause, user, collective) }
+  end
+
+  sig { params(collective: Collective).returns(T::Array[String]) }
+  def validation_errors(collective:)
+    errors = []
+    errors << "Eligibility must have at least one clause" if clauses.empty?
+    errors << "Eligibility may have at most #{MAX_CLAUSES} clauses" if clauses.size > MAX_CLAUSES
+
+    if clauses.size > 1 && clauses.any? { |c| EXCLUSIVE_TYPES.include?(c["type"]) }
+      exclusive = clauses.map { |c| c["type"] }.find { |t| EXCLUSIVE_TYPES.include?(t) }
+      errors << "'#{exclusive}' must be the only clause"
+    end
+
+    clauses.each { |clause| errors.concat(clause_errors(clause, collective)) }
+    errors.uniq
+  end
+
+  sig { params(collective: Collective).returns(String) }
+  def describe(collective:)
+    return "every member of this collective" if clauses.any? { |c| EXCLUSIVE_TYPES.include?(c["type"]) }
+
+    clauses.map { |clause| describe_clause(clause, collective) }.to_sentence(two_words_connector: " or ",
+                                                                             last_word_connector: ", or ")
+  end
+
+  sig { params(other: T.untyped).returns(T::Boolean) }
+  def ==(other)
+    return false unless other.is_a?(UserSet)
+
+    other.to_h == to_h
+  end
+
+  private
+
+  sig do
+    params(clause: T::Hash[String, T.untyped], user: User, collective: Collective).returns(T::Boolean)
+  end
+  def clause_matches?(clause, user, collective)
+    case clause["type"]
+    when "members"
+      # Mirrors ActionAuthorization's :collective_member check so a collective
+      # identity keeps the standing it has on every other action.
+      collective.identity_user?(user) || collective.user_is_member?(user)
+    when "role"
+      collective.collective_members.find_by(user_id: user.id)&.has_role?(clause["role"]) || false
+    when "list"
+      list = UserList.find_by(id: clause["list_id"], collective_id: collective.id)
+      # A private list is owner-only (UserList#visible_to?), but a decision
+      # publishes its voters by name — so governing a decision with a private
+      # list would convert owner-only membership into collective-visible
+      # membership. Rejected on write; also refused here, in case a list is
+      # turned private after a rule already referenced it.
+      return false if list.nil? || !list.public?
+
+      list.user_list_members.exists?(user_id: user.id)
+    when "users"
+      Array(clause["user_ids"]).include?(user.id)
+    else
+      false
+    end
+  end
+
+  sig { params(clause: T::Hash[String, T.untyped], collective: Collective).returns(T::Array[String]) }
+  def clause_errors(clause, collective)
+    case clause["type"]
+    when "members"
+      []
+    when "role"
+      return ["Unknown role '#{clause["role"]}'"] unless CollectiveMember.valid_roles.include?(clause["role"])
+
+      []
+    when "list"
+      list = UserList.find_by(id: clause["list_id"], collective_id: collective.id)
+      return ["Eligibility list not found"] if list.nil?
+      # An electorate cannot be secret: a decision names its voters, so a
+      # private list would be de-privatized by the first vote cast.
+      return ["Eligibility list must be a public list"] unless list.public?
+
+      []
+    when "users"
+      user_ids = Array(clause["user_ids"])
+      return ["Eligibility must name at least one user"] if user_ids.empty?
+      return ["Eligibility may name at most #{MAX_USER_IDS} users"] if user_ids.size > MAX_USER_IDS
+
+      member_ids = collective.collective_members.where(user_id: user_ids).pluck(:user_id)
+      missing = user_ids - member_ids
+      return ["Eligibility names #{missing.size} user(s) who are not members of this collective"] if missing.any?
+
+      []
+    else
+      ["Unknown clause type '#{clause["type"]}'"]
+    end
+  end
+
+  sig { params(clause: T::Hash[String, T.untyped], collective: T.nilable(Collective)).returns(String) }
+  def compact_clause(clause, collective)
+    case clause["type"]
+    when "role"
+      "role:#{clause["role"]}"
+    when "list"
+      list = UserList.find_by(id: clause["list_id"])
+      "list:#{list&.truncated_id || clause["list_id"]}"
+    when "users"
+      user_ids = Array(clause["user_ids"])
+      handles = if collective
+                  TenantUser.tenant_scoped_only(T.must(collective.tenant_id))
+                    .where(user_id: user_ids).pluck(:user_id, :handle).to_h
+                else
+                  {}
+                end
+      "user:#{user_ids.map { |id| handles[id] || id }.join(",")}"
+    else
+      clause["type"].to_s
+    end
+  end
+
+  sig { params(clause: T::Hash[String, T.untyped], collective: Collective).returns(String) }
+  def describe_clause(clause, collective)
+    case clause["type"]
+    when "role"
+      "anyone with the #{clause["role"]} role"
+    when "list"
+      list = UserList.find_by(id: clause["list_id"], collective_id: collective.id)
+      list ? "anyone on #{list.display_name}" : "a list that no longer exists"
+    when "users"
+      users = User.where(id: Array(clause["user_ids"]))
+      names = Array(clause["user_ids"]).filter_map { |id| users.find { |u| u.id == id }&.name }
+      names.any? ? names.to_sentence : "no one"
+    else
+      "every member of this collective"
+    end
+  end
+end

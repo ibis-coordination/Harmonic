@@ -36,6 +36,59 @@ class Decision < ApplicationRecord
   validates :description, length: { maximum: MAX_DESCRIPTION_LENGTH }
   validates :deadline, presence: true
   validates :subtype, inclusion: { in: SUBTYPES }
+  validate :eligibility_rules_are_valid
+
+  # Who may vote, and who may propose options — two independently declared
+  # electorates, each a union of clauses. See UserSet. Rules are always
+  # assigned whole; in-place mutation of a jsonb attribute is not dirty-tracked,
+  # so it would skip both the save and the audit entry. The writers below drop
+  # the memoized parse and results so a reassigned rule takes effect at once.
+  sig { params(value: T.untyped).returns(T.untyped) }
+  def voter_eligibility=(value)
+    reset_eligibility_memos!
+    super
+  end
+
+  sig { params(value: T.untyped).returns(T.untyped) }
+  def proposer_eligibility=(value)
+    reset_eligibility_memos!
+    super
+  end
+
+  # `reload` swaps @attributes but leaves plain ivars alone, so the memos have
+  # to be dropped here too or a reloaded decision keeps answering from the rule
+  # it was holding before.
+  sig { params(options: T.untyped).returns(T.self_type) }
+  def reload(options = nil)
+    reset_eligibility_memos!
+    super
+  end
+
+  # nil means no restriction — "everyone" is a property of this call site, not a
+  # set of users, so it has no representation in UserSet.
+  sig { returns(T.nilable(UserSet)) }
+  def voter_eligibility_rule
+    return nil if voter_eligibility.nil?
+
+    @voter_eligibility_rule ||= UserSet.parse(voter_eligibility)
+  end
+
+  sig { returns(T.nilable(UserSet)) }
+  def proposer_eligibility_rule
+    return nil if proposer_eligibility.nil?
+
+    @proposer_eligibility_rule ||= UserSet.parse(proposer_eligibility)
+  end
+
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
+  def eligible_voter?(user)
+    memoized_eligibility(@eligible_voters ||= {}, voter_eligibility_rule, user)
+  end
+
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
+  def eligible_proposer?(user)
+    memoized_eligibility(@eligible_proposers ||= {}, proposer_eligibility_rule, user)
+  end
 
   sig { returns(T::Boolean) }
   def is_vote?
@@ -87,12 +140,20 @@ class Decision < ApplicationRecord
       subtype: subtype,
       question: question,
       description: description,
+      # Read-only: reported because decisions still carry it, but refused as a
+      # write parameter. See add_options_refusal.
       options_open: options_open,
       deadline: deadline,
       created_at: created_at,
       updated_at: updated_at,
       decision_maker_id: decision_maker&.id,
       voter_count: voter_count,
+      # The compact grammar rather than the stored jsonb: it is the same format
+      # these fields accept on write, so a rule read here can be written back
+      # unchanged, and the wire contract does not move when the internal shape
+      # grows (difference, intersection, nesting). nil means no restriction.
+      voter_eligibility: voter_eligibility_rule&.to_s(collective: collective),
+      proposer_eligibility: proposer_eligibility_rule&.to_s(collective: collective),
       # participants: decision_participants.map(&:api_json),
       # options: options.map(&:api_json),
       # votes: votes.map(&:api_json),
@@ -129,24 +190,40 @@ class Decision < ApplicationRecord
     decision_participants.where(user: user).joins(:votes).exists?
   end
 
+  # Why this participant may not add options, or nil if they may. Callers that
+  # only need the yes/no use can_add_options?; callers that have to tell someone
+  # what happened use this, so the reason is stated once rather than re-derived
+  # from the same branches somewhere else.
+  sig { params(participant: T.nilable(DecisionParticipant)).returns(T.nilable(String)) }
+  def add_options_refusal(participant)
+    return "You must be signed in to add options." if participant.nil? || !participant.authenticated?
+    return "This decision is closed." if closed?
+    return "This decision already has the maximum of #{MAX_OPTIONS} options." if options.count >= MAX_OPTIONS
+    # `options_open` is a legacy coarse switch (everyone / creator only) that
+    # predates proposer eligibility, which answers the same question and can
+    # express more. It is no longer settable anywhere: the forms dropped the
+    # control, and both decision actions refuse the parameter outright (see
+    # ApiHelper#reject_options_open_param!). Creator-only is now a `user:`
+    # clause naming the creator.
+    #
+    # The column stays because decisions created before that carry a value,
+    # `api_json` reports it, and collective and user-data export/import
+    # round-trip it. It still governs a decision that names no proposer set, so
+    # every decision predating eligibility behaves exactly as it did.
+    return "You are not eligible to add options to this decision." unless eligible_proposer?(participant.user)
+    # A named set supersedes the switch rather than intersecting with it. Since
+    # nothing can set options_open any more, intersecting would leave a decision
+    # carrying false from before creator-only forever, whatever set was named —
+    # and would let the two combine into nobody at all.
+    return nil if proposer_eligibility.present?
+    return nil if options_open? || participant.user_id == created_by_id
+
+    "Only the creator can add options to this decision."
+  end
+
   sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
   def can_add_options?(participant)
-    return false if participant.nil?
-    return false if closed? || !participant.authenticated?
-    return false if options.count >= MAX_OPTIONS
-    return true if options_open? || participant.user_id == created_by_id
-
-    false
-  end
-
-  sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
-  def can_update_options?(participant)
-    can_add_options?(participant)
-  end
-
-  sig { params(participant: T.nilable(DecisionParticipant)).returns(T::Boolean) }
-  def can_delete_options?(participant)
-    can_add_options?(participant)
+    add_options_refusal(participant).nil?
   end
 
   sig { params(participant_or_user: T.nilable(T.any(DecisionParticipant, User))).returns(T::Boolean) }
@@ -274,6 +351,59 @@ class Decision < ApplicationRecord
   end
 
   private
+
+  sig { void }
+  def reset_eligibility_memos!
+    @voter_eligibility_rule = nil
+    @proposer_eligibility_rule = nil
+    @eligible_voters = nil
+    @eligible_proposers = nil
+  end
+
+  # Memoized per user id because the eligibility check sits inside loops:
+  # ApiHelper#create_votes calls cast_vote! once per submitted vote against a
+  # single memoized decision instance, so a ten-option ballot would otherwise
+  # re-resolve the rule ten times — and a `list` clause costs two queries each
+  # time.
+  sig do
+    params(cache: T::Hash[String, T::Boolean], rule: T.nilable(UserSet), user: T.nilable(User))
+      .returns(T::Boolean)
+  end
+  def memoized_eligibility(cache, rule, user)
+    return false if user.nil?
+    return true if rule.nil? # no restriction
+
+    return T.must(cache[user.id]) if cache.key?(user.id)
+
+    cache[user.id] = rule.matches?(user, collective: T.must(collective))
+  end
+
+  sig { void }
+  def eligibility_rules_are_valid
+    return if collective.nil?
+
+    { voter_eligibility: voter_eligibility, proposer_eligibility: proposer_eligibility }.each do |attribute, value|
+      next if value.nil?
+
+      rule = begin
+        UserSet.parse(value)
+      rescue UserSet::ParseError => e
+        errors.add(attribute, e.message)
+        next
+      end
+      rule.validation_errors(collective: T.must(collective)).each { |message| errors.add(attribute, message) }
+    end
+
+    # Only `vote` decisions take votes — lotteries are drawn and executive
+    # decisions are settled by their decision maker — so a voter rule on either
+    # would be inert. Rejecting it beats accepting a restriction that silently
+    # does nothing.
+    return if is_vote? || voter_eligibility.nil?
+
+    errors.add(:voter_eligibility, "does not apply to #{subtype} decisions, which do not take votes")
+  rescue UserSet::ParseError
+    nil # already reported per attribute above
+  end
 
   # Track the creator of this decision
   def user_item_status_updates

@@ -29,10 +29,11 @@ class DecisionsController < ApplicationController
       helper_params = {
         question: params[:question] || decision_nested[:question],
         description: params[:description] || decision_nested[:description],
-        options_open: params[:options_open] || decision_nested[:options_open],
         deadline: deadline_from_params,
         subtype: decision_nested[:subtype],
         decision_maker_id: decision_nested[:decision_maker_id],
+        voter_eligibility: params[:voter_eligibility] || decision_nested[:voter_eligibility],
+        proposer_eligibility: params[:proposer_eligibility] || decision_nested[:proposer_eligibility],
       }
       @decision = @current_decision = api_helper(params: helper_params).create_decision
       # Handle file attachments separately (HTML form specific)
@@ -44,11 +45,14 @@ class DecisionsController < ApplicationController
         api_helper.pin_resource(@decision)
       end
       redirect_to @decision.path
-    rescue ActiveRecord::RecordInvalid => e
-      e.record.errors.full_messages.each do |msg|
+    # ArgumentError covers input the helper cannot even parse — a mistyped
+    # handle in an eligibility field, say — which is form error, not a fault.
+    rescue ActiveRecord::RecordInvalid, ArgumentError => e
+      form_error_messages(e).each do |msg|
         flash.now[:alert] = msg
       end
       @end_of_cycle_options = Cycle.end_of_cycle_options(tempo: current_collective.tempo)
+      @rejected_eligibility_input = decision_params
       @decision = Decision.new(
         question: decision_params[:question],
         description: decision_params[:description],
@@ -65,7 +69,7 @@ class DecisionsController < ApplicationController
         resource: @decision,
         result: 'You have successfully created a decision',
       })
-    rescue ActiveRecord::RecordInvalid => e
+    rescue ActiveRecord::RecordInvalid, ArgumentError => e
       render_action_error({
         action_name: 'create_decision',
         resource: @decision,
@@ -161,10 +165,25 @@ class DecisionsController < ApplicationController
       description: decision_params[:description],
     }
     unless @decision.closed?
-      helper_params[:options_open] = decision_params[:options_open]
       helper_params[:deadline] = deadline_from_params
+      helper_params[:voter_eligibility] = decision_params[:voter_eligibility]
+      helper_params[:proposer_eligibility] = decision_params[:proposer_eligibility]
     end
-    @decision = api_helper(params: helper_params).update_decision_settings
+    begin
+      @decision = api_helper(params: helper_params).update_decision_settings
+    rescue ActiveRecord::RecordInvalid, ArgumentError => e
+      form_error_messages(e).each do |msg|
+        flash.now[:alert] = msg
+      end
+      # The helper assigns before it raises, so @decision still carries the
+      # edits; re-render rather than reload so nothing typed is lost.
+      @rejected_eligibility_input = decision_params
+      @page_title = "Decision Settings"
+      @sidebar_mode = 'resource'
+      @team = @current_collective.team
+      set_pin_vars
+      return render :settings, status: :unprocessable_entity
+    end
     redirect_to @decision.path
   end
 
@@ -174,7 +193,7 @@ class DecisionsController < ApplicationController
     @page_title = "Actions | Decision Settings"
     set_pin_vars
     actions = [
-      { name: 'update_decision_settings', params_string: '(question, description, options_open, deadline)' },
+      { name: 'update_decision_settings', params_string: ActionsHelper::ACTION_DEFINITIONS['update_decision_settings'][:params_string] },
     ]
     if @is_pinned
       actions << { name: 'unpin_decision', params_string: '()' }
@@ -263,7 +282,27 @@ class DecisionsController < ApplicationController
   end
 
   def create_option_and_return_options_partial
-    api_helper.create_decision_option
+    # Mirrors submit_votes: no action name in the path, so ActionAuthorizationCheck
+    # does not reach this route and the declared `add_options` rule has to be
+    # consulted here. Without it, an ineligible poster surfaces as a bare
+    # RuntimeError from the API helper — a 500 carrying record ids.
+    unless ActionAuthorization.authorized?("add_options", @current_user, {
+      collective: @current_collective,
+      resource: current_decision,
+      representation_session: @current_representation_session,
+    })
+      render plain: "Forbidden: you are not eligible to add options to this decision.", status: :forbidden
+      return
+    end
+
+    begin
+      api_helper.create_decision_option
+    rescue ArgumentError => e
+      # can_add_options? refuses for reasons the authorization rule does not
+      # cover — closed, creator-only, at the option limit.
+      render plain: "Forbidden: #{e.message}", status: :forbidden
+      return
+    end
     options_partial
   end
 
@@ -316,6 +355,21 @@ class DecisionsController < ApplicationController
     end
     if @decision.is_lottery?
       redirect_to @decision.path, alert: "Lottery decisions do not accept votes."
+      return
+    end
+
+    # The `vote` action's declared authorization is the source of truth for who
+    # may vote. This route carries no action name in its path, so
+    # ActionAuthorizationCheck does not reach it and the ballot has to consult
+    # the rule itself — otherwise the HTML path enforces only what
+    # DecisionActionService.cast_vote! happens to raise on, which is narrower
+    # than the declared rule and fires after side effects have been written.
+    unless ActionAuthorization.authorized?("vote", @current_user, {
+      collective: @current_collective,
+      resource: @decision,
+      representation_session: @current_representation_session,
+    })
+      redirect_to @decision.path, alert: "You are not eligible to vote on this decision."
       return
     end
 
@@ -700,11 +754,20 @@ class DecisionsController < ApplicationController
 
   private
 
+  # Validation failures carry a message per bad field; a parse failure carries
+  # one message and no record.
+  def form_error_messages(error)
+    return [error.message] unless error.is_a?(ActiveRecord::RecordInvalid)
+
+    error.record.errors.full_messages
+  end
+
   def decision_params
     model_params.permit(
-      :question, :description, :options_open,
+      :question, :description,
       :duration, :duration_unit, :files,
-      :subtype, :decision_maker_id
+      :subtype, :decision_maker_id,
+      :voter_eligibility, :proposer_eligibility
     )
   end
 

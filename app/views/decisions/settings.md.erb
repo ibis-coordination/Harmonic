@@ -6,6 +6,7 @@ Current settings for decision **<%= @decision.question %>**:
 |---------|-------|
 | Question | <%= @decision.question %> |
 | Description | <%= @decision.description || "(none)" %> |
-| Options Open | <%= @decision.options_open? ? "Yes" : "No" %> |
+| Who Can Add Options | <%= @decision.proposer_eligibility_rule ? "`#{@decision.proposer_eligibility_rule.to_s(collective: @current_collective)}`" : "Everyone (no restriction)" %> |
+| Who Can Vote | <%= @decision.voter_eligibility_rule ? "`#{@decision.voter_eligibility_rule.to_s(collective: @current_collective)}`" : "Everyone (no restriction)" %> |
 | Deadline | <%= @decision.deadline %> |
 

@@ -1550,6 +1550,51 @@ class Decision
     sig { void }
     def options_open_will_change!; end
 
+    sig { returns(T.untyped) }
+    def proposer_eligibility; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def proposer_eligibility=(value); end
+
+    sig { returns(T::Boolean) }
+    def proposer_eligibility?; end
+
+    sig { returns(T.untyped) }
+    def proposer_eligibility_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def proposer_eligibility_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def proposer_eligibility_came_from_user?; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def proposer_eligibility_change; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def proposer_eligibility_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def proposer_eligibility_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def proposer_eligibility_in_database; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def proposer_eligibility_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def proposer_eligibility_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def proposer_eligibility_previously_was; end
+
+    sig { returns(T.untyped) }
+    def proposer_eligibility_was; end
+
+    sig { void }
+    def proposer_eligibility_will_change!; end
+
     sig { returns(T.nilable(::String)) }
     def question; end
 
@@ -1644,6 +1689,9 @@ class Decision
     def restore_options_open!; end
 
     sig { void }
+    def restore_proposer_eligibility!; end
+
+    sig { void }
     def restore_question!; end
 
     sig { void }
@@ -1660,6 +1708,9 @@ class Decision
 
     sig { void }
     def restore_updated_by_id!; end
+
+    sig { void }
+    def restore_voter_eligibility!; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_audit_chain_hash; end
@@ -1757,6 +1808,12 @@ class Decision
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_options_open?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def saved_change_to_proposer_eligibility; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_proposer_eligibility?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_question; end
 
@@ -1792,6 +1849,12 @@ class Decision
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_updated_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def saved_change_to_voter_eligibility; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_voter_eligibility?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(::String) }
     def subtype; end
@@ -2018,6 +2081,51 @@ class Decision
     sig { void }
     def updated_by_id_will_change!; end
 
+    sig { returns(T.untyped) }
+    def voter_eligibility; end
+
+    sig { params(value: T.untyped).returns(T.untyped) }
+    def voter_eligibility=(value); end
+
+    sig { returns(T::Boolean) }
+    def voter_eligibility?; end
+
+    sig { returns(T.untyped) }
+    def voter_eligibility_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def voter_eligibility_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def voter_eligibility_came_from_user?; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def voter_eligibility_change; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def voter_eligibility_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def voter_eligibility_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def voter_eligibility_in_database; end
+
+    sig { returns(T.nilable([T.untyped, T.untyped])) }
+    def voter_eligibility_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def voter_eligibility_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.untyped) }
+    def voter_eligibility_previously_was; end
+
+    sig { returns(T.untyped) }
+    def voter_eligibility_was; end
+
+    sig { void }
+    def voter_eligibility_will_change!; end
+
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_audit_chain_hash?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
@@ -2067,6 +2175,9 @@ class Decision
     def will_save_change_to_options_open?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_proposer_eligibility?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_question?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -2083,6 +2194,9 @@ class Decision
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_updated_by_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_voter_eligibility?(from: T.unsafe(nil), to: T.unsafe(nil)); end
   end
 
   module GeneratedRelationMethods
