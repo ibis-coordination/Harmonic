@@ -57,6 +57,11 @@ export async function writeGooseConfig(args: WriteGooseConfigArgs): Promise<stri
     name: `harmonic-${args.agentHandle}`,
     uri: args.mcpEndpoint,
     headers: { Authorization: quoted("Bearer ${HARMONIC_BRIDGE_TOKEN}") },
+    // Header substitution draws only from the extension's envs/env_keys pool,
+    // not the raw process env. env_keys admits the variable into that pool;
+    // goose's secret lookup checks the process environment first, so the
+    // value still comes from the wake env and never from disk.
+    env_keys: ["HARMONIC_BRIDGE_TOKEN"],
     timeout: EXTENSION_TIMEOUT_SECONDS,
   });
 

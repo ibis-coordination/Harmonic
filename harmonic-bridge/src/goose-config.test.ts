@@ -43,6 +43,9 @@ test("goose-config: carries the token as an env reference, never a literal", asy
   const filePath = await writeGooseConfig({ agentDir: dir, ...ARGS });
   const config = readConfig(dir);
   assert.equal(config["extensions"]["harmonic-alice"]["headers"]["Authorization"], "Bearer ${HARMONIC_BRIDGE_TOKEN}");
+  // Header substitution draws only from envs/env_keys, never the raw process
+  // env: without this, goose resolves nothing and the extension 401s.
+  assert.deepEqual(config["extensions"]["harmonic-alice"]["env_keys"], ["HARMONIC_BRIDGE_TOKEN"]);
   // Belt and braces: nothing token-shaped reaches disk.
   const raw = readFileSync(filePath, "utf8");
   assert.doesNotMatch(raw, /Bearer [A-Za-z0-9_-]{8}/);
