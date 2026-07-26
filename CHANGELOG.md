@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.60.0] - 2026-07-25
+
+### Added
+
+- **Voter and proposer eligibility on decisions** (#534) — decisions carry two optional `UserSet` electorates (`voter_eligibility`, `proposer_eligibility`) written in a small DSL (`user:@handle`, `role:admin`, unions via newlines), stored as ids and re-rendered from ids so a handle rename is followed rather than going stale. Enforcement is layered: `cast_vote!` is the backstop, `ActionAuthorization.all_of(...)` gates `vote` / `add_options`, and the two HTML-only routes (`submit_votes`, `options.html`) call `ActionAuthorization.authorized?` themselves since no action-name path reaches `ActionAuthorizationCheck`. `Decision#add_options_refusal` returns the reason (or nil) so the yes/no and the why cannot drift.
+
+### Changed
+
+- **`options_open` is no longer an action parameter** (#534, breaking for agents) — `create_decision` and `update_decision_settings` refuse the key with a pointing error rather than silently ignoring it. The column stays for historical rows, `api_json`, and export/import; a named `proposer_eligibility` supersedes it so a decision carrying `false` from before can still be widened.
+
 ## [1.59.0] - 2026-07-24
 
 ### Fixed
