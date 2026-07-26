@@ -47,11 +47,64 @@ class AuditChainMetadataPiiTest < ActiveSupport::TestCase
            "#{label} added unexpected metadata keys: #{unexpected.inspect}. " \
            "If this is a new decision-content field, add it to ALLOWED_KEYS. " \
            "If it's an actor-identity field, move it to a typed column."
+
+    nested = nested_keys(entry.metadata) & ACTOR_PII_KEYS
+    assert nested.empty?,
+           "#{label} put actor-identity keys inside a metadata value: #{nested.inspect}. " \
+           "A permitted top-level key does not license identifiers nested under it."
+    assert_no_human_identifiers(entry, label)
+  end
+
+  # Top-level keys are not the whole story: a permitted key can carry a nested
+  # structure, and the eligibility rules are JSON strings holding clause hashes.
+  # Walk everything, parsing strings that turn out to be JSON.
+  def nested_keys(value)
+    case value
+    when Hash then value.keys.map(&:to_s) + value.values.flat_map { |v| nested_keys(v) }
+    when Array then value.flat_map { |v| nested_keys(v) }
+    when String
+      parsed = begin
+        JSON.parse(value)
+      rescue JSON::ParserError, TypeError
+        nil
+      end
+      parsed ? nested_keys(parsed) : []
+    else []
+    end
+  end
+
+  # User ids are permitted (see the DecisionAuditService docstring); handles,
+  # names and emails are not, at any depth. Checking the rendered blob catches
+  # them regardless of what key they arrive under.
+  def assert_no_human_identifiers(entry, label)
+    blob = JSON.generate(entry.metadata)
+    identifiers = [@user.handle, @user.name, @user.email].compact.reject(&:blank?)
+    # Without this the guard passes vacuously the moment the fixture stops
+    # producing a handle, and nothing would say so.
+    assert identifiers.any?, "#{label}: no identifiers to search for."
+    found = identifiers.select { |value| blob.include?(value) }
+    assert found.empty?,
+           "#{label} put human-meaningful identifiers into metadata: #{found.inspect}. " \
+           "Ids are opaque and may stay; handles, names and emails identify a " \
+           "person outside this database and cannot be taken back."
   end
 
   test "record_creation! metadata contains only decision-content keys" do
     entry = DecisionAuditService.record_creation!(decision: @decision, actor: @user)
     assert_metadata_pii_safe(entry, "record_creation!")
+  end
+
+  test "an electorate is recorded as ids, never as handles" do
+    @decision.update!(voter_eligibility: {
+      "any_of" => [{ "type" => "users", "user_ids" => [@user.id] }],
+    })
+
+    entry = DecisionAuditService.record_creation!(decision: @decision, actor: @user)
+
+    assert_metadata_pii_safe(entry, "record_creation! with an electorate")
+    # Deliberately present: the id is what makes the electorate contestable,
+    # and it carries no meaning outside this database.
+    assert_includes entry.metadata["voter_eligibility"].to_s, @user.id
   end
 
   test "DecisionActionService.update_decision! produces PII-safe metadata" do

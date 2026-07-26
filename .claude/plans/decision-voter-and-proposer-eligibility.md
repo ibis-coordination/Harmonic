@@ -306,8 +306,36 @@ no existing decision column holds a Hash, so no current audit entry or chain
 hash changes.
 
 `record_creation!`'s `initial_values` gains both rules, requiring an update to
-`audit_chain_metadata_pii_test.rb`. Rules carry user and list UUIDs;
-`decision_maker_id` already sets that precedent.
+`audit_chain_metadata_pii_test.rb`.
+
+**Rules carry user ids into audit metadata, and that is a decision, not an
+inheritance.** `decision_maker_id` was already there and already in the test's
+allowed keys, so the category is not new — but it goes from one id per decision,
+naming someone who acts on it, to as many as 200 per clause, most of whom never
+will. Metadata is inside the entry hash, and nothing scrubs it, so those ids are
+permanent.
+
+Accepted deliberately. The line is human-meaningful identifiers versus opaque
+references: handles, names and emails identify someone outside this database and
+cannot be taken back; an id means nothing without the `users` table. Naming
+third parties in a decision's configuration is a fact its owner authored about
+the decision, like an option title. The alternatives were worse — dropping the
+electorate from the chain removes the ability to contest who could vote, which
+is why it is recorded at all, and binding ids through a destroyable salt the way
+`actor_token` does is right but belongs to the chain as a whole, `decision_maker_id`
+included.
+
+The residue is real and written down in the `DecisionAuditService` docstring: a
+scrubbed user still dereferences, because scrubbing leaves the `users` row in
+place, so they keep appearing in electorates while their `actor_id` is NULLed
+everywhere they acted. The upgrade path is indirection — if user sets become
+their own records, the chain holds a reference and the members live in a table a
+scrub can rewrite without touching a hash.
+
+The PII test now walks nested values and parses JSON strings, rather than
+checking top-level keys only. `user_ids` sat inside a permitted key and passed a
+key-shaped guard without anyone deciding it should; the next nested identifier
+will not.
 
 **A `list` clause delegates the electorate, and the decision's chain records
 only the reference.** Editing the referenced list moves the electorate without
