@@ -54,12 +54,10 @@ class HarmonicBridgeSetup < ApplicationRecord
     [
       {
         slug: "claude-code",
-        label: "Claude Code",
         note: "Finishes with a one-time login inside the sprite.",
       },
       {
         slug: "goose",
-        label: "goose",
         note: "No login. Reads its provider credentials from the sprite's environment " \
               "(GOOSE_PROVIDER, GOOSE_MODEL, and the provider's own API key variable), " \
               "which you set. Installed during setup.",

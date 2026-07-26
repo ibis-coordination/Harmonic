@@ -11,21 +11,27 @@ describe("HarnessSelectorController", () => {
     application = Application.start()
     application.register("harness-selector", HarnessSelectorController)
 
+    render(BASE)
+  })
+
+  // Mirrors show.html.erb: the base command arrives as a Stimulus value, and
+  // the <pre> may disagree with it (Turbo restores the mutated DOM).
+  function render(preContent: string): void {
     document.body.innerHTML = `
-      <div data-controller="harness-selector">
+      <div data-controller="harness-selector" data-harness-selector-base-value="${BASE}">
         <label><input type="radio" name="sprite_harness" value="" checked
                       data-action="change->harness-selector#select"></label>
         <label><input type="radio" name="sprite_harness" value="claude-code"
                       data-action="change->harness-selector#select"></label>
         <label><input type="radio" name="sprite_harness" value="goose"
                       data-action="change->harness-selector#select"></label>
-        <pre data-harness-selector-target="command">${BASE}</pre>
+        <pre data-harness-selector-target="command">${preContent}</pre>
         <span data-controller="clipboard">
           <input type="text" value="${BASE}" data-clipboard-target="source" />
         </span>
       </div>
     `
-  })
+  }
 
   function pick(value: string): void {
     const radio = document.querySelector(`input[value="${value}"]`) as HTMLInputElement
@@ -64,5 +70,18 @@ describe("HarnessSelectorController", () => {
     pick("")
     expect(shown()).toBe(BASE)
     expect(copied()).toBe(BASE)
+  })
+
+  it("survives a Turbo cache restore of the mutated DOM", async () => {
+    // Turbo snapshots the page after mutation: the <pre> already carries a
+    // flag when connect() runs again. The base must come from the server-
+    // rendered value, not the DOM, or flags accumulate.
+    render(`${BASE} --harness goose`)
+    // Stimulus connects the re-rendered element via MutationObserver — let
+    // that microtask flush before dispatching events at it.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    pick("claude-code")
+    expect(shown()).toBe(`${BASE} --harness claude-code`)
+    expect(copied()).toBe(`${BASE} --harness claude-code`)
   })
 })

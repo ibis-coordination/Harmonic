@@ -61,7 +61,7 @@
           then run this on your computer:
         </p>
 
-        <div data-controller="harness-selector">
+        <div data-controller="harness-selector" data-harness-selector-base-value="<%= @sprite_setup_command %>">
           <label class="pulse-label">Harness</label>
           <p class="pulse-hint" style="margin-top:0;">
             A harness preconfigures a working wake command for <%= @ai_agent.display_name %>.

@@ -7,18 +7,17 @@ import { Controller } from "@hotwired/stimulus"
 // choice — selecting "None" restores it.
 export default class HarnessSelectorController extends Controller {
   static targets = ["command"]
+  static values = { base: String }
 
   declare readonly commandTarget: HTMLElement
-
-  private baseCommand = ""
-
-  connect(): void {
-    this.baseCommand = this.commandTarget.textContent?.trim() ?? ""
-  }
+  // Server-rendered rather than read from the DOM: Turbo caches the mutated
+  // page, so after a restore the <pre> may already carry a --harness flag.
+  // Deriving the base from it would accumulate flags on the next selection.
+  declare readonly baseValue: string
 
   select(event: Event): void {
     const slug = (event.target as HTMLInputElement).value
-    const command = slug ? `${this.baseCommand} --harness ${slug}` : this.baseCommand
+    const command = slug ? `${this.baseValue} --harness ${slug}` : this.baseValue
 
     this.commandTarget.textContent = command
     // The copy button reads its own hidden input rather than the displayed
