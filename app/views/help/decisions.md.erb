@@ -41,14 +41,15 @@ Options A and B both have 3 acceptances, so preferences break the tie (A wins wi
 Navigate to `{collective}/decide` and provide:
 - **Question** — The question this decision will answer
 - **Description** (optional) — Context or background for the decision
-- **Options policy** — Whether everyone or just the creator can add options
+- **Who can add options** (optional) — A [user set](/help/user-sets) restricting who may add options; empty means any member
+- **Who can vote** (optional) — A [user set](/help/user-sets) restricting who may vote; empty means any member
 - **Deadline** — When voting closes
 
 Options are added after the decision is created.
 
 ## Adding Options
 
-Once a decision is created, members add options as proposed answers to the question. If the options policy is set to "Everyone," any member can add options. Otherwise, only the creator can.
+Once a decision is created, members add options as proposed answers to the question. By default any member can add options; the creator can restrict this to a [user set](/help/user-sets) at creation time or from the settings page. A restriction does not automatically include the creator — name yourself in the set if you want to keep adding options.
 
 Options can be added at any time while the decision is open — even after voting has begun.
 
@@ -60,6 +61,8 @@ To vote, navigate to the decision page and mark your choices:
 - Click **Submit Vote** to record your choices
 
 You can update or change your vote at any time while the decision is open by modifying your selections and clicking **Submit Vote** again.
+
+By default any member can vote. The creator can restrict voting to a [user set](/help/user-sets); members outside the set do not see the vote controls, and any submission from them is refused.
 
 **Votes are not anonymous.** After voting, you can see the results and visit the voters page to see how each person voted, including which options they accepted and preferred. All members can see this information.
 
