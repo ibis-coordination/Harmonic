@@ -8,7 +8,7 @@ Harmonic webhook → harmonic-bridge daemon → spawn your wake command → your
 
 ## Status
 
-**v0.1** — works end-to-end. The daemon loads configs, verifies HMAC signatures against Harmonic's wire format, serializes wakes per agent, and routes per-agent stdout/stderr to log files. The `add` and `reload` commands are wired; `status`, `logs`, and `test` are reserved but not implemented yet (print "not implemented yet" and exit non-zero).
+Works end-to-end. The daemon loads configs, verifies HMAC signatures against Harmonic's wire format, serializes wakes per agent, and routes per-agent stdout/stderr to log files. The `init`, `add`, `reload`, and `setup-sprite` commands are wired; `status`, `logs`, and `test` are reserved but not implemented yet (print "not implemented yet" and exit non-zero).
 
 Node 20+. See [docs/DESIGN.md](docs/DESIGN.md) for principles and architecture.
 
@@ -64,10 +64,15 @@ public_url: "https://bridge.example.com"   # SET ME
 
 log_dir: ~/.harmonic-bridge/logs
 
-# Where `add` stores minted credentials. v0.1 only supports `backend: file`.
+# Where `add` stores minted credentials. Only `backend: file` is supported so far.
 secrets:
   backend: file
   base_dir: ~/.harmonic-bridge/secrets
+
+# Optional; requires public_url. For hosts that hibernate when idle (e.g.
+# Fly Sprites): hold an open request to ${public_url}/hold while a wake runs,
+# so the host isn't frozen mid-wake. `setup-sprite` turns this on.
+# hold_awake_during_wake: true
 
 # Optional. Built-in resolvers (file://, env://) are always present.
 # secret_resolvers:
@@ -82,7 +87,7 @@ secrets:
 #   - command: 'codex mcp add harmonic --url "$HARMONIC_BRIDGE_MCP_ENDPOINT" --bearer-token-env-var HARMONIC_BRIDGE_TOKEN'
 ```
 
-Daemon-level config changes (listen, log_dir, secret_resolvers, public_url, secrets) require a daemon restart. `reload` only re-reads per-agent files.
+Daemon-level config changes (listen, log_dir, secret_resolvers, public_url, secrets, hold_awake_during_wake) require a daemon restart. `reload` only re-reads per-agent files.
 
 ## Per-agent config
 
@@ -96,7 +101,8 @@ webhook_secret: file:///home/agent/.harmonic-bridge/secrets/<handle>/webhook_sec
 working_dir: /home/agent/code/Harmonic
 wake_command: |
   claude -p \
-    --append-system-prompt @system-prompt.md \
+    --mcp-config "$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json" \
+    --append-system-prompt @"$HARMONIC_BRIDGE_AGENT_DIR/system-prompt.md" \
     --allowedTools "mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__fetch_page,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__execute_action,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__search,mcp__harmonic-${HARMONIC_BRIDGE_AGENT_NAME}__get_help"
 
 events:                                # optional; drops events not in list before spawn
@@ -191,7 +197,7 @@ harmonic_token: env://HARMONIC_TOKEN_DEV
 harmonic_token: op://Personal/harmonic-dev/token
 ```
 
-`add` writes its minted credentials to the configured `secrets.backend` (v0.1: file, mode 0600). To rotate to a different backend later, copy the secrets into your preferred manager, update the per-agent config's references, and `harmonic-bridge reload`.
+`add` writes its minted credentials to the configured `secrets.backend` (file backend, mode 0600). To rotate to a different backend later, copy the secrets into your preferred manager, update the per-agent config's references, and `harmonic-bridge reload`.
 
 To rotate a secret value (not the reference), update it in your backend. Resolution happens per wake, so no reload is needed unless the *reference* itself changed.
 

@@ -63,7 +63,7 @@ export async function runCommand(args: readonly string[], opts: CliOpts = {}): P
   }
 
   if (STUB_COMMANDS.has(command)) {
-    stderr.write(`harmonic-bridge: "${command}" is not implemented yet in v0.1\n`);
+    stderr.write(`harmonic-bridge: "${command}" is not implemented yet\n`);
     return 2;
   }
 
@@ -162,7 +162,7 @@ Commands:
                         (Daemon-level config changes still require a restart.)
   help                  Show this help.
 
-Planned (not in v0.1):
+Planned (not implemented yet):
   status          Show daemon + per-agent state.
   logs <agent>    Tail an agent's wake logs.
   test <agent>    Send a synthetic event to the wake command.
