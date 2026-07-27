@@ -84,7 +84,8 @@ secrets:
 # config, running `codex mcp add`, etc.). See "After-add steps" below.
 # after_add:
 #   - built_in: claude-code-per-agent-mcp-config
-#   - command: 'codex mcp add harmonic --url "$HARMONIC_BRIDGE_MCP_ENDPOINT" --bearer-token-env-var HARMONIC_BRIDGE_TOKEN'
+#   - built_in: claude-code-harness
+#   - command: './my-custom-agent-setup.sh'
 ```
 
 Daemon-level config changes (listen, log_dir, secret_resolvers, public_url, secrets, hold_awake_during_wake) require a daemon restart. `reload` only re-reads per-agent files.
@@ -139,14 +140,16 @@ Two step forms:
 ```yaml
 after_add:
   - built_in: claude-code-per-agent-mcp-config
-  - command: 'codex mcp add harmonic --url "$HARMONIC_BRIDGE_MCP_ENDPOINT" --bearer-token-env-var HARMONIC_BRIDGE_TOKEN'
+  - command: './my-custom-agent-setup.sh'
 ```
+
+(One pattern to avoid: a global `codex mcp add` step. Every agent's server would land in the shared `~/.codex/config.toml` with identical names and the same env var, so every Codex session on the box loads N duplicate servers. The `codex-harness` built-in passes the server as per-wake `-c` overrides instead.)
 
 - **`built_in: <name>`** — runs a TypeScript function shipped with harmonic-bridge.
   Shipped built-ins, in pairs — one writes the MCP config, the other writes a working wake command and starter system prompt:
   - `claude-code-per-agent-mcp-config` — writes `$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json` so a Claude Code wake command can reference it via `--mcp-config "$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json"`. The token is stored as a literal `${HARMONIC_BRIDGE_TOKEN}` env-var reference (Claude expands it at session start, so secrets don't land on disk).
   - `claude-code-harness` — replaces the stub `wake_command` with a headless `claude -p` invocation and writes a starter `system-prompt.md`.
-  - `codex-harness` — replaces the stub `wake_command` with a headless `codex exec` invocation (sandboxed `workspace-write`, approvals `never`) and writes a starter `system-prompt.md`. No config-file companion: the Harmonic MCP server is passed as `-c mcp_servers.…` overrides in the wake command itself, with the token as a `bearer_token_env_var` name, never a value.
+  - `codex-harness` — replaces the stub `wake_command` with a headless `codex exec` invocation (sandbox `workspace-write` by default — overridable via `HARMONIC_BRIDGE_CODEX_SANDBOX`, see Harnesses — approvals `never`) and writes a starter `system-prompt.md`. No config-file companion: the Harmonic MCP server is passed as `-c mcp_servers.…` overrides in the wake command itself, with the token as a `bearer_token_env_var` name, never a value.
   - `goose-per-agent-mcp-config` — writes `$HARMONIC_BRIDGE_AGENT_DIR/config/goose/config.yaml` with the agent's Harmonic MCP extension, again as a `${HARMONIC_BRIDGE_TOKEN}` reference (admitted into goose's header-substitution pool via `env_keys`, resolved from the wake env at session start). Each agent gets its own config root — selected with `XDG_CONFIG_HOME` in the wake command — because goose loads every extension in its config file on every session, so a shared config would mean every agent's extension loading with only one agent's token in scope.
   - `goose-harness` — replaces the stub `wake_command` with a bounded `goose run` invocation pointed at that config root, and writes a starter `system-prompt.md`.
 

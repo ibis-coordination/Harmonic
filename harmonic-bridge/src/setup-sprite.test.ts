@@ -33,6 +33,8 @@ function makeFakeExec(overrides?: {
   codexAuthed?: boolean;
   gooseReady?: boolean;
   addFails?: boolean;
+  /** Pre-existing harmonic-bridge service, with its current env. */
+  serviceEnv?: Record<string, string>;
 }): { exec: Exec; calls: FakeCall[] } {
   const calls: FakeCall[] = [];
   const exec: Exec = async (argv) => {
@@ -67,7 +69,18 @@ function makeFakeExec(overrides?: {
       if (script.includes("GOOSE_PROVIDER")) {
         return { code: overrides?.gooseReady ? 0 : 1, stdout: "", stderr: "" };
       }
-      if (script.includes("services list")) return { code: 0, stdout: "[]", stderr: "" };
+      if (script.includes("services list")) {
+        if (overrides?.serviceEnv === undefined) return { code: 0, stdout: "[]", stderr: "" };
+        return { code: 0, stdout: '[{"name":"harmonic-bridge"}]', stderr: "" };
+      }
+      if (script.includes("services get")) {
+        return {
+          code: 0,
+          stdout: JSON.stringify({ name: "harmonic-bridge", cmd: "/home/sprite/.local/bin/harmonic-bridge", env: overrides?.serviceEnv ?? {} }),
+          stderr: "",
+        };
+      }
+      if (script.includes("services delete")) return { code: 0, stdout: "", stderr: "" };
       if (script.includes("services create") || script.includes("services restart")) {
         return { code: 0, stdout: "", stderr: "" };
       }
@@ -325,6 +338,54 @@ test("setup-sprite: --harness codex opts into the codex step and device-auth log
   const createService = fake.calls.find((c) => c.script?.includes("services create"));
   assert.ok(createService?.script?.includes("--env HARMONIC_BRIDGE_CODEX_SANDBOX=danger-full-access"),
     `service must carry the sandbox override, got: ${createService?.script}`);
+});
+
+test("setup-sprite: a repair run adds missing service env by recreating, preserving what was there", async () => {
+  // The service predates the harness's env requirement (created pre-0.4.0 or
+  // with another harness) and carries an operator-set var. A plain restart
+  // would leave codex wakes failing on the bwrap error with nothing visible
+  // outside the agent's stderr log.
+  const fake = makeFakeExec({ codexAuthed: true, serviceEnv: { OPERATOR_VAR: "keep-me" } });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "codex"], {
+    exec: fake.exec,
+  });
+  assert.equal(r.code, 0, r.err);
+
+  const scripts = fake.calls.map((c) => c.script ?? "");
+  const deleteIdx = scripts.findIndex((sc) => sc.includes("services delete harmonic-bridge"));
+  const createIdx = scripts.findIndex((sc) => sc.includes("services create harmonic-bridge"));
+  assert.ok(deleteIdx >= 0, "must delete the stale service");
+  assert.ok(createIdx > deleteIdx, "must recreate after deleting");
+  const create = scripts[createIdx]!;
+  assert.ok(create.includes("HARMONIC_BRIDGE_CODEX_SANDBOX=danger-full-access"), `got: ${create}`);
+  assert.ok(create.includes("OPERATOR_VAR=keep-me"), `operator env must survive the repair, got: ${create}`);
+  // Recreate must happen before add, like every service step.
+  const addIdx = scripts.findIndex((sc) => sc.includes("harmonic-bridge add"));
+  assert.ok(createIdx < addIdx, "service must be running before add");
+});
+
+test("setup-sprite: a repair run with the env already right just restarts", async () => {
+  const fake = makeFakeExec({ codexAuthed: true, serviceEnv: { HARMONIC_BRIDGE_CODEX_SANDBOX: "danger-full-access" } });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "codex"], {
+    exec: fake.exec,
+  });
+  assert.equal(r.code, 0, r.err);
+  const scripts = fake.calls.map((c) => c.script ?? "");
+  assert.ok(scripts.some((sc) => sc.includes("services restart")), "must restart");
+  assert.ok(!scripts.some((sc) => sc.includes("services delete")), "must not churn a correct service");
+});
+
+test("setup-sprite: a repair run without harness env keeps the plain restart path", async () => {
+  // A goose repair must not recreate the service: that would wipe the
+  // operator-set provider vars the readiness instructions told them to add.
+  const fake = makeFakeExec({ gooseReady: true, serviceEnv: { GOOSE_PROVIDER: "anthropic" } });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "goose"], {
+    exec: fake.exec,
+  });
+  assert.equal(r.code, 0, r.err);
+  const scripts = fake.calls.map((c) => c.script ?? "");
+  assert.ok(scripts.some((sc) => sc.includes("services restart")));
+  assert.ok(!scripts.some((sc) => sc.includes("services delete")));
 });
 
 test("setup-sprite: non-codex harnesses set no sandbox override on the service", async () => {

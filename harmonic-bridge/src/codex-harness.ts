@@ -47,7 +47,7 @@ const WAKE_COMMAND =
   '  "$(cat "$HARMONIC_BRIDGE_AGENT_DIR/system-prompt.md")"\n';
 
 const TOOLS_PARAGRAPH =
-  "You have Codex's shell and file-editing tools, sandboxed to your working_dir. " +
+  "You have Codex's shell and file-editing tools, working in your working_dir. " +
   "Your four Harmonic tools — fetch_page, execute_action, search, get_help — come from the " +
   "harmonic-<your-handle> MCP server and may appear namespaced by that server name. " +
   "Use them when the task calls for it.";

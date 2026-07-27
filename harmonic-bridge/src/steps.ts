@@ -5,9 +5,9 @@
 // (after_remove, after_rotate, …) without protocol changes.
 //
 // Steps let users opt into harness-specific setup (writing a Claude Code
-// MCP config, running `codex mcp add`, telling Cursor about the new
-// server) without baking any harness knowledge into the daemon's runtime
-// path.
+// MCP config, applying a harness's wake command, telling an editor about
+// the new server) without baking any harness knowledge into the daemon's
+// runtime path.
 //
 // Two step forms:
 //   { built_in: "claude-code-per-agent-mcp-config" }   // named TypeScript fn

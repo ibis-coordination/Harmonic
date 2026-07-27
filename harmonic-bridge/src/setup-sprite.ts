@@ -210,17 +210,40 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
 
   const services = await inSprite("sprite-env services list");
   if (services.code !== 0) return fail(stderr, "list sprite services", services);
+  const neededEnv = harness?.serviceEnv ?? {};
   if (services.stdout.includes('"harmonic-bridge"')) {
-    stdout.write("Restarting harmonic-bridge service…\n");
-    const restart = await inSprite("sprite-env services restart harmonic-bridge");
-    if (restart.code !== 0) return fail(stderr, "restart service", restart);
+    // A repair run may predate this harness's env requirement. sprite-env has
+    // no env update, so a service missing required vars must be recreated —
+    // merging in its existing env, since a repair must not wipe operator-set
+    // vars (e.g. goose's provider credentials).
+    let existingEnv: Record<string, string> = {};
+    if (Object.keys(neededEnv).length > 0) {
+      const get = await inSprite("sprite-env services get harmonic-bridge");
+      try {
+        const parsed: unknown = JSON.parse(get.stdout);
+        const env = (parsed as { env?: unknown })?.env;
+        if (env && typeof env === "object") existingEnv = env as Record<string, string>;
+      } catch {
+        // Unparseable state: treat as no known env and recreate with ours.
+      }
+    }
+    const missing = Object.entries(neededEnv).some(([k, v]) => existingEnv[k] !== v);
+    if (missing) {
+      stdout.write("Recreating harmonic-bridge service with required env…\n");
+      const del = await inSprite("sprite-env services delete harmonic-bridge");
+      if (del.code !== 0) return fail(stderr, "delete stale service", del);
+      const create = await inSprite(
+        `sprite-env services create harmonic-bridge --cmd ${BRIDGE_BIN}${envFlagFor({ ...existingEnv, ...neededEnv })}`,
+      );
+      if (create.code !== 0) return fail(stderr, "recreate service", create);
+    } else {
+      stdout.write("Restarting harmonic-bridge service…\n");
+      const restart = await inSprite("sprite-env services restart harmonic-bridge");
+      if (restart.code !== 0) return fail(stderr, "restart service", restart);
+    }
   } else {
     stdout.write("Creating harmonic-bridge service…\n");
-    const envEntries = Object.entries(harness?.serviceEnv ?? {});
-    const envFlag = envEntries.length > 0
-      ? ` --env ${envEntries.map(([k, v]) => `${k}=${v}`).join(",")}`
-      : "";
-    const create = await inSprite(`sprite-env services create harmonic-bridge --cmd ${BRIDGE_BIN}${envFlag}`);
+    const create = await inSprite(`sprite-env services create harmonic-bridge --cmd ${BRIDGE_BIN}${envFlagFor(neededEnv)}`);
     if (create.code !== 0) return fail(stderr, "create service", create);
   }
 
@@ -335,6 +358,12 @@ function parseArgs(args: readonly string[]):
     return { error: `--sprite-name "${spriteName}" must be alphanumeric-with-hyphens` };
   }
   return { fromUrl, spriteName, harnessName };
+}
+
+function envFlagFor(env: Readonly<Record<string, string>>): string {
+  const entries = Object.entries(env);
+  if (entries.length === 0) return "";
+  return ` --env ${entries.map(([k, v]) => `${k}=${v}`).join(",")}`;
 }
 
 function renderDaemonConfig(publicUrl: string, afterAdd: readonly string[]): string {

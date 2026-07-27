@@ -172,13 +172,18 @@ becomes selector-driven rather than hardcoding one harness. Shape:
 ```
 codex exec \
   --skip-git-repo-check \
-  --sandbox workspace-write \
-  --ask-for-approval never \
+  --sandbox "${HARMONIC_BRIDGE_CODEX_SANDBOX:-workspace-write}" \
+  -c 'approval_policy="never"' \
   -c "mcp_servers.harmonic-$HARMONIC_BRIDGE_AGENT_NAME.url=\"$HARMONIC_BRIDGE_MCP_ENDPOINT\"" \
   -c "mcp_servers.harmonic-$HARMONIC_BRIDGE_AGENT_NAME.bearer_token_env_var=\"HARMONIC_BRIDGE_TOKEN\"" \
   -c "mcp_servers.harmonic-$HARMONIC_BRIDGE_AGENT_NAME.required=true" \
   "$(cat "$HARMONIC_BRIDGE_AGENT_DIR/system-prompt.md")"
 ```
+
+(As shipped after verification: the approval flag became a config key — both
+current codex builds reject `--ask-for-approval` on `exec` — and the sandbox
+became env-overridable because sprites support neither of codex's sandboxes;
+setup-sprite sets `danger-full-access` there via the service env.)
 
 Plus `timeout_seconds: 900` when absent, same as the Claude harness.
 
