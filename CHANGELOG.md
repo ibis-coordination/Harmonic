@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.61.0] - 2026-07-27
+
+### Added
+
+- **Goose as a supported harmonic-bridge harness** (#535) — harmonic-bridge 0.3.0 adds `goose` at parity with `claude-code`: two `after_add` built-ins and `setup-sprite --harness goose`. Each agent gets its own config root selected via `XDG_CONFIG_HOME` (goose loads every configured extension per session, so agents cannot share one config); the token reaches goose through `env_keys` from the wake environment, never disk (goose's header substitution ignores the raw process env — found in live testing); wakes are bounded by default (`--max-turns 40` against upstream's 1000, load-bearing on hibernating hosts). Goose has no login step — provider credentials are environment variables the operator sets, so `setup-sprite` installs goose (absent from the Sprites base image) and checks readiness instead of handing off to an auth flow. The bridge-setup page replaces its hardcoded `--harness claude-code` with a harness selector, "none" included. Publish 0.3.0 by tagging `bridge-v0.3.0`. Deploy: web only, no migrations.
+
+### Changed
+
+- **Bridge docs state the trust boundary** (#535) — the README and DESIGN security models now say plainly that secrets are delivered *to* the agent by design, wakes run as the daemon's own user, and all agents on one daemon are a single trust domain; "never written to disk" and "per-agent isolation" are re-scoped to what they actually provide. Also a README accuracy pass: stale v0.1 claims, undocumented `hold_awake_during_wake`, and an example `wake_command` that didn't work as written.
+
 ## [1.60.0] - 2026-07-25
 
 ### Added
