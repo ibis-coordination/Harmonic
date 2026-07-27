@@ -558,6 +558,9 @@ class Note
     def reload_reminder_notification; end
 
     sig { returns(T.untyped) }
+    def reload_root_commentable; end
+
+    sig { returns(T.untyped) }
     def reload_statementable; end
 
     sig { returns(T.untyped) }
@@ -614,6 +617,9 @@ class Note
     def reset_reminder_notification; end
 
     sig { void }
+    def reset_root_commentable; end
+
+    sig { void }
     def reset_statementable; end
 
     sig { void }
@@ -627,6 +633,18 @@ class Note
 
     sig { void }
     def reset_updated_by; end
+
+    sig { returns(T.untyped) }
+    def root_commentable; end
+
+    sig { params(value: T.untyped).void }
+    def root_commentable=(value); end
+
+    sig { returns(T::Boolean) }
+    def root_commentable_changed?; end
+
+    sig { returns(T::Boolean) }
+    def root_commentable_previously_changed?; end
 
     sig { returns(T.untyped) }
     def statementable; end
@@ -1508,6 +1526,12 @@ class Note
     def restore_reminder_scheduled_for!; end
 
     sig { void }
+    def restore_root_commentable_id!; end
+
+    sig { void }
+    def restore_root_commentable_type!; end
+
+    sig { void }
     def restore_statementable_id!; end
 
     sig { void }
@@ -1545,6 +1569,96 @@ class Note
 
     sig { void }
     def restore_updated_by_id!; end
+
+    sig { returns(T.nilable(::String)) }
+    def root_commentable_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def root_commentable_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def root_commentable_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def root_commentable_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def root_commentable_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def root_commentable_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def root_commentable_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def root_commentable_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def root_commentable_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def root_commentable_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def root_commentable_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def root_commentable_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def root_commentable_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def root_commentable_id_was; end
+
+    sig { void }
+    def root_commentable_id_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def root_commentable_type; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def root_commentable_type=(value); end
+
+    sig { returns(T::Boolean) }
+    def root_commentable_type?; end
+
+    sig { returns(T.nilable(::String)) }
+    def root_commentable_type_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def root_commentable_type_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def root_commentable_type_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def root_commentable_type_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def root_commentable_type_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def root_commentable_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def root_commentable_type_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def root_commentable_type_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def root_commentable_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def root_commentable_type_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def root_commentable_type_was; end
+
+    sig { void }
+    def root_commentable_type_will_change!; end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_collective_id; end
@@ -1629,6 +1743,18 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_reminder_scheduled_for?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_root_commentable_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_root_commentable_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_root_commentable_type; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_root_commentable_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_statementable_id; end
@@ -2334,6 +2460,12 @@ class Note
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_reminder_scheduled_for?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_root_commentable_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_root_commentable_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_statementable_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

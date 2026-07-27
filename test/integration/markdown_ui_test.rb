@@ -659,6 +659,29 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     refute Note.exists?(text: "wrong-thread reply"), "Should not have created the comment"
   end
 
+  # Regression for #539, the user-facing half. `resolve_replying_to` compares
+  # the target's root against the URL's root. The old read-time walk gave up
+  # after 20 hops and returned a mid-chain ancestor, so a perfectly valid
+  # reply deep in a long thread was rejected with "the comment is in a
+  # different thread" — an error asserting the opposite of the truth.
+  test "POST add_comment with a replying_to_id deeper than the old walk ceiling is accepted" do
+    note = create_note(collective: @collective, created_by: @user, title: "A long thread")
+
+    target = note.add_comment(text: "hop 0", created_by: @user)
+    30.times { |i| target = target.add_comment(text: "hop #{i + 1}", created_by: @user) }
+
+    post "/collectives/#{@collective.handle}/n/#{note.truncated_id}/actions/add_comment",
+      params: { text: "deep reply", replying_to_id: target.truncated_id }.to_json,
+      headers: @headers
+
+    assert_equal 200, response.status,
+      "A same-thread reply must not be rejected for being deep; got: #{response.body}"
+
+    reply = Note.find_by(text: "deep reply")
+    assert_equal target, reply.commentable
+    assert_equal note, reply.root_commentable
+  end
+
   # Conditional action display tests
   test "commitment show page shows join_commitment action when user has not joined" do
     commitment = create_commitment(collective: @collective, created_by: @user, title: "Test commitment")

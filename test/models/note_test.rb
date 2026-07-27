@@ -2508,6 +2508,39 @@ class NoteTest < ActiveSupport::TestCase
     assert_equal decision, leaf.root_commentable
   end
 
+  # Regression for #539. The old implementation walked the `commentable`
+  # chain at read time with a `break if depth > 20`, and on break returned the
+  # ancestor comment it stopped on *as if it were the root*. Threads past that
+  # depth got the wrong root, which silently broke reply validation and
+  # display links. The root is stored now, so depth is irrelevant.
+  test "Note#root_commentable is correct past the old 20-hop walk ceiling" do
+    tenant, collective, user = create_tenant_collective_user
+    decision = create_decision(tenant: tenant, collective: collective, created_by: user)
+
+    deepest = decision.add_comment(text: "hop 0", created_by: user)
+    30.times { |i| deepest = deepest.add_comment(text: "hop #{i + 1}", created_by: user) }
+
+    assert_equal decision, deepest.root_commentable,
+                 "a 31-deep comment must still resolve to the decision, not a mid-chain ancestor"
+    assert_equal decision, Note.find(deepest.id).root_commentable,
+                 "and must survive a reload — the root is persisted, not just memoized"
+    assert_equal "#{decision.path}?comment_id=#{deepest.truncated_id}", deepest.display_path
+  end
+
+  test "Note#root_commentable resolves in one hop regardless of thread depth" do
+    tenant, collective, user = create_tenant_collective_user
+    decision = create_decision(tenant: tenant, collective: collective, created_by: user)
+
+    deepest = decision.add_comment(text: "hop 0", created_by: user)
+    25.times { |i| deepest = deepest.add_comment(text: "hop #{i + 1}", created_by: user) }
+
+    reloaded = Note.find(deepest.id)
+    queries = capture_sql { reloaded.root_commentable }
+
+    assert_equal 1, queries.length,
+                 "Expected a single lookup of the stored root, not a walk up the chain; got: #{queries.inspect}"
+  end
+
   test "comment on a decision: #display_path points at the decision with comment_id query param" do
     tenant, collective, user = create_tenant_collective_user
     decision = create_decision(tenant: tenant, collective: collective, created_by: user)

@@ -1034,7 +1034,9 @@ CREATE TABLE public.notes (
     hard_delete_after timestamp(6) without time zone,
     tombstoned_at timestamp(6) without time zone,
     summarizable_type character varying,
-    summarizable_id uuid
+    summarizable_id uuid,
+    root_commentable_type character varying,
+    root_commentable_id uuid
 );
 
 
@@ -4840,6 +4842,13 @@ CREATE INDEX index_notes_on_hard_delete_after ON public.notes USING btree (hard_
 --
 
 CREATE INDEX index_notes_on_reminder_notification_id ON public.notes USING btree (reminder_notification_id) WHERE (reminder_notification_id IS NOT NULL);
+
+
+--
+-- Name: index_notes_on_root_commentable; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_notes_on_root_commentable ON public.notes USING btree (root_commentable_type, root_commentable_id);
 
 
 --
@@ -10648,6 +10657,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260727170000'),
 ('20260727120000'),
 ('20260724120000'),
 ('20260723120000'),
