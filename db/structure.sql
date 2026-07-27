@@ -837,7 +837,9 @@ CREATE TABLE public.harmonic_bridge_setups (
     webhook_registered_at timestamp(6) without time zone,
     events_recommended jsonb DEFAULT '[]'::jsonb NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    include_llm_token boolean DEFAULT false NOT NULL,
+    llm_api_token_id uuid
 );
 
 
@@ -4544,6 +4546,13 @@ CREATE INDEX index_harmonic_bridge_setups_on_automation_rule_id ON public.harmon
 --
 
 CREATE INDEX index_harmonic_bridge_setups_on_expires_at ON public.harmonic_bridge_setups USING btree (expires_at);
+
+
+--
+-- Name: index_harmonic_bridge_setups_on_llm_api_token_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_harmonic_bridge_setups_on_llm_api_token_id ON public.harmonic_bridge_setups USING btree (llm_api_token_id);
 
 
 --
@@ -10121,6 +10130,14 @@ ALTER TABLE ONLY public.votes
 
 
 --
+-- Name: harmonic_bridge_setups fk_rails_afa9958aeb; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.harmonic_bridge_setups
+    ADD CONSTRAINT fk_rails_afa9958aeb FOREIGN KEY (llm_api_token_id) REFERENCES public.api_tokens(id);
+
+
+--
 -- Name: web_push_subscriptions fk_rails_b006f28dac; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10631,6 +10648,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260727120000'),
 ('20260724120000'),
 ('20260723120000'),
 ('20260719130000'),

@@ -10,7 +10,7 @@ Link this agent to a host that's running [harmonic-bridge](https://github.com/ib
 
 Actions:
 
-* [connect_harmonic_bridge](/ai-agents/<%= @ai_agent.handle %>/bridge-setup/actions/connect_harmonic_bridge) — mint a one-time setup URL the bridge daemon redeems.
+* [connect_harmonic_bridge](/ai-agents/<%= @ai_agent.handle %>/bridge-setup/actions/connect_harmonic_bridge) — mint a one-time setup URL the bridge daemon redeems.<% if @llm_gateway_available %> Pass `include_llm_token: true` to also issue an LLM gateway token, billed to the agent's funding.<% end %>
 
 Alternative:
 

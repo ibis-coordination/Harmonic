@@ -40,6 +40,13 @@
           bridge is reachable from Harmonic before enabling the webhook.
         </p>
 
+        <% if @setup.include_llm_token? %>
+          <p class="pulse-hint">
+            This setup also issues an <strong>LLM gateway token</strong>, so the host can make LLM calls
+            through Harmonic billed to this agent's funding — no provider API key needed on the host.
+          </p>
+        <% end %>
+
         <label class="pulse-label">Run this on your bridge host</label>
         <div style="display:flex;gap:8px;align-items:flex-start;">
           <pre class="pulse-form-input" style="flex:1;min-width:0;font-family:var(--font-family-mono);margin:0;white-space:pre-wrap;word-break:break-all;">harmonic-bridge add --from <%= @public_setup_url %></pre>
@@ -71,13 +78,13 @@
           <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
             <label style="display:flex;gap:8px;align-items:flex-start;">
               <input type="radio" name="sprite_harness" value="" checked
-                     data-action="change->harness-selector#select" style="margin-top:4px;">
+                     data-action="change->harness-selector#selectHarness" style="margin-top:4px;">
               <span>None <span class="pulse-hint">— wire up your own harness after setup.</span></span>
             </label>
             <% @sprite_harnesses.each do |harness| %>
               <label style="display:flex;gap:8px;align-items:flex-start;">
                 <input type="radio" name="sprite_harness" value="<%= harness[:slug] %>"
-                       data-action="change->harness-selector#select" style="margin-top:4px;">
+                       data-action="change->harness-selector#selectHarness" style="margin-top:4px;">
                 <span>
                   <code><%= harness[:slug] %></code>
                   <span class="pulse-hint">— <%= harness[:note] %></span>
@@ -85,6 +92,23 @@
               </label>
             <% end %>
           </div>
+
+          <% if @setup.include_llm_token? %>
+            <label class="pulse-label">Model</label>
+            <p class="pulse-hint" style="margin-top:0;">
+              The gateway model this agent runs on. Changeable later in the agent's config on the host.
+            </p>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+              <% selectable_models.each_with_index do |model, index| %>
+                <label style="display:flex;gap:8px;align-items:flex-start;">
+                  <input type="radio" name="sprite_model" value="<%= model %>" <%= "checked" if index.zero? %>
+                         data-action="change->harness-selector#selectModel" style="margin-top:4px;">
+                  <span><code><%= model %></code></span>
+                </label>
+              <% end %>
+            </div>
+            <%= render "ai_agents/model_pricing" %>
+          <% end %>
 
           <div style="display:flex;gap:8px;align-items:flex-start;">
             <pre class="pulse-form-input" data-harness-selector-target="command" style="flex:1;min-width:0;font-family:var(--font-family-mono);margin:0;white-space:pre-wrap;word-break:break-all;"><%= @sprite_setup_command %></pre>

@@ -1,23 +1,43 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Appends `--harness <slug>` to the setup-sprite command shown on the
-// bridge-setup page as the operator picks one.
+// Composes the setup-sprite command shown on the bridge-setup page from the
+// operator's choices: `--harness <slug>` and, when the setup carries the LLM
+// gateway opt-in, `--model <provider/model>` (those radios exist only then).
 //
-// The rendered command is the harness-neutral base, which is also a valid
-// choice — selecting "None" restores it.
+// The command is recomputed from the server-rendered base value plus the
+// currently-checked radios — never derived from the displayed <pre>. Turbo
+// caches the mutated page, so after a restore the <pre> already carries
+// flags (and the radios keep their checked state); connect() recomputes so
+// the two agree again instead of accumulating flags.
 export default class HarnessSelectorController extends Controller {
   static targets = ["command"]
   static values = { base: String }
 
   declare readonly commandTarget: HTMLElement
-  // Server-rendered rather than read from the DOM: Turbo caches the mutated
-  // page, so after a restore the <pre> may already carry a --harness flag.
-  // Deriving the base from it would accumulate flags on the next selection.
   declare readonly baseValue: string
 
-  select(event: Event): void {
-    const slug = (event.target as HTMLInputElement).value
-    const command = slug ? `${this.baseValue} --harness ${slug}` : this.baseValue
+  connect(): void {
+    this.render()
+  }
+
+  selectHarness(): void {
+    this.render()
+  }
+
+  selectModel(): void {
+    this.render()
+  }
+
+  private checked(name: string): string {
+    const radio = this.element.querySelector<HTMLInputElement>(`input[name="${name}"]:checked`)
+    return radio?.value ?? ""
+  }
+
+  private render(): void {
+    const harness = this.checked("sprite_harness")
+    const model = this.checked("sprite_model")
+    const command =
+      this.baseValue + (harness ? ` --harness ${harness}` : "") + (model ? ` --model ${model}` : "")
 
     this.commandTarget.textContent = command
     // The copy button reads its own hidden input rather than the displayed

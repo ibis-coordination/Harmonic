@@ -52,6 +52,7 @@ class AiAgentBridgeSetupsController < ApplicationController
     # bounce off HarmonicBridgeSetup's no_existing_notification_webhook_for_agent
     # validation. The model validation is still the real guard.
     @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@ai_agent).first
+    @llm_gateway_available = llm_gateway_available?
   end
 
   # GET /ai-agents/:handle/bridge-setup/actions
@@ -78,11 +79,19 @@ class AiAgentBridgeSetupsController < ApplicationController
   # by ActionCapabilityCheck before reaching here
   # (connect_harmonic_bridge is in AI_AGENT_ALWAYS_BLOCKED).
   def execute_connect_harmonic_bridge
+    # Stored as submitted: whether a token can actually be minted is decided
+    # once, at redeem time (tenant flag + structural payer), so an opt-in on
+    # a flagless tenant just redeems into a "not enabled" status.
+    include_llm_token = params[:include_llm_token].present?
     setup = pending_setup_for(@ai_agent) || HarmonicBridgeSetup.create(
       tenant: current_tenant,
       ai_agent_user: @ai_agent,
-      created_by_user: @current_user
+      created_by_user: @current_user,
+      include_llm_token: include_llm_token
     )
+    # A reused pending setup must reflect the choice just submitted, not the
+    # one from the click that created it.
+    setup.update(include_llm_token: include_llm_token) if setup.persisted? && setup.include_llm_token != include_llm_token
     if setup.errors.any?
       return render_action_error({
         action_name: "connect_harmonic_bridge",
@@ -151,6 +160,10 @@ class AiAgentBridgeSetupsController < ApplicationController
       .where(ai_agent_user_id: @ai_agent.id)
       .find_by(public_id: params[:public_id])
     render(status: :not_found, plain: "404 Not Found") if @setup.nil?
+  end
+
+  def llm_gateway_available?
+    current_tenant.feature_enabled?("llm_gateway")
   end
 
   # An existing redeemable (unredeemed + unexpired) setup for this agent.

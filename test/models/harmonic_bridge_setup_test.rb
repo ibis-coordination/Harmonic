@@ -352,7 +352,102 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
     assert_raises(HarmonicBridgeSetup::WebhookAlreadyRegistered) { s.finalize_webhook! }
   end
 
+  # ---------- redeem! with LLM gateway opt-in ----------
+
+  # llm_gateway is app_enabled in config/feature_flags.yml; only the
+  # tenant-level flag needs turning on.
+  def enable_llm_gateway!
+    @tenant.enable_feature_flag!("llm_gateway")
+  end
+
+  def fund_agent_principal!
+    StripeCustomer.create!(
+      billable: @human,
+      stripe_id: "cus_bridge_principal",
+      active: true,
+      pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
+    )
+  end
+
+  test "redeem!: without opt-in, mints no LLM token and returns nil LLM fields" do
+    enable_llm_gateway!
+    fund_agent_principal!
+    s = build_setup
+    s.save!
+
+    credentials = s.redeem!
+
+    assert_nil credentials[:harmonic_llm_token]
+    assert_nil credentials[:harmonic_llm_endpoint]
+    assert_nil credentials[:harmonic_llm_status]
+    assert_nil s.reload.llm_api_token
+    assert_equal 1, @agent.api_tokens.count
+  end
+
+  test "redeem!: with opt-in, tenant flag, and a fundable agent, mints the llm_gateway token" do
+    enable_llm_gateway!
+    fund_agent_principal!
+    s = build_setup(include_llm_token: true)
+    s.save!
+
+    credentials = s.redeem!
+
+    assert credentials[:harmonic_llm_token].present?
+    assert credentials[:harmonic_llm_endpoint].start_with?("https://llm."), "endpoint should be the external gateway host"
+    assert_not credentials.key?(:harmonic_llm_model), "model is chosen bridge-side (--model flag), not on the wire"
+    assert_nil credentials[:harmonic_llm_status]
+
+    token = s.reload.llm_api_token
+    assert_not_nil token
+    assert token.llm_gateway_type?, "second token should be llm_gateway type"
+    assert_equal @agent.id, token.user_id
+    assert_not_equal s.api_token.id, token.id
+    assert_equal 2, @agent.api_tokens.count, "MCP token + LLM token"
+  end
+
+  test "redeem!: with opt-in but no tenant flag, omits the token with a status" do
+    fund_agent_principal!
+    s = build_setup(include_llm_token: true)
+    s.save!
+
+    credentials = s.redeem!
+
+    assert credentials[:harmonic_token].present?, "handshake itself must still succeed"
+    assert_nil credentials[:harmonic_llm_token]
+    assert_match(/not enabled/i, credentials[:harmonic_llm_status])
+    assert_nil s.reload.llm_api_token
+  end
+
+  test "redeem!: with opt-in but no structural payer, omits the token with a status" do
+    enable_llm_gateway!
+    s = build_setup(include_llm_token: true)
+    s.save!
+
+    credentials = s.redeem!
+
+    assert credentials[:harmonic_token].present?, "handshake itself must still succeed"
+    assert_nil credentials[:harmonic_llm_token]
+    assert_match(/funding/i, credentials[:harmonic_llm_status])
+    assert_nil s.reload.llm_api_token
+    assert_equal 1, @agent.api_tokens.count, "only the MCP token"
+  end
+
   # ---------- revert_completion! ----------
+
+  test "revert_completion!: destroys both tokens when the LLM token was minted" do
+    enable_llm_gateway!
+    fund_agent_principal!
+    s = build_setup(include_llm_token: true)
+    s.save!
+    s.redeem!
+
+    llm_token_id = s.llm_api_token.id
+    s.revert_completion!
+
+    assert_nil s.llm_api_token
+    assert_nil ApiToken.find_by(id: llm_token_id)
+    assert_equal 0, @agent.api_tokens.count
+  end
 
   test "revert_completion!: destroys the token and the AutomationRule" do
     s = build_setup

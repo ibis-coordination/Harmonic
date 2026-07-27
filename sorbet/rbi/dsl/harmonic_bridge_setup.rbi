@@ -480,6 +480,9 @@ class HarmonicBridgeSetup
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def build_created_by_user(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::ApiToken) }
+    def build_llm_api_token(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def build_tenant(*args, &blk); end
 
@@ -507,6 +510,12 @@ class HarmonicBridgeSetup
     sig { params(args: T.untyped, blk: T.untyped).returns(::User) }
     def create_created_by_user!(*args, &blk); end
 
+    sig { params(args: T.untyped, blk: T.untyped).returns(::ApiToken) }
+    def create_llm_api_token(*args, &blk); end
+
+    sig { params(args: T.untyped, blk: T.untyped).returns(::ApiToken) }
+    def create_llm_api_token!(*args, &blk); end
+
     sig { params(args: T.untyped, blk: T.untyped).returns(::Tenant) }
     def create_tenant(*args, &blk); end
 
@@ -525,6 +534,18 @@ class HarmonicBridgeSetup
     sig { returns(T::Boolean) }
     def created_by_user_previously_changed?; end
 
+    sig { returns(T.nilable(::ApiToken)) }
+    def llm_api_token; end
+
+    sig { params(value: T.nilable(::ApiToken)).void }
+    def llm_api_token=(value); end
+
+    sig { returns(T::Boolean) }
+    def llm_api_token_changed?; end
+
+    sig { returns(T::Boolean) }
+    def llm_api_token_previously_changed?; end
+
     sig { returns(T.nilable(::User)) }
     def reload_ai_agent_user; end
 
@@ -536,6 +557,9 @@ class HarmonicBridgeSetup
 
     sig { returns(T.nilable(::User)) }
     def reload_created_by_user; end
+
+    sig { returns(T.nilable(::ApiToken)) }
+    def reload_llm_api_token; end
 
     sig { returns(T.nilable(::Tenant)) }
     def reload_tenant; end
@@ -551,6 +575,9 @@ class HarmonicBridgeSetup
 
     sig { void }
     def reset_created_by_user; end
+
+    sig { void }
+    def reset_llm_api_token; end
 
     sig { void }
     def reset_tenant; end
@@ -1123,6 +1150,96 @@ class HarmonicBridgeSetup
     sig { void }
     def id_will_change!; end
 
+    sig { returns(T::Boolean) }
+    def include_llm_token; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def include_llm_token=(value); end
+
+    sig { returns(T::Boolean) }
+    def include_llm_token?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def include_llm_token_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def include_llm_token_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def include_llm_token_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def include_llm_token_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def include_llm_token_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def include_llm_token_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def include_llm_token_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def include_llm_token_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def include_llm_token_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def include_llm_token_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def include_llm_token_was; end
+
+    sig { void }
+    def include_llm_token_will_change!; end
+
+    sig { returns(T.nilable(::String)) }
+    def llm_api_token_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def llm_api_token_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def llm_api_token_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def llm_api_token_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def llm_api_token_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def llm_api_token_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def llm_api_token_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def llm_api_token_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def llm_api_token_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def llm_api_token_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def llm_api_token_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def llm_api_token_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def llm_api_token_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def llm_api_token_id_was; end
+
+    sig { void }
+    def llm_api_token_id_will_change!; end
+
     sig { returns(::String) }
     def public_id; end
 
@@ -1241,6 +1358,12 @@ class HarmonicBridgeSetup
     def restore_id_value!; end
 
     sig { void }
+    def restore_include_llm_token!; end
+
+    sig { void }
+    def restore_llm_api_token_id!; end
+
+    sig { void }
     def restore_public_id!; end
 
     sig { void }
@@ -1308,6 +1431,18 @@ class HarmonicBridgeSetup
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_include_llm_token; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_include_llm_token?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_llm_api_token_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_llm_api_token_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_public_id; end
@@ -1500,6 +1635,12 @@ class HarmonicBridgeSetup
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_include_llm_token?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_llm_api_token_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_public_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

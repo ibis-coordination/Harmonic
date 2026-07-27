@@ -28,11 +28,7 @@ module LLMGateway
     # the operator-managed funding_pools flag is on at every level: the
     # resolver treats pool availability as a kill switch.
     def create_funding_pool!(primary_stripe_id: "cus_primary", primary_cap: 500)
-      FeatureFlagService.config["stripe_billing"] ||= {}
-      FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
       @tenant.enable_feature_flag!("stripe_billing")
-      FeatureFlagService.config["funding_pools"] ||= {}
-      FeatureFlagService.config["funding_pools"]["app_enabled"] = true
       @tenant.enable_feature_flag!("funding_pools")
       @collective.enable_feature_flag!("funding_pools")
       pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_draw_cap_cents: 500)
@@ -940,6 +936,47 @@ module LLMGateway
         PayerResolver.resolve_for_agent(@ai_agent)
       end
       assert_equal "not_funded", error.code
+    end
+
+    # ---------- structurally_fundable? ----------
+    # Structure only, never balance: the predicate answers "does any payer
+    # arrangement exist for this agent" without touching Stripe or the
+    # balance gate.
+
+    test "structurally_fundable? is false for an agent with no pool and no billing customer" do
+      assert_not PayerResolver.structurally_fundable?(@ai_agent)
+    end
+
+    test "structurally_fundable? is true when the agent has a funding pool" do
+      pool = create_funding_pool!
+      @ai_agent.update!(funding_pool: pool)
+
+      assert PayerResolver.structurally_fundable?(@ai_agent)
+    end
+
+    test "structurally_fundable? is true when the agent's own customer has a credit subscription" do
+      create_agent_billing_customer!
+
+      assert PayerResolver.structurally_fundable?(@ai_agent)
+    end
+
+    test "structurally_fundable? is true when the parent's customer has a credit subscription" do
+      fund!(@user, stripe_id: "cus_parent_fallback")
+
+      assert PayerResolver.structurally_fundable?(@ai_agent)
+    end
+
+    test "structurally_fundable? is false when the only customer lacks a credit subscription" do
+      create_agent_billing_customer!(pricing_plan_subscription_id: nil)
+
+      assert_not PayerResolver.structurally_fundable?(@ai_agent)
+    end
+
+    test "structurally_fundable? ignores balance entirely" do
+      create_agent_billing_customer!
+      seed_balance!("cus_agent_individual", 0)
+
+      assert PayerResolver.structurally_fundable?(@ai_agent)
     end
   end
 end

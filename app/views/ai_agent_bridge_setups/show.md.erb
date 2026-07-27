@@ -14,6 +14,9 @@ harmonic-bridge add --from <%= @public_setup_url %>
 ```
 
 The command exchanges this URL for an MCP token plus a notification webhook subscription, then asks Harmonic to send a test delivery to confirm the bridge is reachable before enabling the webhook.
+<% if @setup.include_llm_token? %>
+This setup also issues an **LLM gateway token**: the host can make LLM calls through Harmonic billed to the agent's funding, with no provider API key on the host. Add `--model <provider/model>` to either command to choose the agent's gateway model — available: <%= selectable_models.map { |m| "`#{m}`" }.join(", ") %>. Without the flag the agent runs the platform default.
+<% end %>
 
 ## On a Fly.io Sprite
 
