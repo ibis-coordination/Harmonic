@@ -260,8 +260,11 @@ sharing the desktop app's `~/.codex/auth.json`, against dev Harmonic):
 6. ✅ Device auth works — after enabling device code authorization in ChatGPT
    Security Settings, which the first attempt was blocked by. The failure
    message names the setting, validating readyInstructions calling it out.
-7. ⏳ Post-publish (the in-sprite install pulls the published package), same as
-   the goose sequencing.
+7. ⏳ Post-publish (the in-sprite install pulls the published package). Dan
+   runs this one deliberately by hand, start to finish — fresh sprite, fresh
+   device-auth — as an operator-experience test of the whole flow, not just a
+   correctness check. The verification sprite was destroyed, so nothing is
+   pre-authenticated.
 
 ## Docs and release
 
