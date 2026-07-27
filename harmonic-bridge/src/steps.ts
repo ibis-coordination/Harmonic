@@ -24,6 +24,7 @@ import { writeClaudeMcpConfig } from "./claude-mcp-config.js";
 import { applyClaudeCodeHarness } from "./claude-code-harness.js";
 import { writeGooseConfig } from "./goose-config.js";
 import { applyGooseHarness } from "./goose-harness.js";
+import { applyCodexHarness } from "./codex-harness.js";
 
 export type Step =
   | { readonly kind: "built_in"; readonly name: string }
@@ -76,6 +77,9 @@ export const BUILT_INS: Readonly<Record<string, BuiltInImpl>> = Object.freeze({
   },
   "goose-harness": async (ctx) => {
     await applyGooseHarness({ agentDir: ctx.agentDir, agentHandle: ctx.agentHandle });
+  },
+  "codex-harness": async (ctx) => {
+    await applyCodexHarness({ agentDir: ctx.agentDir });
   },
 });
 

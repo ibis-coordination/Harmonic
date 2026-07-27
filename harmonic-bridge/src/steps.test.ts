@@ -91,6 +91,24 @@ test("runStep built_in: goose-harness configures the agent for goose", async () 
   }
 });
 
+test("runStep built_in: codex-harness configures the agent for codex", async () => {
+  const { dir, cleanup } = makeTmpAgentDir();
+  try {
+    writeFileSync(
+      path.join(dir, "harmonic-bridge.yml"),
+      'wake_command: |\n  echo "wake_command not configured" >&2\n  exit 1\n',
+    );
+    const result = await runStep({ kind: "built_in", name: "codex-harness" }, makeContext(dir));
+    assert.equal(result.ok, true);
+
+    const yml = parseYaml(readFileSync(path.join(dir, "harmonic-bridge.yml"), "utf8")) as Record<string, unknown>;
+    assert.match(yml["wake_command"] as string, /codex exec/);
+    assert.ok(existsSync(path.join(dir, "system-prompt.md")));
+  } finally {
+    cleanup();
+  }
+});
+
 test("runStep built_in: unknown name returns an error result", async () => {
   const { dir, cleanup } = makeTmpAgentDir();
   try {
