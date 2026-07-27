@@ -49,7 +49,7 @@ interface HarnessDefinition {
   /** In-sprite check script: exit 0 when the harness can actually wake. */
   readonly readyCheckScript: string;
   /** What to tell the operator when the check fails. */
-  readonly readyInstructions: string;
+  readonly readyInstructions: (spriteName: string) => string;
   /**
    * Interactive argv (run on the laptop) that completes setup in the sprite.
    * Absent for harnesses with nothing to run — a missing credential there is
@@ -67,7 +67,7 @@ const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
     // --tty is required: without a pseudo-TTY claude runs in print mode,
     // where /login is unavailable (and exits 0 anyway).
     readyCommand: (spriteName) => ["sprite", "exec", "--tty", "-s", spriteName, "--", "claude", "/login"],
-    readyInstructions:
+    readyInstructions: () =>
       "Claude Code needs a one-time login inside the sprite. In the Claude session\n" +
       "that opens, complete the login (open the printed URL, authorize, paste the\n" +
       "code back), then exit Claude (/exit) to continue.",
@@ -85,11 +85,19 @@ const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
     // The provider's own key variable is named per provider, so it can't be
     // checked generically — only named in the instructions.
     readyCheckScript: 'command -v goose >/dev/null 2>&1 && [ -n "$GOOSE_PROVIDER" ] && [ -n "$GOOSE_MODEL" ]',
-    readyInstructions:
-      "goose has no login step — it reads its provider credential from the\n" +
-      "environment. Set GOOSE_PROVIDER, GOOSE_MODEL, and your provider's API key\n" +
-      "variable in the sprite's environment (see the Sprites documentation), so the\n" +
-      "harmonic-bridge service inherits them at wake time.",
+    // Service env lives in the service definition, and sprite-env has no
+    // update: the service must be deleted and recreated to change it.
+    readyInstructions: (spriteName) =>
+      "goose has no login step — it reads its provider credentials from the\n" +
+      "harmonic-bridge service's environment. Set GOOSE_PROVIDER, GOOSE_MODEL, and\n" +
+      "your provider's API key variable by recreating the service with them:\n" +
+      "\n" +
+      `  sprite exec -s ${spriteName} -- sprite-env services delete harmonic-bridge\n` +
+      `  sprite exec -s ${spriteName} -- sprite-env services create harmonic-bridge \\\n` +
+      `    --cmd ${BRIDGE_BIN} \\\n` +
+      '    --env "GOOSE_PROVIDER=anthropic,GOOSE_MODEL=<model>,ANTHROPIC_API_KEY=<key>"\n' +
+      "\n" +
+      "(swap provider, model, and key variable for your provider's).",
   },
 });
 
@@ -235,7 +243,7 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
       // the failure message itself, written once, below.
       let interactiveCode = 0;
       if (harness.readyCommand) {
-        stdout.write(`\n${harness.readyInstructions}\n\n`);
+        stdout.write(`\n${harness.readyInstructions(spriteName)}\n\n`);
         interactiveCode = await execInteractive(harness.readyCommand(spriteName));
       }
       // The exit code proves nothing (claude exits 0 even when /login is
@@ -244,7 +252,7 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
       if (interactiveCode !== 0 || verify.code !== 0) {
         const remaining = harness.readyCommand
           ? `Finish it with:\n  ${harness.readyCommand(spriteName).join(" ")}\n`
-          : `${harness.readyInstructions}\n`;
+          : `${harness.readyInstructions(spriteName)}\n`;
         stderr.write(
           `harmonic-bridge setup-sprite: ${harnessName} is not ready to wake.\n` +
           `The agent is connected to Harmonic, but wakes will fail until this is resolved.\n` +

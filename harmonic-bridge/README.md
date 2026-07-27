@@ -169,9 +169,18 @@ harmonic-bridge does not care what runs the agent. It delivers a verified event 
 
 ### Provider credentials
 
-Harnesses that authenticate to an LLM provider by environment variable read it from the daemon's environment, which the wake command inherits. harmonic-bridge neither stores nor manages these — set them wherever your daemon's environment comes from (systemd unit, shell profile, sprite environment).
+Harnesses that authenticate to an LLM provider by environment variable read it from the daemon's environment, which the wake command inherits. harmonic-bridge neither stores nor manages these — set them wherever your daemon's environment comes from (systemd unit `Environment=` lines, shell profile, the service definition on a sprite).
 
 For goose: `GOOSE_PROVIDER`, `GOOSE_MODEL`, and the provider's own key variable (its name varies by provider). Note that goose deliberately ignores provider keys placed in `config.yaml`, so the environment is the only path.
+
+On a sprite, service env lives in the service definition and there is no update — delete and recreate the service to change it:
+
+```
+sprite exec -s <sprite-name> -- sprite-env services delete harmonic-bridge
+sprite exec -s <sprite-name> -- sprite-env services create harmonic-bridge \
+  --cmd /home/sprite/.local/bin/harmonic-bridge \
+  --env "GOOSE_PROVIDER=anthropic,GOOSE_MODEL=<model>,ANTHROPIC_API_KEY=<key>"
+```
 
 The catch worth knowing: an `after_add` step runs in *your shell's* environment, not the daemon service's. Nothing at setup time can prove the daemon will see these variables — a missing credential surfaces at the first wake, as an auth error in that agent's stderr log. `setup-sprite` checks what it can, in the environment it can reach.
 

@@ -275,6 +275,13 @@ test("setup-sprite: goose with no provider environment names the variables to se
   assert.match(r.err, /GOOSE_PROVIDER/);
   assert.match(r.err, /GOOSE_MODEL/);
   assert.match(r.err, /API key/i, "must say a provider key is needed, since its name varies by provider");
+  // Concrete, copy-pasteable commands with the actual sprite name — service
+  // env lives in the service definition, and there is no update: the service
+  // must be deleted and recreated to change it (verified live 2026-07-27).
+  assert.match(r.err, /sprite exec -s my-agent -- sprite-env services delete harmonic-bridge/);
+  assert.match(r.err, /sprite exec -s my-agent -- sprite-env services create harmonic-bridge/);
+  assert.match(r.err, /--env "GOOSE_PROVIDER=/);
+  assert.doesNotMatch(r.err, /see the Sprites documentation/i, "must not hand-wave to external docs");
 });
 
 test("setup-sprite: the claude-code path installs no other harness", async () => {
