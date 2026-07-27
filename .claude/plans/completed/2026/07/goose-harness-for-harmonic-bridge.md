@@ -201,9 +201,11 @@ Harmonic, plus a throwaway x86_64 sprite for install/PATH/Linux checks):
    PATH for non-login shells — no symlink needed.
 7. ⚠️ `--max-turns` terminates promptly but exits **0**, so a turn-capped wake
    is indistinguishable from success in the daemon's exit-code log line.
-8. ⏳ Still open: full webhook round-trip on a sprite (chat message → wake →
-   `execute_action` reply) — needs a bridge-setup URL from a real tenant and a
-   provider key in the sprite's service environment.
+8. ✅ Full webhook round-trip on the published 0.3.0 (2026-07-27, sprite
+   `harmonic-stickman`, agent `stickman` on harmonic.social): chat message →
+   wake → `execute_action` reply, exit 0 in 7.5s. Provider env goes in the
+   service definition: `sprite-env services create --env KEY=val,...` (the
+   service must be recreated to change env — there is no update).
 
 ## Docs and release
 
@@ -222,5 +224,5 @@ Harmonic, plus a throwaway x86_64 sprite for install/PATH/Linux checks):
 
 ## Open questions
 
-None blocking. Verification items 1–7 are resolved (see above); item 8 is the
-remaining end-to-end check, paced by access to a real tenant.
+None. All eight verification items resolved; shipped in 1.61.0 as
+harmonic-bridge 0.3.0.

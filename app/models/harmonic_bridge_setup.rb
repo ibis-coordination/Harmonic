@@ -57,6 +57,11 @@ class HarmonicBridgeSetup < ApplicationRecord
         note: "Finishes with a one-time login inside the sprite.",
       },
       {
+        slug: "codex",
+        note: "Finishes with a one-time device-code login inside the sprite " \
+              "(a ChatGPT workspace admin must have device-code login enabled).",
+      },
+      {
         slug: "goose",
         note: "No login. Reads its provider credentials from the sprite's environment " \
               "(GOOSE_PROVIDER, GOOSE_MODEL, and the provider's own API key variable), " \

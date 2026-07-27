@@ -46,10 +46,12 @@ interface HarnessDefinition {
   readonly afterAdd: readonly string[];
   /** In-sprite install script, for harnesses the base image doesn't ship. */
   readonly installScript?: string;
+  /** Env vars the daemon service must carry for this harness's wakes. */
+  readonly serviceEnv?: Readonly<Record<string, string>>;
   /** In-sprite check script: exit 0 when the harness can actually wake. */
   readonly readyCheckScript: string;
   /** What to tell the operator when the check fails. */
-  readonly readyInstructions: string;
+  readonly readyInstructions: (spriteName: string) => string;
   /**
    * Interactive argv (run on the laptop) that completes setup in the sprite.
    * Absent for harnesses with nothing to run — a missing credential there is
@@ -67,10 +69,31 @@ const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
     // --tty is required: without a pseudo-TTY claude runs in print mode,
     // where /login is unavailable (and exits 0 anyway).
     readyCommand: (spriteName) => ["sprite", "exec", "--tty", "-s", spriteName, "--", "claude", "/login"],
-    readyInstructions:
+    readyInstructions: () =>
       "Claude Code needs a one-time login inside the sprite. In the Claude session\n" +
       "that opens, complete the login (open the printed URL, authorize, paste the\n" +
       "code back), then exit Claude (/exit) to continue.",
+  },
+  codex: {
+    afterAdd: ["codex-harness"],
+    // Codex cannot sandbox inside a sprite — bwrap lacks capabilities and
+    // legacy Landlock rejects the permission profile (both verified live).
+    // The single-agent micro-VM is the boundary instead, matching Claude
+    // Code's unrestricted Bash on a sprite.
+    serviceEnv: { HARMONIC_BRIDGE_CODEX_SANDBOX: "danger-full-access" },
+    // Codex ships in the Sprites base image — nothing to install. `codex
+    // login status` exits 0 only when logged in, and doubles as the PATH
+    // check.
+    readyCheckScript: "codex login status",
+    // Browser OAuth needs localhost:1455 — unusable against a sprite.
+    // Device auth prints a code to approve from any browser.
+    readyCommand: (spriteName) => ["sprite", "exec", "--tty", "-s", spriteName, "--", "codex", "login", "--device-auth"],
+    readyInstructions: () =>
+      "Codex needs a one-time login inside the sprite. In the session that opens,\n" +
+      "approve the printed device code from any browser. Two things to know if it\n" +
+      "fails: a ChatGPT workspace admin must have enabled device-code login for\n" +
+      "your workspace, and the non-interactive escape is an API key:\n" +
+      "  printenv OPENAI_API_KEY | codex login --with-api-key",
   },
   goose: {
     afterAdd: ["goose-per-agent-mcp-config", "goose-harness"],
@@ -85,11 +108,19 @@ const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
     // The provider's own key variable is named per provider, so it can't be
     // checked generically — only named in the instructions.
     readyCheckScript: 'command -v goose >/dev/null 2>&1 && [ -n "$GOOSE_PROVIDER" ] && [ -n "$GOOSE_MODEL" ]',
-    readyInstructions:
-      "goose has no login step — it reads its provider credential from the\n" +
-      "environment. Set GOOSE_PROVIDER, GOOSE_MODEL, and your provider's API key\n" +
-      "variable in the sprite's environment (see the Sprites documentation), so the\n" +
-      "harmonic-bridge service inherits them at wake time.",
+    // Service env lives in the service definition, and sprite-env has no
+    // update: the service must be deleted and recreated to change it.
+    readyInstructions: (spriteName) =>
+      "goose has no login step — it reads its provider credentials from the\n" +
+      "harmonic-bridge service's environment. Set GOOSE_PROVIDER, GOOSE_MODEL, and\n" +
+      "your provider's API key variable by recreating the service with them:\n" +
+      "\n" +
+      `  sprite exec -s ${spriteName} -- sprite-env services delete harmonic-bridge\n` +
+      `  sprite exec -s ${spriteName} -- sprite-env services create harmonic-bridge \\\n` +
+      `    --cmd ${BRIDGE_BIN} \\\n` +
+      '    --env "GOOSE_PROVIDER=anthropic,GOOSE_MODEL=<model>,ANTHROPIC_API_KEY=<key>"\n' +
+      "\n" +
+      "(swap provider, model, and key variable for your provider's).",
   },
 });
 
@@ -179,13 +210,40 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
 
   const services = await inSprite("sprite-env services list");
   if (services.code !== 0) return fail(stderr, "list sprite services", services);
+  const neededEnv = harness?.serviceEnv ?? {};
   if (services.stdout.includes('"harmonic-bridge"')) {
-    stdout.write("Restarting harmonic-bridge service…\n");
-    const restart = await inSprite("sprite-env services restart harmonic-bridge");
-    if (restart.code !== 0) return fail(stderr, "restart service", restart);
+    // A repair run may predate this harness's env requirement. sprite-env has
+    // no env update, so a service missing required vars must be recreated —
+    // merging in its existing env, since a repair must not wipe operator-set
+    // vars (e.g. goose's provider credentials).
+    let existingEnv: Record<string, string> = {};
+    if (Object.keys(neededEnv).length > 0) {
+      const get = await inSprite("sprite-env services get harmonic-bridge");
+      try {
+        const parsed: unknown = JSON.parse(get.stdout);
+        const env = (parsed as { env?: unknown })?.env;
+        if (env && typeof env === "object") existingEnv = env as Record<string, string>;
+      } catch {
+        // Unparseable state: treat as no known env and recreate with ours.
+      }
+    }
+    const missing = Object.entries(neededEnv).some(([k, v]) => existingEnv[k] !== v);
+    if (missing) {
+      stdout.write("Recreating harmonic-bridge service with required env…\n");
+      const del = await inSprite("sprite-env services delete harmonic-bridge");
+      if (del.code !== 0) return fail(stderr, "delete stale service", del);
+      const create = await inSprite(
+        `sprite-env services create harmonic-bridge --cmd ${BRIDGE_BIN}${envFlagFor({ ...existingEnv, ...neededEnv })}`,
+      );
+      if (create.code !== 0) return fail(stderr, "recreate service", create);
+    } else {
+      stdout.write("Restarting harmonic-bridge service…\n");
+      const restart = await inSprite("sprite-env services restart harmonic-bridge");
+      if (restart.code !== 0) return fail(stderr, "restart service", restart);
+    }
   } else {
     stdout.write("Creating harmonic-bridge service…\n");
-    const create = await inSprite(`sprite-env services create harmonic-bridge --cmd ${BRIDGE_BIN}`);
+    const create = await inSprite(`sprite-env services create harmonic-bridge --cmd ${BRIDGE_BIN}${envFlagFor(neededEnv)}`);
     if (create.code !== 0) return fail(stderr, "create service", create);
   }
 
@@ -235,7 +293,7 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
       // the failure message itself, written once, below.
       let interactiveCode = 0;
       if (harness.readyCommand) {
-        stdout.write(`\n${harness.readyInstructions}\n\n`);
+        stdout.write(`\n${harness.readyInstructions(spriteName)}\n\n`);
         interactiveCode = await execInteractive(harness.readyCommand(spriteName));
       }
       // The exit code proves nothing (claude exits 0 even when /login is
@@ -244,7 +302,7 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
       if (interactiveCode !== 0 || verify.code !== 0) {
         const remaining = harness.readyCommand
           ? `Finish it with:\n  ${harness.readyCommand(spriteName).join(" ")}\n`
-          : `${harness.readyInstructions}\n`;
+          : `${harness.readyInstructions(spriteName)}\n`;
         stderr.write(
           `harmonic-bridge setup-sprite: ${harnessName} is not ready to wake.\n` +
           `The agent is connected to Harmonic, but wakes will fail until this is resolved.\n` +
@@ -300,6 +358,12 @@ function parseArgs(args: readonly string[]):
     return { error: `--sprite-name "${spriteName}" must be alphanumeric-with-hyphens` };
   }
   return { fromUrl, spriteName, harnessName };
+}
+
+function envFlagFor(env: Readonly<Record<string, string>>): string {
+  const entries = Object.entries(env);
+  if (entries.length === 0) return "";
+  return ` --env ${entries.map(([k, v]) => `${k}=${v}`).join(",")}`;
 }
 
 function renderDaemonConfig(publicUrl: string, afterAdd: readonly string[]): string {

@@ -84,7 +84,8 @@ secrets:
 # config, running `codex mcp add`, etc.). See "After-add steps" below.
 # after_add:
 #   - built_in: claude-code-per-agent-mcp-config
-#   - command: 'codex mcp add harmonic --url "$HARMONIC_BRIDGE_MCP_ENDPOINT" --bearer-token-env-var HARMONIC_BRIDGE_TOKEN'
+#   - built_in: claude-code-harness
+#   - command: './my-custom-agent-setup.sh'
 ```
 
 Daemon-level config changes (listen, log_dir, secret_resolvers, public_url, secrets, hold_awake_during_wake) require a daemon restart. `reload` only re-reads per-agent files.
@@ -139,13 +140,16 @@ Two step forms:
 ```yaml
 after_add:
   - built_in: claude-code-per-agent-mcp-config
-  - command: 'codex mcp add harmonic --url "$HARMONIC_BRIDGE_MCP_ENDPOINT" --bearer-token-env-var HARMONIC_BRIDGE_TOKEN'
+  - command: './my-custom-agent-setup.sh'
 ```
+
+(One pattern to avoid: a global `codex mcp add` step. Every agent's server would land in the shared `~/.codex/config.toml` with identical names and the same env var, so every Codex session on the box loads N duplicate servers. The `codex-harness` built-in passes the server as per-wake `-c` overrides instead.)
 
 - **`built_in: <name>`** — runs a TypeScript function shipped with harmonic-bridge.
   Shipped built-ins, in pairs — one writes the MCP config, the other writes a working wake command and starter system prompt:
   - `claude-code-per-agent-mcp-config` — writes `$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json` so a Claude Code wake command can reference it via `--mcp-config "$HARMONIC_BRIDGE_AGENT_DIR/mcp-config.json"`. The token is stored as a literal `${HARMONIC_BRIDGE_TOKEN}` env-var reference (Claude expands it at session start, so secrets don't land on disk).
   - `claude-code-harness` — replaces the stub `wake_command` with a headless `claude -p` invocation and writes a starter `system-prompt.md`.
+  - `codex-harness` — replaces the stub `wake_command` with a headless `codex exec` invocation (sandbox `workspace-write` by default — overridable via `HARMONIC_BRIDGE_CODEX_SANDBOX`, see Harnesses — approvals `never`) and writes a starter `system-prompt.md`. No config-file companion: the Harmonic MCP server is passed as `-c mcp_servers.…` overrides in the wake command itself, with the token as a `bearer_token_env_var` name, never a value.
   - `goose-per-agent-mcp-config` — writes `$HARMONIC_BRIDGE_AGENT_DIR/config/goose/config.yaml` with the agent's Harmonic MCP extension, again as a `${HARMONIC_BRIDGE_TOKEN}` reference (admitted into goose's header-substitution pool via `env_keys`, resolved from the wake env at session start). Each agent gets its own config root — selected with `XDG_CONFIG_HOME` in the wake command — because goose loads every extension in its config file on every session, so a shared config would mean every agent's extension loading with only one agent's token in scope.
   - `goose-harness` — replaces the stub `wake_command` with a bounded `goose run` invocation pointed at that config root, and writes a starter `system-prompt.md`.
 
@@ -165,13 +169,23 @@ harmonic-bridge does not care what runs the agent. It delivers a verified event 
 | Harness | after_add built-ins | What it needs from you |
 |---|---|---|
 | `claude-code` | `claude-code-per-agent-mcp-config`, `claude-code-harness` | A one-time interactive login. `setup-sprite` runs it as the last step. |
+| `codex` | `codex-harness` | A one-time `codex login --device-auth` (or `--with-api-key`). No config-file built-in — the MCP server rides in the wake command as `-c` overrides, and auth stays in the shared `~/.codex`, so one login serves every agent. Sandbox defaults to `workspace-write`; `HARMONIC_BRIDGE_CODEX_SANDBOX` in the daemon's environment overrides it, and `setup-sprite` sets it to `danger-full-access` because codex cannot sandbox inside a sprite (bwrap and legacy Landlock both fail) — there the single-agent micro-VM is the boundary. |
 | `goose` | `goose-per-agent-mcp-config`, `goose-harness` | Provider environment variables (below). No login. |
 
 ### Provider credentials
 
-Harnesses that authenticate to an LLM provider by environment variable read it from the daemon's environment, which the wake command inherits. harmonic-bridge neither stores nor manages these — set them wherever your daemon's environment comes from (systemd unit, shell profile, sprite environment).
+Harnesses that authenticate to an LLM provider by environment variable read it from the daemon's environment, which the wake command inherits. harmonic-bridge neither stores nor manages these — set them wherever your daemon's environment comes from (systemd unit `Environment=` lines, shell profile, the service definition on a sprite).
 
 For goose: `GOOSE_PROVIDER`, `GOOSE_MODEL`, and the provider's own key variable (its name varies by provider). Note that goose deliberately ignores provider keys placed in `config.yaml`, so the environment is the only path.
+
+On a sprite, service env lives in the service definition and there is no update — delete and recreate the service to change it:
+
+```
+sprite exec -s <sprite-name> -- sprite-env services delete harmonic-bridge
+sprite exec -s <sprite-name> -- sprite-env services create harmonic-bridge \
+  --cmd /home/sprite/.local/bin/harmonic-bridge \
+  --env "GOOSE_PROVIDER=anthropic,GOOSE_MODEL=<model>,ANTHROPIC_API_KEY=<key>"
+```
 
 The catch worth knowing: an `after_add` step runs in *your shell's* environment, not the daemon service's. Nothing at setup time can prove the daemon will see these variables — a missing credential surfaces at the first wake, as an auth error in that agent's stderr log. `setup-sprite` checks what it can, in the environment it can reach.
 

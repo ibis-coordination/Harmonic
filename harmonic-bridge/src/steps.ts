@@ -5,9 +5,9 @@
 // (after_remove, after_rotate, …) without protocol changes.
 //
 // Steps let users opt into harness-specific setup (writing a Claude Code
-// MCP config, running `codex mcp add`, telling Cursor about the new
-// server) without baking any harness knowledge into the daemon's runtime
-// path.
+// MCP config, applying a harness's wake command, telling an editor about
+// the new server) without baking any harness knowledge into the daemon's
+// runtime path.
 //
 // Two step forms:
 //   { built_in: "claude-code-per-agent-mcp-config" }   // named TypeScript fn
@@ -24,6 +24,7 @@ import { writeClaudeMcpConfig } from "./claude-mcp-config.js";
 import { applyClaudeCodeHarness } from "./claude-code-harness.js";
 import { writeGooseConfig } from "./goose-config.js";
 import { applyGooseHarness } from "./goose-harness.js";
+import { applyCodexHarness } from "./codex-harness.js";
 
 export type Step =
   | { readonly kind: "built_in"; readonly name: string }
@@ -76,6 +77,9 @@ export const BUILT_INS: Readonly<Record<string, BuiltInImpl>> = Object.freeze({
   },
   "goose-harness": async (ctx) => {
     await applyGooseHarness({ agentDir: ctx.agentDir, agentHandle: ctx.agentHandle });
+  },
+  "codex-harness": async (ctx) => {
+    await applyCodexHarness({ agentDir: ctx.agentDir });
   },
 });
 

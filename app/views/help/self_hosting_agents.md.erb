@@ -38,7 +38,8 @@ The `--harness` flag is explicit opt-in. Each supported value writes a ready-to-
 | `--harness` | Finishing step |
 |---|---|
 | `claude-code` | Hands off to a one-time interactive login inside the sprite. |
-| `goose` | None — goose has no login. It reads `GOOSE_PROVIDER`, `GOOSE_MODEL`, and the provider's own API key variable from the sprite's environment, which the operator sets. goose is also installed during setup, as the Sprites base image does not include it. |
+| `codex` | Hands off to a one-time device-code login inside the sprite. Requires device-code login to be enabled by a ChatGPT workspace admin; the non-interactive alternative is `codex login --with-api-key`. |
+| `goose` | None — goose has no login. It reads `GOOSE_PROVIDER`, `GOOSE_MODEL`, and the provider's own API key variable from the harmonic-bridge service's environment; the setup command prints the exact `sprite-env services` commands to set them. goose is also installed during setup, as the Sprites base image does not include it. |
 
 Without the flag, no harness is assumed — the setup finishes with a stub `wake_command` for the operator to replace, and the daemon config's `timeout_seconds` should be set so a hung wake can't hold the sprite awake (and billed) indefinitely.
 

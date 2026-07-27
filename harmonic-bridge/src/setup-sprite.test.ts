@@ -30,8 +30,11 @@ function makeFakeExec(overrides?: {
   listFails?: boolean;
   spriteExists?: boolean;
   claudeAuthed?: boolean;
+  codexAuthed?: boolean;
   gooseReady?: boolean;
   addFails?: boolean;
+  /** Pre-existing harmonic-bridge service, with its current env. */
+  serviceEnv?: Record<string, string>;
 }): { exec: Exec; calls: FakeCall[] } {
   const calls: FakeCall[] = [];
   const exec: Exec = async (argv) => {
@@ -60,10 +63,24 @@ function makeFakeExec(overrides?: {
         // without credentials, so a bare directory check always passes.
         return { code: 0, stdout: "", stderr: "" };
       }
+      if (script.includes("codex login status")) {
+        return { code: overrides?.codexAuthed ? 0 : 1, stdout: "", stderr: "" };
+      }
       if (script.includes("GOOSE_PROVIDER")) {
         return { code: overrides?.gooseReady ? 0 : 1, stdout: "", stderr: "" };
       }
-      if (script.includes("services list")) return { code: 0, stdout: "[]", stderr: "" };
+      if (script.includes("services list")) {
+        if (overrides?.serviceEnv === undefined) return { code: 0, stdout: "[]", stderr: "" };
+        return { code: 0, stdout: '[{"name":"harmonic-bridge"}]', stderr: "" };
+      }
+      if (script.includes("services get")) {
+        return {
+          code: 0,
+          stdout: JSON.stringify({ name: "harmonic-bridge", cmd: "/home/sprite/.local/bin/harmonic-bridge", env: overrides?.serviceEnv ?? {} }),
+          stderr: "",
+        };
+      }
+      if (script.includes("services delete")) return { code: 0, stdout: "", stderr: "" };
       if (script.includes("services create") || script.includes("services restart")) {
         return { code: 0, stdout: "", stderr: "" };
       }
@@ -141,6 +158,7 @@ test("setup-sprite: rejects unknown --harness values and names the supported one
   assert.match(r.err, /unknown harness "totally-fake"/);
   assert.match(r.err, /claude-code/);
   assert.match(r.err, /goose/);
+  assert.match(r.err, /codex/);
 });
 
 test("setup-sprite: without --harness, no harness assumptions are made", async () => {
@@ -275,6 +293,126 @@ test("setup-sprite: goose with no provider environment names the variables to se
   assert.match(r.err, /GOOSE_PROVIDER/);
   assert.match(r.err, /GOOSE_MODEL/);
   assert.match(r.err, /API key/i, "must say a provider key is needed, since its name varies by provider");
+  // Concrete, copy-pasteable commands with the actual sprite name — service
+  // env lives in the service definition, and there is no update: the service
+  // must be deleted and recreated to change it (verified live 2026-07-27).
+  assert.match(r.err, /sprite exec -s my-agent -- sprite-env services delete harmonic-bridge/);
+  assert.match(r.err, /sprite exec -s my-agent -- sprite-env services create harmonic-bridge/);
+  assert.match(r.err, /--env "GOOSE_PROVIDER=/);
+  assert.doesNotMatch(r.err, /see the Sprites documentation/i, "must not hand-wave to external docs");
+});
+
+test("setup-sprite: --harness codex opts into the codex step and device-auth login flow", async () => {
+  const overrides = { codexAuthed: false };
+  const fake = makeFakeExec(overrides);
+  const interactive = makeFakeInteractive(() => { overrides.codexAuthed = true; });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "codex"], {
+    exec: fake.exec,
+    execInteractive: interactive.execInteractive,
+  });
+  assert.equal(r.code, 0, r.err);
+
+  const config = configWrittenBy(fake.calls);
+  assert.match(config, /codex-harness/);
+  assert.doesNotMatch(config, /claude/, "the codex config must not carry claude steps");
+  assert.doesNotMatch(config, /goose/, "the codex config must not carry goose steps");
+
+  // Codex ships in the Sprites base image — nothing to install.
+  const allScripts = fake.calls.map((c) => c.script ?? "").join("\n");
+  assert.doesNotMatch(allScripts, /download_cli|npm install -g codex/);
+
+  // Device auth is the headless login; --tty for the interactive session.
+  assert.equal(interactive.calls.length, 1, "codex login handoff expected when not authed");
+  const handoff = interactive.calls[0]!.join(" ");
+  assert.ok(handoff.includes("codex login --device-auth"), `got: ${handoff}`);
+  assert.ok(handoff.includes("--tty"), `got: ${handoff}`);
+
+  // The URL was redeemed before the human-paced login.
+  const addIndex = fake.calls.findIndex((c) => c.script?.includes("harmonic-bridge add"));
+  const authCheckIndex = fake.calls.findIndex((c) => c.script?.includes("codex login status"));
+  assert.ok(authCheckIndex > addIndex, "harness auth must follow the bridge connection");
+
+  // Codex cannot sandbox inside a sprite (bwrap and legacy Landlock both
+  // fail); the sprite VM is the boundary, so the service carries the
+  // override the wake command reads.
+  const createService = fake.calls.find((c) => c.script?.includes("services create"));
+  assert.ok(createService?.script?.includes("--env HARMONIC_BRIDGE_CODEX_SANDBOX=danger-full-access"),
+    `service must carry the sandbox override, got: ${createService?.script}`);
+});
+
+test("setup-sprite: a repair run adds missing service env by recreating, preserving what was there", async () => {
+  // The service predates the harness's env requirement (created pre-0.4.0 or
+  // with another harness) and carries an operator-set var. A plain restart
+  // would leave codex wakes failing on the bwrap error with nothing visible
+  // outside the agent's stderr log.
+  const fake = makeFakeExec({ codexAuthed: true, serviceEnv: { OPERATOR_VAR: "keep-me" } });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "codex"], {
+    exec: fake.exec,
+  });
+  assert.equal(r.code, 0, r.err);
+
+  const scripts = fake.calls.map((c) => c.script ?? "");
+  const deleteIdx = scripts.findIndex((sc) => sc.includes("services delete harmonic-bridge"));
+  const createIdx = scripts.findIndex((sc) => sc.includes("services create harmonic-bridge"));
+  assert.ok(deleteIdx >= 0, "must delete the stale service");
+  assert.ok(createIdx > deleteIdx, "must recreate after deleting");
+  const create = scripts[createIdx]!;
+  assert.ok(create.includes("HARMONIC_BRIDGE_CODEX_SANDBOX=danger-full-access"), `got: ${create}`);
+  assert.ok(create.includes("OPERATOR_VAR=keep-me"), `operator env must survive the repair, got: ${create}`);
+  // Recreate must happen before add, like every service step.
+  const addIdx = scripts.findIndex((sc) => sc.includes("harmonic-bridge add"));
+  assert.ok(createIdx < addIdx, "service must be running before add");
+});
+
+test("setup-sprite: a repair run with the env already right just restarts", async () => {
+  const fake = makeFakeExec({ codexAuthed: true, serviceEnv: { HARMONIC_BRIDGE_CODEX_SANDBOX: "danger-full-access" } });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "codex"], {
+    exec: fake.exec,
+  });
+  assert.equal(r.code, 0, r.err);
+  const scripts = fake.calls.map((c) => c.script ?? "");
+  assert.ok(scripts.some((sc) => sc.includes("services restart")), "must restart");
+  assert.ok(!scripts.some((sc) => sc.includes("services delete")), "must not churn a correct service");
+});
+
+test("setup-sprite: a repair run without harness env keeps the plain restart path", async () => {
+  // A goose repair must not recreate the service: that would wipe the
+  // operator-set provider vars the readiness instructions told them to add.
+  const fake = makeFakeExec({ gooseReady: true, serviceEnv: { GOOSE_PROVIDER: "anthropic" } });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "goose"], {
+    exec: fake.exec,
+  });
+  assert.equal(r.code, 0, r.err);
+  const scripts = fake.calls.map((c) => c.script ?? "");
+  assert.ok(scripts.some((sc) => sc.includes("services restart")));
+  assert.ok(!scripts.some((sc) => sc.includes("services delete")));
+});
+
+test("setup-sprite: non-codex harnesses set no sandbox override on the service", async () => {
+  const fake = makeFakeExec({ claudeAuthed: true });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "claude-code"], {
+    exec: fake.exec,
+  });
+  assert.equal(r.code, 0, r.err);
+  const createService = fake.calls.find((c) => c.script?.includes("services create"));
+  assert.ok(!createService?.script?.includes("HARMONIC_BRIDGE_CODEX_SANDBOX"),
+    "claude-code service must not carry a codex knob");
+});
+
+test("setup-sprite: a failed codex login names the two known escapes", async () => {
+  const fake = makeFakeExec({ codexAuthed: false });
+  const interactive = makeFakeInteractive(); // exits 0, auth stays absent
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "codex"], {
+    exec: fake.exec,
+    execInteractive: interactive.execInteractive,
+  });
+
+  assert.notEqual(r.code, 0, "must fail when auth did not take");
+  assert.match(r.err, /connected/);
+  // Device-code login is gated by a ChatGPT workspace admin setting, and the
+  // API-key path is the automation escape — the operator needs both named.
+  assert.match(r.out + r.err, /workspace/i);
+  assert.match(r.out + r.err, /--with-api-key/);
 });
 
 test("setup-sprite: the claude-code path installs no other harness", async () => {
