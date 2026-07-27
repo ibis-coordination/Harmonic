@@ -241,15 +241,25 @@ sharing the desktop app's `~/.codex/auth.json`, against dev Harmonic):
 2. ✅ Dotted `-c mcp_servers.…` overrides registered the server;
    `bearer_token_env_var` picked the token from the wake env;
    `fetch_page /whoami` returned the right agent.
-3. ⏳ Sprite-bound: macOS sandboxes via Seatbelt, so `workspace-write` passing
-   locally proves nothing about Landlock/seccomp in a sprite.
+3. ✅ Resolved, on the fallback branch: **`workspace-write` fails in a sprite**
+   (codex 0.144.3 sandboxes via bwrap, which lacks capabilities there) and
+   `use_legacy_landlock = true` fails too (profile incompatible);
+   `danger-full-access` works. Shipped as an env-overridable sandbox:
+   the wake command reads `${HARMONIC_BRIDGE_CODEX_SANDBOX:-workspace-write}`
+   and setup-sprite sets `danger-full-access` on the service, where the
+   single-agent micro-VM is the boundary — the same posture as Claude Code's
+   unrestricted Bash on a sprite.
 4. ✅ No approval stall — with a version finding: **`codex exec` on this build
    rejects `--ask-for-approval` outright**; the wake command now carries
    `-c 'approval_policy="never"'` instead, which this build accepts silently
    and stable documents. Exec ran shell + MCP work unattended either way.
-5. ⏳ Sprite-bound (PATH for `sprite exec` / services; codex is in the base
-   image, and `codex login status` doubles as the probe).
-6. ⏳ Sprite-bound + Dan-paced (workspace device-code gating).
+5. ✅ `codex` resolves at `/home/sprite/.local/bin/codex` for non-login
+   shells; `codex login status` exits 1 logged-out / 0 logged-in. The sprite's
+   0.144.3 also rejects `--ask-for-approval`, confirming the config-key form
+   was needed for the sprite too.
+6. ✅ Device auth works — after enabling device code authorization in ChatGPT
+   Security Settings, which the first attempt was blocked by. The failure
+   message names the setting, validating readyInstructions calling it out.
 7. ⏳ Post-publish (the in-sprite install pulls the published package), same as
    the goose sequencing.
 

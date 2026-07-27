@@ -46,6 +46,8 @@ interface HarnessDefinition {
   readonly afterAdd: readonly string[];
   /** In-sprite install script, for harnesses the base image doesn't ship. */
   readonly installScript?: string;
+  /** Env vars the daemon service must carry for this harness's wakes. */
+  readonly serviceEnv?: Readonly<Record<string, string>>;
   /** In-sprite check script: exit 0 when the harness can actually wake. */
   readonly readyCheckScript: string;
   /** What to tell the operator when the check fails. */
@@ -74,6 +76,11 @@ const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
   },
   codex: {
     afterAdd: ["codex-harness"],
+    // Codex cannot sandbox inside a sprite — bwrap lacks capabilities and
+    // legacy Landlock rejects the permission profile (both verified live).
+    // The single-agent micro-VM is the boundary instead, matching Claude
+    // Code's unrestricted Bash on a sprite.
+    serviceEnv: { HARMONIC_BRIDGE_CODEX_SANDBOX: "danger-full-access" },
     // Codex ships in the Sprites base image — nothing to install. `codex
     // login status` exits 0 only when logged in, and doubles as the PATH
     // check.
@@ -209,7 +216,11 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
     if (restart.code !== 0) return fail(stderr, "restart service", restart);
   } else {
     stdout.write("Creating harmonic-bridge service…\n");
-    const create = await inSprite(`sprite-env services create harmonic-bridge --cmd ${BRIDGE_BIN}`);
+    const envEntries = Object.entries(harness?.serviceEnv ?? {});
+    const envFlag = envEntries.length > 0
+      ? ` --env ${envEntries.map(([k, v]) => `${k}=${v}`).join(",")}`
+      : "";
+    const create = await inSprite(`sprite-env services create harmonic-bridge --cmd ${BRIDGE_BIN}${envFlag}`);
     if (create.code !== 0) return fail(stderr, "create service", create);
   }
 

@@ -166,7 +166,7 @@ harmonic-bridge does not care what runs the agent. It delivers a verified event 
 | Harness | after_add built-ins | What it needs from you |
 |---|---|---|
 | `claude-code` | `claude-code-per-agent-mcp-config`, `claude-code-harness` | A one-time interactive login. `setup-sprite` runs it as the last step. |
-| `codex` | `codex-harness` | A one-time `codex login --device-auth` (or `--with-api-key`). No config-file built-in — the MCP server rides in the wake command as `-c` overrides, and auth stays in the shared `~/.codex`, so one login serves every agent. |
+| `codex` | `codex-harness` | A one-time `codex login --device-auth` (or `--with-api-key`). No config-file built-in — the MCP server rides in the wake command as `-c` overrides, and auth stays in the shared `~/.codex`, so one login serves every agent. Sandbox defaults to `workspace-write`; `HARMONIC_BRIDGE_CODEX_SANDBOX` in the daemon's environment overrides it, and `setup-sprite` sets it to `danger-full-access` because codex cannot sandbox inside a sprite (bwrap and legacy Landlock both fail) — there the single-agent micro-VM is the boundary. |
 | `goose` | `goose-per-agent-mcp-config`, `goose-harness` | Provider environment variables (below). No login. |
 
 ### Provider credentials

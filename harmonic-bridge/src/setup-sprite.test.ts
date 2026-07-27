@@ -318,6 +318,24 @@ test("setup-sprite: --harness codex opts into the codex step and device-auth log
   const addIndex = fake.calls.findIndex((c) => c.script?.includes("harmonic-bridge add"));
   const authCheckIndex = fake.calls.findIndex((c) => c.script?.includes("codex login status"));
   assert.ok(authCheckIndex > addIndex, "harness auth must follow the bridge connection");
+
+  // Codex cannot sandbox inside a sprite (bwrap and legacy Landlock both
+  // fail); the sprite VM is the boundary, so the service carries the
+  // override the wake command reads.
+  const createService = fake.calls.find((c) => c.script?.includes("services create"));
+  assert.ok(createService?.script?.includes("--env HARMONIC_BRIDGE_CODEX_SANDBOX=danger-full-access"),
+    `service must carry the sandbox override, got: ${createService?.script}`);
+});
+
+test("setup-sprite: non-codex harnesses set no sandbox override on the service", async () => {
+  const fake = makeFakeExec({ claudeAuthed: true });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "claude-code"], {
+    exec: fake.exec,
+  });
+  assert.equal(r.code, 0, r.err);
+  const createService = fake.calls.find((c) => c.script?.includes("services create"));
+  assert.ok(!createService?.script?.includes("HARMONIC_BRIDGE_CODEX_SANDBOX"),
+    "claude-code service must not carry a codex knob");
 });
 
 test("setup-sprite: a failed codex login names the two known escapes", async () => {

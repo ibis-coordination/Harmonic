@@ -48,8 +48,12 @@ test("codex-harness: replaces the stub wake_command and writes system-prompt.md"
   assert.match(wake, /codex exec/);
   // working_dir is usually not a git repo, and the git check would refuse.
   assert.match(wake, /--skip-git-repo-check/);
-  // Real work in the agent's own directory without danger-full-access.
-  assert.match(wake, /--sandbox workspace-write/);
+  // Real work in the agent's own directory without danger-full-access — but
+  // env-overridable: neither bwrap nor legacy Landlock works inside a Fly
+  // sprite (verified live), so the sprite path sets
+  // HARMONIC_BRIDGE_CODEX_SANDBOX=danger-full-access on the service, where
+  // the micro-VM is the boundary.
+  assert.match(wake, /--sandbox "\$\{HARMONIC_BRIDGE_CODEX_SANDBOX:-workspace-write\}"/);
   // Unattended: nothing may stall waiting for an approval. The config-key
   // form, not the flag: `codex exec` on the desktop-bundled alpha rejects
   // --ask-for-approval outright (verified live), while -c approval_policy

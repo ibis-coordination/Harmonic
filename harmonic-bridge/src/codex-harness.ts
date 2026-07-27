@@ -29,12 +29,17 @@ const DEFAULT_TIMEOUT_SECONDS = 900;
 //   because a stalled wake holds a hibernating host awake. The config-key
 //   form rather than --ask-for-approval: newer codex builds removed that flag
 //   from `exec` while the config key stays accepted everywhere.
+// The sandbox mode is env-overridable because codex cannot sandbox in every
+//   environment: inside a Fly sprite both bwrap and legacy Landlock fail, so
+//   setup-sprite sets HARMONIC_BRIDGE_CODEX_SANDBOX=danger-full-access on the
+//   service — there the single-agent micro-VM is the boundary, the same
+//   posture as Claude Code's unrestricted Bash on a sprite.
 // required=true: a Harmonic server that fails to start aborts the run instead
 //   of silently proceeding without tools. The token is named, never inlined.
 const WAKE_COMMAND =
   "codex exec \\\n" +
   "  --skip-git-repo-check \\\n" +
-  "  --sandbox workspace-write \\\n" +
+  '  --sandbox "${HARMONIC_BRIDGE_CODEX_SANDBOX:-workspace-write}" \\\n' +
   "  -c 'approval_policy=\"never\"' \\\n" +
   '  -c "mcp_servers.harmonic-$HARMONIC_BRIDGE_AGENT_NAME.url=\\"$HARMONIC_BRIDGE_MCP_ENDPOINT\\"" \\\n' +
   '  -c "mcp_servers.harmonic-$HARMONIC_BRIDGE_AGENT_NAME.bearer_token_env_var=\\"HARMONIC_BRIDGE_TOKEN\\"" \\\n' +
