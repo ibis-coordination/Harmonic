@@ -72,6 +72,22 @@ const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
       "that opens, complete the login (open the printed URL, authorize, paste the\n" +
       "code back), then exit Claude (/exit) to continue.",
   },
+  codex: {
+    afterAdd: ["codex-harness"],
+    // Codex ships in the Sprites base image — nothing to install. `codex
+    // login status` exits 0 only when logged in, and doubles as the PATH
+    // check.
+    readyCheckScript: "codex login status",
+    // Browser OAuth needs localhost:1455 — unusable against a sprite.
+    // Device auth prints a code to approve from any browser.
+    readyCommand: (spriteName) => ["sprite", "exec", "--tty", "-s", spriteName, "--", "codex", "login", "--device-auth"],
+    readyInstructions: () =>
+      "Codex needs a one-time login inside the sprite. In the session that opens,\n" +
+      "approve the printed device code from any browser. Two things to know if it\n" +
+      "fails: a ChatGPT workspace admin must have enabled device-code login for\n" +
+      "your workspace, and the non-interactive escape is an API key:\n" +
+      "  printenv OPENAI_API_KEY | codex login --with-api-key",
+  },
   goose: {
     afterAdd: ["goose-per-agent-mcp-config", "goose-harness"],
     // goose is not in the Sprites base image (Claude Code, Codex, and Gemini

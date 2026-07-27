@@ -30,6 +30,7 @@ function makeFakeExec(overrides?: {
   listFails?: boolean;
   spriteExists?: boolean;
   claudeAuthed?: boolean;
+  codexAuthed?: boolean;
   gooseReady?: boolean;
   addFails?: boolean;
 }): { exec: Exec; calls: FakeCall[] } {
@@ -59,6 +60,9 @@ function makeFakeExec(overrides?: {
         // The Sprites base image ships ~/.claude (settings, hooks, skills)
         // without credentials, so a bare directory check always passes.
         return { code: 0, stdout: "", stderr: "" };
+      }
+      if (script.includes("codex login status")) {
+        return { code: overrides?.codexAuthed ? 0 : 1, stdout: "", stderr: "" };
       }
       if (script.includes("GOOSE_PROVIDER")) {
         return { code: overrides?.gooseReady ? 0 : 1, stdout: "", stderr: "" };
@@ -141,6 +145,7 @@ test("setup-sprite: rejects unknown --harness values and names the supported one
   assert.match(r.err, /unknown harness "totally-fake"/);
   assert.match(r.err, /claude-code/);
   assert.match(r.err, /goose/);
+  assert.match(r.err, /codex/);
 });
 
 test("setup-sprite: without --harness, no harness assumptions are made", async () => {
@@ -282,6 +287,53 @@ test("setup-sprite: goose with no provider environment names the variables to se
   assert.match(r.err, /sprite exec -s my-agent -- sprite-env services create harmonic-bridge/);
   assert.match(r.err, /--env "GOOSE_PROVIDER=/);
   assert.doesNotMatch(r.err, /see the Sprites documentation/i, "must not hand-wave to external docs");
+});
+
+test("setup-sprite: --harness codex opts into the codex step and device-auth login flow", async () => {
+  const overrides = { codexAuthed: false };
+  const fake = makeFakeExec(overrides);
+  const interactive = makeFakeInteractive(() => { overrides.codexAuthed = true; });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "codex"], {
+    exec: fake.exec,
+    execInteractive: interactive.execInteractive,
+  });
+  assert.equal(r.code, 0, r.err);
+
+  const config = configWrittenBy(fake.calls);
+  assert.match(config, /codex-harness/);
+  assert.doesNotMatch(config, /claude/, "the codex config must not carry claude steps");
+  assert.doesNotMatch(config, /goose/, "the codex config must not carry goose steps");
+
+  // Codex ships in the Sprites base image — nothing to install.
+  const allScripts = fake.calls.map((c) => c.script ?? "").join("\n");
+  assert.doesNotMatch(allScripts, /download_cli|npm install -g codex/);
+
+  // Device auth is the headless login; --tty for the interactive session.
+  assert.equal(interactive.calls.length, 1, "codex login handoff expected when not authed");
+  const handoff = interactive.calls[0]!.join(" ");
+  assert.ok(handoff.includes("codex login --device-auth"), `got: ${handoff}`);
+  assert.ok(handoff.includes("--tty"), `got: ${handoff}`);
+
+  // The URL was redeemed before the human-paced login.
+  const addIndex = fake.calls.findIndex((c) => c.script?.includes("harmonic-bridge add"));
+  const authCheckIndex = fake.calls.findIndex((c) => c.script?.includes("codex login status"));
+  assert.ok(authCheckIndex > addIndex, "harness auth must follow the bridge connection");
+});
+
+test("setup-sprite: a failed codex login names the two known escapes", async () => {
+  const fake = makeFakeExec({ codexAuthed: false });
+  const interactive = makeFakeInteractive(); // exits 0, auth stays absent
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "codex"], {
+    exec: fake.exec,
+    execInteractive: interactive.execInteractive,
+  });
+
+  assert.notEqual(r.code, 0, "must fail when auth did not take");
+  assert.match(r.err, /connected/);
+  // Device-code login is gated by a ChatGPT workspace admin setting, and the
+  // API-key path is the automation escape — the operator needs both named.
+  assert.match(r.out + r.err, /workspace/i);
+  assert.match(r.out + r.err, /--with-api-key/);
 });
 
 test("setup-sprite: the claude-code path installs no other harness", async () => {
