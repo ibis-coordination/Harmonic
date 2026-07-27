@@ -32,6 +32,8 @@ function makeFakeExec(overrides?: {
   claudeAuthed?: boolean;
   codexAuthed?: boolean;
   gooseReady?: boolean;
+  /** The agent config in the sprite carries the harmonic_llm_* keys. */
+  llmWired?: boolean;
   addFails?: boolean;
   /** Pre-existing harmonic-bridge service, with its current env. */
   serviceEnv?: Record<string, string>;
@@ -67,7 +69,9 @@ function makeFakeExec(overrides?: {
         return { code: overrides?.codexAuthed ? 0 : 1, stdout: "", stderr: "" };
       }
       if (script.includes("GOOSE_PROVIDER")) {
-        return { code: overrides?.gooseReady ? 0 : 1, stdout: "", stderr: "" };
+        // The real script passes when the agent is gateway-wired OR the
+        // provider env is set (plus the binary existing, assumed here).
+        return { code: overrides?.gooseReady || overrides?.llmWired ? 0 : 1, stdout: "", stderr: "" };
       }
       if (script.includes("services list")) {
         if (overrides?.serviceEnv === undefined) return { code: 0, stdout: "[]", stderr: "" };
@@ -300,6 +304,49 @@ test("setup-sprite: goose with no provider environment names the variables to se
   assert.match(r.err, /sprite exec -s my-agent -- sprite-env services create harmonic-bridge/);
   assert.match(r.err, /--env "GOOSE_PROVIDER=/);
   assert.doesNotMatch(r.err, /see the Sprites documentation/i, "must not hand-wave to external docs");
+});
+
+test("setup-sprite: --model is passed through to the in-sprite add", async () => {
+  const fake = makeFakeExec({ gooseReady: true });
+  const r = await run(
+    ["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "goose", "--model", "anthropic/claude-opus-5"],
+    { exec: fake.exec },
+  );
+
+  assert.equal(r.code, 0, `expected success; stderr=${r.err}`);
+  const addScript = fake.calls.map((c) => c.script ?? "").find((s) => s.includes("harmonic-bridge add"));
+  assert.ok(addScript, "add must run in-sprite");
+  assert.match(addScript!, /--model '?anthropic\/claude-opus-5'?/);
+});
+
+test("setup-sprite: --model requires a value", async () => {
+  const fake = makeFakeExec({});
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--model"], { exec: fake.exec });
+  assert.equal(r.code, 64);
+  assert.match(r.err, /--model/);
+});
+
+test("setup-sprite: goose is ready without provider env when the agent is gateway-wired", async () => {
+  // The handshake delivered an LLM gateway token and the goose harness wired
+  // it into the wake command — no provider env needed, zero manual steps.
+  const fake = makeFakeExec({ gooseReady: false, llmWired: true });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "goose"], {
+    exec: fake.exec,
+  });
+
+  assert.equal(r.code, 0, `expected success; stderr=${r.err}`);
+  assert.match(r.out, /goose is ready/);
+  assert.doesNotMatch(r.err, /GOOSE_PROVIDER/, "must not demand provider env the wired agent doesn't need");
+});
+
+test("setup-sprite: goose instructions mention the LLM gateway alternative", async () => {
+  const fake = makeFakeExec({ gooseReady: false });
+  const r = await run(["--from", FROM_URL, "--sprite-name", "my-agent", "--harness", "goose"], {
+    exec: fake.exec,
+  });
+
+  assert.notEqual(r.code, 0);
+  assert.match(r.err, /LLM gateway/, "the zero-config path should be named alongside the BYO-key commands");
 });
 
 test("setup-sprite: --harness codex opts into the codex step and device-auth login flow", async () => {

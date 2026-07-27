@@ -87,6 +87,43 @@ test("goose-harness: the system prompt names this harness's actual tool sources"
   assert.doesNotMatch(prompt, /Bash, Read, Write, Edit, Glob, Grep/, "Claude Code's tool names must not leak in");
 });
 
+const STUB_YML_WITH_LLM = STUB_YML.replace(
+  "webhook_secret: file:///secrets/alice/webhook_secret\n",
+  "webhook_secret: file:///secrets/alice/webhook_secret\n" +
+  "harmonic_llm_endpoint: https://llm.harmonic.example/v1\n" +
+  "harmonic_llm_token: file:///secrets/alice/harmonic_llm_token\n" +
+  "harmonic_llm_model: anthropic/claude-sonnet-4.6\n",
+);
+
+test("goose-harness: wires the LLM gateway into the wake env when the credential is present", async (t) => {
+  const dir = makeAgentDir(STUB_YML_WITH_LLM);
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  const result = await applyGooseHarness({ agentDir: dir, agentHandle: "alice" });
+  assert.equal(result.updatedWakeCommand, true);
+
+  const wake = readYml(dir)["wake_command"] as string;
+  // Defer-to-operator semantics: an explicitly-set variable in the daemon's
+  // environment always wins; the gateway credential is the default.
+  assert.match(wake, /GOOSE_PROVIDER="\$\{GOOSE_PROVIDER:-openai\}"/);
+  assert.match(wake, /GOOSE_MODEL="\$\{GOOSE_MODEL:-\$HARMONIC_BRIDGE_LLM_MODEL\}"/);
+  assert.match(wake, /OPENAI_BASE_URL="\$\{OPENAI_BASE_URL:-\$HARMONIC_BRIDGE_LLM_ENDPOINT\}"/);
+  assert.match(wake, /OPENAI_API_KEY="\$\{OPENAI_API_KEY:-\$HARMONIC_BRIDGE_LLM_TOKEN\}"/);
+  // Still the same bounded goose invocation underneath.
+  assert.match(wake, /goose run/);
+  assert.match(wake, /XDG_CONFIG_HOME="\$HARMONIC_BRIDGE_AGENT_DIR\/config"/);
+});
+
+test("goose-harness: no gateway wiring when the agent has no LLM credential", async (t) => {
+  const dir = makeAgentDir();
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+
+  await applyGooseHarness({ agentDir: dir, agentHandle: "alice" });
+  const wake = readYml(dir)["wake_command"] as string;
+  assert.doesNotMatch(wake, /GOOSE_PROVIDER/, "provider env stays fully operator-owned");
+  assert.doesNotMatch(wake, /OPENAI_/);
+});
+
 test("goose-harness: leaves a customized wake_command alone", async (t) => {
   const custom = STUB_YML.replace(/wake_command: \|\n(  .*\n)+/, "wake_command: |\n  my-custom-harness --run\n");
   const dir = makeAgentDir(custom);

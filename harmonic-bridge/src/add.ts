@@ -56,9 +56,19 @@ interface SetupMetadata {
   readonly agent_handle: string;
   readonly webhook_register_url: string;
   readonly events_recommended: readonly string[];
+  /**
+   * Optional third credential (redeem_response_with_llm.json): endpoint and
+   * token arrive together when the setup opted into an LLM gateway token
+   * and Harmonic minted one; harmonic_llm_status arrives instead when the
+   * setup opted in but no token could be issued. The model is not on the
+   * wire — it's this CLI's --model flag.
+   */
+  readonly harmonic_llm_endpoint?: string;
+  readonly harmonic_llm_token?: string;
+  readonly harmonic_llm_status?: string;
 }
 
-const USAGE = "Usage: harmonic-bridge add --from <URL>\n";
+const USAGE = "Usage: harmonic-bridge add --from <URL> [--model <provider/model>]\n";
 
 export async function runAdd(args: readonly string[], opts: AddOpts): Promise<number> {
   const stdout = opts.stdout ?? process.stdout;
@@ -71,6 +81,10 @@ export async function runAdd(args: readonly string[], opts: AddOpts): Promise<nu
     stderr.write(`harmonic-bridge add: ${fromUrl.error}\n${USAGE}`);
     return 64;
   }
+  // Which gateway model the agent runs when the handshake delivers an LLM
+  // credential. Meaningless without one. The "default" sentinel is resolved
+  // by the gateway per call, so a flagless add tracks the platform default.
+  const model = parseModelArg(args) ?? "default";
 
   // 1. Load daemon config + validate public_url
   let daemonConfig;
@@ -123,9 +137,18 @@ export async function runAdd(args: readonly string[], opts: AddOpts): Promise<nu
   const webhookUrl = `${publicUrlBase}/webhook/${encodeURIComponent(handle)}`;
   const secretsBaseDir = daemonConfig.secrets.baseDir;
 
+  // The LLM credential trio arrives together or not at all; a status means
+  // Harmonic declined to mint (not enabled / no funding) and the add
+  // proceeds without it.
+  const hasLlm = Boolean(metadata.harmonic_llm_endpoint && metadata.harmonic_llm_token);
+  if (metadata.harmonic_llm_status) {
+    stdout.write(`LLM gateway token not issued: ${metadata.harmonic_llm_status}\n`);
+  }
+
   // 3. Write secrets to disk via the configured backend.
   let tokenPath: string;
   let secretPath: string;
+  let llmTokenPath: string | undefined;
   try {
     const secretsDir = path.join(secretsBaseDir, handle);
     await fs.mkdir(secretsDir, { recursive: true, mode: 0o700 });
@@ -133,6 +156,10 @@ export async function runAdd(args: readonly string[], opts: AddOpts): Promise<nu
     secretPath = path.join(secretsDir, "webhook_secret");
     await fs.writeFile(tokenPath, metadata.harmonic_token, { mode: 0o600 });
     await fs.writeFile(secretPath, metadata.signing_secret, { mode: 0o600 });
+    if (hasLlm) {
+      llmTokenPath = path.join(secretsDir, "harmonic_llm_token");
+      await fs.writeFile(llmTokenPath, metadata.harmonic_llm_token as string, { mode: 0o600 });
+    }
   } catch (e) {
     stderr.write(`harmonic-bridge add: failed to write secrets — ${errMessage(e)}\n`);
     return 1;
@@ -143,7 +170,17 @@ export async function runAdd(args: readonly string[], opts: AddOpts): Promise<nu
     await fs.mkdir(agentDir, { recursive: true });
     await fs.writeFile(
       path.join(agentDir, "harmonic-bridge.yml"),
-      renderAgentYaml({ mcpEndpoint: metadata.harmonic_mcp_endpoint, tokenPath, secretPath, events: metadata.events_recommended, handle, agentDir }),
+      renderAgentYaml({
+        mcpEndpoint: metadata.harmonic_mcp_endpoint,
+        tokenPath,
+        secretPath,
+        events: metadata.events_recommended,
+        handle,
+        agentDir,
+        llm: hasLlm && llmTokenPath
+          ? { endpoint: metadata.harmonic_llm_endpoint as string, tokenPath: llmTokenPath, model }
+          : undefined,
+      }),
       { flag: "wx" },
     );
   } catch (e) {
@@ -236,6 +273,12 @@ export async function runAdd(args: readonly string[], opts: AddOpts): Promise<nu
   return 0;
 }
 
+function parseModelArg(args: readonly string[]): string | undefined {
+  const i = args.indexOf("--model");
+  if (i === -1) return undefined;
+  return args[i + 1] || undefined;
+}
+
 function parseFromArg(args: readonly string[]): string | { error: string } {
   const i = args.indexOf("--from");
   if (i === -1) return { error: "missing --from <URL>" };
@@ -306,6 +349,7 @@ function renderAgentYaml(f: {
   events: readonly string[];
   handle: string;
   agentDir: string;
+  llm?: { endpoint: string; tokenPath: string; model: string };
 }): string {
   // Use the yaml library to safely encode scalar values that originate from
   // outside the bridge (Harmonic-supplied URLs, filesystem paths). Without
@@ -314,13 +358,24 @@ function renderAgentYaml(f: {
   // be similarly mis-parsed. The hand-formatted structure stays so the
   // explanatory comments survive.
   const eventsYaml = f.events.map((e) => `  - ${ymlScalar(e)}`).join("\n");
+  // Optional LLM gateway block: the wake env gets these as
+  // HARMONIC_BRIDGE_LLM_{ENDPOINT,MODEL,TOKEN}. Any process the wake
+  // command runs can spend the agent's funding through this token —
+  // revoke it from the agent's API tokens page in Harmonic.
+  const llmYaml = f.llm
+    ? `
+harmonic_llm_endpoint: ${ymlScalar(f.llm.endpoint)}
+harmonic_llm_token: ${ymlScalar(`file://${f.llm.tokenPath}`)}
+harmonic_llm_model: ${ymlScalar(f.llm.model)}
+`
+    : "";
   return `# harmonic-bridge agent config for "${f.handle}" — generated by 'harmonic-bridge add'.
 # Edit wake_command and working_dir before relying on this agent.
 
 harmonic_mcp_endpoint: ${ymlScalar(f.mcpEndpoint)}
 harmonic_token: ${ymlScalar(`file://${f.tokenPath}`)}
 webhook_secret: ${ymlScalar(`file://${f.secretPath}`)}
-
+${llmYaml}
 # Where the wake command runs. Defaults to the agent's own config dir so the
 # daemon loads cleanly out of the box; change this to wherever your harness
 # expects cwd before relying on the agent.

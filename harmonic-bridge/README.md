@@ -99,6 +99,12 @@ harmonic_mcp_endpoint: https://app.harmonic.example/mcp
 harmonic_token: file:///home/agent/.harmonic-bridge/secrets/<handle>/harmonic_token
 webhook_secret: file:///home/agent/.harmonic-bridge/secrets/<handle>/webhook_secret
 
+# Optional, written by `add` when the setup opted into an LLM gateway token
+# (see Provider credentials): Harmonic as the agent's LLM provider.
+harmonic_llm_endpoint: https://llm.harmonic.example/v1
+harmonic_llm_token: file:///home/agent/.harmonic-bridge/secrets/<handle>/harmonic_llm_token
+harmonic_llm_model: anthropic/claude-sonnet-4.6
+
 working_dir: /home/agent/code/Harmonic
 wake_command: |
   claude -p \
@@ -127,6 +133,7 @@ Each agent runs in its own directory; the daemon serializes per-agent (one wake 
   - `HARMONIC_BRIDGE_EVENT_TYPE`
   - `HARMONIC_BRIDGE_MCP_ENDPOINT`
   - `HARMONIC_BRIDGE_TOKEN` (resolved)
+  - `HARMONIC_BRIDGE_LLM_ENDPOINT`, `HARMONIC_BRIDGE_LLM_MODEL`, `HARMONIC_BRIDGE_LLM_TOKEN` (resolved) — only when the agent config has the `harmonic_llm_*` keys
 - **cwd**: `working_dir`.
 
 Exit code 0 is success. Non-zero is logged; harmonic-bridge does not retry (Harmonic already does).
@@ -151,7 +158,7 @@ after_add:
   - `claude-code-harness` — replaces the stub `wake_command` with a headless `claude -p` invocation and writes a starter `system-prompt.md`.
   - `codex-harness` — replaces the stub `wake_command` with a headless `codex exec` invocation (sandbox `workspace-write` by default — overridable via `HARMONIC_BRIDGE_CODEX_SANDBOX`, see Harnesses — approvals `never`) and writes a starter `system-prompt.md`. No config-file companion: the Harmonic MCP server is passed as `-c mcp_servers.…` overrides in the wake command itself, with the token as a `bearer_token_env_var` name, never a value.
   - `goose-per-agent-mcp-config` — writes `$HARMONIC_BRIDGE_AGENT_DIR/config/goose/config.yaml` with the agent's Harmonic MCP extension, again as a `${HARMONIC_BRIDGE_TOKEN}` reference (admitted into goose's header-substitution pool via `env_keys`, resolved from the wake env at session start). Each agent gets its own config root — selected with `XDG_CONFIG_HOME` in the wake command — because goose loads every extension in its config file on every session, so a shared config would mean every agent's extension loading with only one agent's token in scope.
-  - `goose-harness` — replaces the stub `wake_command` with a bounded `goose run` invocation pointed at that config root, and writes a starter `system-prompt.md`.
+  - `goose-harness` — replaces the stub `wake_command` with a bounded `goose run` invocation pointed at that config root, and writes a starter `system-prompt.md`. When the agent config carries the LLM gateway credential, the wake command also maps it into goose's provider env (see Provider credentials).
 
   Both harness built-ins are conservative and idempotent: they replace the stub `wake_command` only while it is still the stub, and never overwrite an existing `system-prompt.md`. Editing either one is how you take ownership of it.
 - **`command: <shell>`** — runs an arbitrary `sh -c` command with the standard env vars set. The plaintext `HARMONIC_BRIDGE_TOKEN` is passed because tools like `claude mcp add` need it literally to embed in their own config.
@@ -170,11 +177,15 @@ harmonic-bridge does not care what runs the agent. It delivers a verified event 
 |---|---|---|
 | `claude-code` | `claude-code-per-agent-mcp-config`, `claude-code-harness` | A one-time interactive login. `setup-sprite` runs it as the last step. |
 | `codex` | `codex-harness` | A one-time `codex login --device-auth` (or `--with-api-key`). No config-file built-in — the MCP server rides in the wake command as `-c` overrides, and auth stays in the shared `~/.codex`, so one login serves every agent. Sandbox defaults to `workspace-write`; `HARMONIC_BRIDGE_CODEX_SANDBOX` in the daemon's environment overrides it, and `setup-sprite` sets it to `danger-full-access` because codex cannot sandbox inside a sprite (bwrap and legacy Landlock both fail) — there the single-agent micro-VM is the boundary. |
-| `goose` | `goose-per-agent-mcp-config`, `goose-harness` | Provider environment variables (below). No login. |
+| `goose` | `goose-per-agent-mcp-config`, `goose-harness` | Nothing, when the setup carries an LLM gateway token — the wake command maps it into goose's provider env automatically. Otherwise provider environment variables (below). No login either way. |
 
 ### Provider credentials
 
-Harnesses that authenticate to an LLM provider by environment variable read it from the daemon's environment, which the wake command inherits. harmonic-bridge neither stores nor manages these — set them wherever your daemon's environment comes from (systemd unit `Environment=` lines, shell profile, the service definition on a sprite).
+Two ways to give the harness an LLM provider:
+
+**Harmonic as the provider.** If the human checks "Also issue an LLM gateway token" when generating the setup URL, the redeem response carries a third credential: a token for Harmonic's OpenAI-compatible gateway, billed to the agent's funding in Harmonic (the principal's prepaid credits, or the collective's funding pool). `add` stores it like the other secrets and the wake env carries `HARMONIC_BRIDGE_LLM_ENDPOINT` / `_MODEL` / `_TOKEN` — no provider key on this host at all. The `goose-harness` built-in consumes these automatically: when the agent config carries the credential, the generated wake command maps it into goose's provider variables (`${VAR:-…}` fallbacks, so any provider variable you set in the daemon's environment still wins). Other harnesses need the mapping wired manually — see the harness's docs for its base-URL and key variables. Which gateway model the agent runs comes from the `--model` flag on `add`/`setup-sprite` — the setup page's model selector fills it into the command — and lands in the agent config as `harmonic_llm_model`, editable later. Without the flag, the agent runs the platform default (the `default` sentinel, resolved by the gateway per call). Anything the wake command runs can spend through this token; revoke it anytime from the agent's API tokens page in Harmonic.
+
+**Bring your own key.** Harnesses that authenticate to an LLM provider by environment variable read it from the daemon's environment, which the wake command inherits. harmonic-bridge neither stores nor manages these — set them wherever your daemon's environment comes from (systemd unit `Environment=` lines, shell profile, the service definition on a sprite). This path always works, with or without the gateway token.
 
 For goose: `GOOSE_PROVIDER`, `GOOSE_MODEL`, and the provider's own key variable (its name varies by provider). Note that goose deliberately ignores provider keys placed in `config.yaml`, so the environment is the only path.
 
@@ -222,7 +233,7 @@ To rotate a secret value (not the reference), update it in your backend. Resolut
 | `harmonic-bridge` | Start the daemon. Stays running until SIGTERM/SIGINT. |
 | `harmonic-bridge init` | Write `~/.harmonic-bridge/config.yml` + a systemd unit template. |
 | `harmonic-bridge add --from <URL>` | Redeem a setup URL from Harmonic, write per-agent config, register the webhook, run after_add steps. |
-| `harmonic-bridge setup-sprite --from <URL> [--harness <name>]` | Set the whole thing up on a Fly Sprite you own: create the sprite, install harmonic-bridge, configure and run the daemon as a service, redeem the setup URL, and smoke-probe. See "Harnesses" below. |
+| `harmonic-bridge setup-sprite --from <URL> [--harness <name>] [--model <provider/model>]` | Set the whole thing up on a Fly Sprite you own: create the sprite, install harmonic-bridge, configure and run the daemon as a service, redeem the setup URL, and smoke-probe. See "Harnesses" below. |
 | `harmonic-bridge reload` | Re-read per-agent configs in the running daemon without dropping in-flight wakes. (Daemon-level config changes still require a restart.) |
 | `harmonic-bridge help` | Show usage. |
 
@@ -245,7 +256,7 @@ The daemon writes `~/.harmonic-bridge/daemon.pid` on start (removed on graceful 
 
 - **HMAC verification.** Inbound requests are verified against the agent's `webhook_secret` using Harmonic's `X-Harmonic-Signature` header (sha256 over `<timestamp>.<body>` with a 5-minute replay window). Failures drop the request before any process spawns.
 - **Secret resolution at wake time.** Resolved secrets live in the wake process's memory only. They are not written to disk by the daemon, not logged, and not passed as the resolver subprocess's argv (resolvers receive the reference body, not the secret). This limits where secrets sit at rest; it does not limit what the agent can do with them (next point).
-- **The agent is inside the trust boundary.** Resolution exists to hand the secret to the wake command: the agent holds `HARMONIC_BRIDGE_TOKEN` (and everything in its `env:` block) on every wake, and can print it, store it, or send it anywhere its tools reach. The wake process also runs as the daemon's own user, so an agent with shell tools can read anything that user can — the file-backend secrets store, the daemon config, other agents' files (`0600` guards against other users, not the agent's own). Give an agent only secrets you would give the harness prompt driving it, and treat all agents on one daemon as a single trust domain; agents that must not read each other's credentials belong under different OS users or on different hosts.
+- **The agent is inside the trust boundary.** Resolution exists to hand the secret to the wake command: the agent holds `HARMONIC_BRIDGE_TOKEN` (and everything in its `env:` block, and the LLM gateway token when issued — which spends the agent's funding in Harmonic) on every wake, and can print it, store it, or send it anywhere its tools reach. The wake process also runs as the daemon's own user, so an agent with shell tools can read anything that user can — the file-backend secrets store, the daemon config, other agents' files (`0600` guards against other users, not the agent's own). Give an agent only secrets you would give the harness prompt driving it, and treat all agents on one daemon as a single trust domain; agents that must not read each other's credentials belong under different OS users or on different hosts.
 - **Per-agent isolation.** Each agent's secrets, working directory, queue, and log files are independent, and each agent holds its own Harmonic credentials, revocable without touching the others. This is organization plus Harmonic-side credential scoping — not OS-level isolation between agents on the same host (previous point).
 - **`add`-side defenses.** Network-supplied agent handles are validated against `/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/` before being used as a path component. `public_url` must be `https://`. HTTP timeouts (30s) prevent a hung Harmonic from pinning the CLI.
 - **No TLS termination.** harmonic-bridge listens on a local port; your reverse proxy handles TLS.

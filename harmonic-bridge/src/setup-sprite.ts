@@ -60,6 +60,9 @@ interface HarnessDefinition {
   readonly readyCommand?: (spriteName: string) => readonly string[];
 }
 
+const SPRITE_HOME = "/home/sprite";
+const BRIDGE_BIN = `${SPRITE_HOME}/.local/bin/harmonic-bridge`;
+
 const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
   "claude-code": {
     afterAdd: ["claude-code-per-agent-mcp-config", "claude-code-harness"],
@@ -104,32 +107,38 @@ const HARNESSES: Readonly<Record<string, HarnessDefinition>> = Object.freeze({
     installScript:
       "curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh | CONFIGURE=false bash",
     // goose has no login and no credential file, so readiness is: the binary
-    // resolves, and the provider environment the wake will inherit is set.
-    // The provider's own key variable is named per provider, so it can't be
-    // checked generically — only named in the instructions.
-    readyCheckScript: 'command -v goose >/dev/null 2>&1 && [ -n "$GOOSE_PROVIDER" ] && [ -n "$GOOSE_MODEL" ]',
+    // resolves, and the wake will have a provider — either the agent config
+    // is gateway-wired (the handshake delivered an LLM gateway token, mapped
+    // by the goose-harness built-in), or the provider environment the wake
+    // inherits is set. The provider's own key variable is named per
+    // provider, so it can't be checked generically — only named in the
+    // instructions.
+    readyCheckScript:
+      "command -v goose >/dev/null 2>&1 && " +
+      `{ grep -qs harmonic_llm_endpoint ${SPRITE_HOME}/.harmonic-bridge/agents/*/harmonic-bridge.yml || ` +
+      '{ [ -n "$GOOSE_PROVIDER" ] && [ -n "$GOOSE_MODEL" ]; }; }',
     // Service env lives in the service definition, and sprite-env has no
     // update: the service must be deleted and recreated to change it.
     readyInstructions: (spriteName) =>
-      "goose has no login step — it reads its provider credentials from the\n" +
-      "harmonic-bridge service's environment. Set GOOSE_PROVIDER, GOOSE_MODEL, and\n" +
-      "your provider's API key variable by recreating the service with them:\n" +
+      "goose has no login step — it needs an LLM provider. Set GOOSE_PROVIDER,\n" +
+      "GOOSE_MODEL, and your provider's API key variable by recreating the\n" +
+      "harmonic-bridge service with them:\n" +
       "\n" +
       `  sprite exec -s ${spriteName} -- sprite-env services delete harmonic-bridge\n` +
       `  sprite exec -s ${spriteName} -- sprite-env services create harmonic-bridge \\\n` +
       `    --cmd ${BRIDGE_BIN} \\\n` +
       '    --env "GOOSE_PROVIDER=anthropic,GOOSE_MODEL=<model>,ANTHROPIC_API_KEY=<key>"\n' +
       "\n" +
-      "(swap provider, model, and key variable for your provider's).",
+      "(swap provider, model, and key variable for your provider's). Or skip all\n" +
+      'of this next time: check "Also issue an LLM gateway token" when generating\n' +
+      "the setup URL and Harmonic becomes the provider automatically.",
   },
 });
 
 const DEFAULT_SPRITE_NAME = "harmonic-agent";
-const SPRITE_HOME = "/home/sprite";
-const BRIDGE_BIN = `${SPRITE_HOME}/.local/bin/harmonic-bridge`;
 
 const USAGE =
-  "Usage: harmonic-bridge setup-sprite --from <URL> [--harness <name>] [--sprite-name <name>]\n" +
+  "Usage: harmonic-bridge setup-sprite --from <URL> [--harness <name>] [--sprite-name <name>] [--model <provider/model>]\n" +
   `Supported harnesses: ${Object.keys(HARNESSES).join(", ")} (omit --harness to wire your own)\n`;
 
 export async function runSetupSprite(args: readonly string[], opts: SetupSpriteOpts = {}): Promise<number> {
@@ -144,7 +153,7 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
     stderr.write(`harmonic-bridge setup-sprite: ${parsed.error}\n${USAGE}`);
     return 64;
   }
-  const { fromUrl, spriteName, harnessName } = parsed;
+  const { fromUrl, spriteName, harnessName, model } = parsed;
   const harness = harnessName ? HARNESSES[harnessName] : undefined;
   if (harnessName && !harness) {
     stderr.write(`harmonic-bridge setup-sprite: unknown harness "${harnessName}".\n${USAGE}`);
@@ -251,7 +260,9 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
   //    runs before any human-paced step so the URL can't expire mid-setup,
   //    and it is the only place the URL is ever used, only once.
   stdout.write("Connecting the agent to Harmonic…\n");
-  const add = await inSprite(`${BRIDGE_BIN} add --from ${shellQuote(fromUrl)}`);
+  const add = await inSprite(
+    `${BRIDGE_BIN} add --from ${shellQuote(fromUrl)}${model ? ` --model ${shellQuote(model)}` : ""}`,
+  );
   if (add.code !== 0) {
     stderr.write(
       `harmonic-bridge setup-sprite: 'add' failed:\n${indent(add.stderr || add.stdout)}\n` +
@@ -335,17 +346,21 @@ export async function runSetupSprite(args: readonly string[], opts: SetupSpriteO
 // ---------- helpers ----------
 
 function parseArgs(args: readonly string[]):
-  | { fromUrl: string; spriteName: string; harnessName: string | undefined }
+  | { fromUrl: string; spriteName: string; harnessName: string | undefined; model: string | undefined }
   | { error: string } {
   let fromUrl: string | undefined;
   let spriteName = DEFAULT_SPRITE_NAME;
   let harnessName: string | undefined;
+  let model: string | undefined;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
     if (arg === "--from") fromUrl = args[++i];
     else if (arg === "--sprite-name") spriteName = args[++i] ?? "";
     else if (arg === "--harness") harnessName = args[++i];
-    else return { error: `unexpected argument "${arg}"` };
+    else if (arg === "--model") {
+      model = args[++i];
+      if (!model) return { error: "--model requires a value (e.g. --model anthropic/claude-sonnet-4.6)" };
+    } else return { error: `unexpected argument "${arg}"` };
   }
   if (!fromUrl) return { error: "missing --from <URL>" };
   try {
@@ -357,7 +372,7 @@ function parseArgs(args: readonly string[]):
   if (!/^[a-zA-Z0-9][a-zA-Z0-9-]*$/.test(spriteName)) {
     return { error: `--sprite-name "${spriteName}" must be alphanumeric-with-hyphens` };
   }
-  return { fromUrl, spriteName, harnessName };
+  return { fromUrl, spriteName, harnessName, model };
 }
 
 function envFlagFor(env: Readonly<Record<string, string>>): string {
