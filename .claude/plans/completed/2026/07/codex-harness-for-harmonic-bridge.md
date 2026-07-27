@@ -265,11 +265,9 @@ sharing the desktop app's `~/.codex/auth.json`, against dev Harmonic):
 6. ✅ Device auth works — after enabling device code authorization in ChatGPT
    Security Settings, which the first attempt was blocked by. The failure
    message names the setting, validating readyInstructions calling it out.
-7. ⏳ Post-publish (the in-sprite install pulls the published package). Dan
-   runs this one deliberately by hand, start to finish — fresh sprite, fresh
-   device-auth — as an operator-experience test of the whole flow, not just a
-   correctness check. The verification sprite was destroyed, so nothing is
-   pre-authenticated.
+7. ✅ Operator-run end to end on the published 0.4.0 (2026-07-28): Dan ran
+   the full flow by hand — fresh sprite, fresh device auth — and connected a
+   working codex agent. Shipped in 1.62.0.
 
 ## Docs and release
 
@@ -289,7 +287,6 @@ sharing the desktop app's `~/.codex/auth.json`, against dev Harmonic):
 
 ## Open questions
 
-None blocking. The one thing that could force a redesign is verification item 3
-(Landlock/seccomp inside a Sprite); if `workspace-write` is rejected there, decide
-between `use_legacy_landlock = true` and `danger-full-access` scoped to the sprite
-path before writing the `HARNESSES` entry.
+None. All seven verification items resolved; shipped in 1.62.0 as
+harmonic-bridge 0.4.0. Item 3 did force the pre-decided fallback — see the
+verification section.
