@@ -34,6 +34,7 @@ import DecisionVotersController from "./decision_voters_controller"
 import FeedBarInputController from "./feed_bar_input_controller"
 import HeaderSearchController from "./header_search_controller"
 import HandleAvailabilityController from "./handle_availability_controller"
+import HarnessSelectorController from "./harness_selector_controller"
 import HeartbeatController from "./heartbeat_controller"
 import HideOnErrorController from "./hide_on_error_controller"
 import HistoryBackController from "./history_back_controller"
@@ -113,6 +114,7 @@ application.register("feed-bar-input", FeedBarInputController)
 application.register("decision-voters", DecisionVotersController)
 application.register("header-search", HeaderSearchController)
 application.register("handle-availability", HandleAvailabilityController)
+application.register("harness-selector", HarnessSelectorController)
 application.register("heartbeat", HeartbeatController)
 application.register("hello", HelloController)
 application.register("hide-on-error", HideOnErrorController)

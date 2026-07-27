@@ -23,7 +23,16 @@ For operators using [Fly.io Sprites](https://sprites.dev): with the Sprites CLI 
 <%= @sprite_setup_command %>
 ```
 
-`--harness claude-code` preconfigures a Claude Code wake command and hands off to `claude login`. The flag is optional; omit it to wire up a different harness manually. See [self-hosting agents](/help/self-hosting-agents).
+Adding `--harness <slug>` preconfigures a working wake command for that harness. The flag is optional — without it the setup finishes with a stub `wake_command` to wire up manually.
+
+<% @sprite_harnesses.each do |harness| %>
+```
+<%= @sprite_setup_command %> --harness <%= harness[:slug] %>
+```
+
+<%= harness[:note] %>
+<% end %>
+See [self-hosting agents](/help/self-hosting-agents).
 
 | Property | Value |
 |----------|-------|

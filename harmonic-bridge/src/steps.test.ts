@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Writable } from "node:stream";
+import { parse as parseYaml } from "yaml";
 import { runStep, runSteps, effectiveAfterAdd, type Step, type StepContext } from "./steps.js";
 
 function makeContext(agentDir: string): StepContext {
@@ -50,6 +51,41 @@ test("runStep built_in: claude-code-per-agent-mcp-config writes the expected fil
       config.mcpServers["harmonic-alice"].headers.Authorization,
       "Bearer ${HARMONIC_BRIDGE_TOKEN}",
     );
+  } finally {
+    cleanup();
+  }
+});
+
+test("runStep built_in: goose-per-agent-mcp-config writes the relocated config root", async () => {
+  const { dir, cleanup } = makeTmpAgentDir();
+  try {
+    const result = await runStep({ kind: "built_in", name: "goose-per-agent-mcp-config" }, makeContext(dir));
+    assert.equal(result.ok, true);
+    const configPath = path.join(dir, "config", "goose", "config.yaml");
+    assert.ok(existsSync(configPath));
+    const config = parseYaml(readFileSync(configPath, "utf8")) as Record<string, any>;
+    assert.equal(config["extensions"]["harmonic-alice"]["uri"], "https://app.harmonic.example/mcp");
+    // The step context carries a resolved plaintext token; it must not land here.
+    assert.doesNotMatch(readFileSync(configPath, "utf8"), /tok_test_secret/);
+  } finally {
+    cleanup();
+  }
+});
+
+test("runStep built_in: goose-harness configures the agent for goose", async () => {
+  const { dir, cleanup } = makeTmpAgentDir();
+  try {
+    writeFileSync(
+      path.join(dir, "harmonic-bridge.yml"),
+      'wake_command: |\n  echo "wake_command not configured" >&2\n  exit 1\n',
+    );
+    const result = await runStep({ kind: "built_in", name: "goose-harness" }, makeContext(dir));
+    assert.equal(result.ok, true);
+
+    const yml = parseYaml(readFileSync(path.join(dir, "harmonic-bridge.yml"), "utf8")) as Record<string, unknown>;
+    assert.match(yml["wake_command"] as string, /goose run/);
+    // The handle reaches the harness, not just the config writer.
+    assert.match(readFileSync(path.join(dir, "system-prompt.md"), "utf8"), /harmonic-alice/);
   } finally {
     cleanup();
   }

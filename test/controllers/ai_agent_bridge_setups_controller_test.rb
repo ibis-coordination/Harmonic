@@ -41,13 +41,13 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
   end
 
   # Each agent gets its own sprite: the command names the sprite after the
-  # agent (lowercased — sprite names become DNS subdomains).
+  # agent (lowercased — sprite names become DNS subdomains). The harness is
+  # chosen on the page, so the command itself carries no harness.
   def sprite_command_re(setup)
     Regexp.new(
       "npx @ibis-coordination/harmonic-bridge setup-sprite " \
       "--from \\S+/bridge-setups/#{Regexp.escape(setup.public_id)} " \
-      "--sprite-name harmonic-#{Regexp.escape(@agent_handle.downcase)} " \
-      "--harness claude-code"
+      "--sprite-name harmonic-#{Regexp.escape(@agent_handle.downcase)}"
     )
   end
 
@@ -121,6 +121,44 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     # Sprites setup itself is Fly's product — link to their docs, don't inline them.
     assert_match(/docs\.sprites\.dev/, response.body)
     assert_no_match(/install\.sh/, response.body)
+  end
+
+  test "GET show: the sprite command is harness-neutral until one is chosen" do
+    setup = make_setup
+    get show_path(setup.public_id)
+    assert_response :ok
+
+    # No harness is baked in — the page offers every supported one, and
+    # choosing none is a real choice, not an oversight.
+    assert_no_match(/setup-sprite [^\n<]*--harness/, response.body)
+    HarmonicBridgeSetup::SPRITE_HARNESSES.each do |harness|
+      assert_match(/#{Regexp.escape(harness[:slug])}/, response.body,
+                   "the page must offer --harness #{harness[:slug]}")
+    end
+    assert_match(/harness-selector/, response.body, "the choice must be interactive, not prose")
+  end
+
+  test "GET show: markdown lists a command per harness as peers" do
+    setup = make_setup
+    get show_path(setup.public_id), headers: { "Accept" => "text/markdown" }
+    assert_response :ok
+
+    # No widget to operate — a reader here needs to see each option spelled out.
+    HarmonicBridgeSetup::SPRITE_HARNESSES.each do |harness|
+      assert_match(/setup-sprite [^\n]*--harness #{Regexp.escape(harness[:slug])}/, response.body)
+    end
+    assert_no_match(/recommended/i, response.body)
+  end
+
+  test "the offered harnesses match the ones setup-sprite actually supports" do
+    # The slugs are duplicated across a language boundary, so drift is silent:
+    # offering a harness the CLI rejects fails at the operator's terminal.
+    source = Rails.root.join("harmonic-bridge/src/setup-sprite.ts").read
+    registry = source[/const HARNESSES[^=]*=\s*Object\.freeze\(\{(.*?)^\}\);/m, 1]
+    assert registry, "could not find the HARNESSES registry in setup-sprite.ts"
+    supported = registry.scan(/^  "?([a-z0-9-]+)"?:\s*\{/).flatten
+
+    assert_equal supported.sort, HarmonicBridgeSetup::SPRITE_HARNESSES.map { |h| h[:slug] }.sort
   end
 
   test "GET show: markdown view also offers the Sprites path" do

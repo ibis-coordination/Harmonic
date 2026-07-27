@@ -61,13 +61,37 @@
           then run this on your computer:
         </p>
 
-        <div style="display:flex;gap:8px;align-items:flex-start;">
-          <pre class="pulse-form-input" style="flex:1;min-width:0;font-family:var(--font-family-mono);margin:0;white-space:pre-wrap;word-break:break-all;"><%= @sprite_setup_command %></pre>
-          <%= render 'shared/copy_button', text: @sprite_setup_command %>
+        <div data-controller="harness-selector" data-harness-selector-base-value="<%= @sprite_setup_command %>">
+          <label class="pulse-label">Harness</label>
+          <p class="pulse-hint" style="margin-top:0;">
+            A harness preconfigures a working wake command for <%= @ai_agent.display_name %>.
+            Leaving it unset assumes nothing — you get a stub <code>wake_command</code> to wire up yourself.
+          </p>
+
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+            <label style="display:flex;gap:8px;align-items:flex-start;">
+              <input type="radio" name="sprite_harness" value="" checked
+                     data-action="change->harness-selector#select" style="margin-top:4px;">
+              <span>None <span class="pulse-hint">— wire up your own harness after setup.</span></span>
+            </label>
+            <% @sprite_harnesses.each do |harness| %>
+              <label style="display:flex;gap:8px;align-items:flex-start;">
+                <input type="radio" name="sprite_harness" value="<%= harness[:slug] %>"
+                       data-action="change->harness-selector#select" style="margin-top:4px;">
+                <span>
+                  <code><%= harness[:slug] %></code>
+                  <span class="pulse-hint">— <%= harness[:note] %></span>
+                </span>
+              </label>
+            <% end %>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <pre class="pulse-form-input" data-harness-selector-target="command" style="flex:1;min-width:0;font-family:var(--font-family-mono);margin:0;white-space:pre-wrap;word-break:break-all;"><%= @sprite_setup_command %></pre>
+            <%= render 'shared/copy_button', text: @sprite_setup_command %>
+          </div>
         </div>
         <p class="pulse-hint">
-          <code>--harness claude-code</code> preconfigures a Claude Code wake command and hands off to
-          <code>claude login</code>. The flag is optional — omit it to wire up a different harness yourself.
           See <a href="/help/self-hosting-agents">self-hosting agents</a> for details.
         </p>
       </section>
