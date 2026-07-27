@@ -1497,11 +1497,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "members page links the funding pool when one is relevant" do
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     @tenant.enable_feature_flag!("stripe_billing")
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     @collective.enable_feature_flag!("funding_pools")
     member = add_member(name: "Plain Member")
@@ -1942,8 +1938,6 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   test "the markdown settings page no longer carries a pool section" do
     collective = create_test_collective
     enable_stripe_billing_flag!(@tenant)
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     collective.enable_feature_flag!("funding_pools")
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -1973,8 +1967,6 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   # === Agent membership ops (agents are members; ops live on the Members page) ===
 
   def offer_trio!
-    FeatureFlagService.config["trio"] ||= {}
-    FeatureFlagService.config["trio"]["app_enabled"] = true
     @tenant.enable_feature_flag!("trio")
   end
 
@@ -2275,8 +2267,6 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
   private
 
   def enable_stripe_billing_flag!(tenant)
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
   end
 end

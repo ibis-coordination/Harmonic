@@ -349,11 +349,7 @@ class PulseControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the collective menu links the funding pool when one is relevant" do
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     @tenant.enable_feature_flag!("stripe_billing")
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     @collective.enable_feature_flag!("funding_pools")
     sign_in_as(@user, tenant: @tenant)

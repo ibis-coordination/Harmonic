@@ -36,8 +36,6 @@ class FundingPoolsControllerTest < ActionDispatch::IntegrationTest
   end
 
   def enable_stripe_billing_flag!(tenant)
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
   end
 
@@ -49,8 +47,6 @@ class FundingPoolsControllerTest < ActionDispatch::IntegrationTest
 
   def enable_funding_pools!(collective)
     enable_stripe_billing_flag!(@tenant)
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     collective.enable_feature_flag!("funding_pools")
   end
@@ -58,8 +54,6 @@ class FundingPoolsControllerTest < ActionDispatch::IntegrationTest
   # Self-serve availability: paid tier + tenant-level flag, no collective flag.
   def enable_self_serve_pools!(collective)
     enable_stripe_billing_flag!(@tenant)
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     upgrade_collective_to_paid!(collective)
@@ -655,8 +649,6 @@ class FundingPoolsControllerTest < ActionDispatch::IntegrationTest
   test "a free-tier collective cannot open a pool without the operator flag" do
     collective = create_test_collective
     enable_stripe_billing_flag!(@tenant)
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     sign_in_as(@user, tenant: @tenant)
 

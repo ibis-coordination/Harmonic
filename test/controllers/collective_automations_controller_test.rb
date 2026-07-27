@@ -637,8 +637,6 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
   # bearer token so it doesn't make the user billable, downgrade the
   # collective back to free (setup defaults to paid), sign in via session.
   def setup_gate_test
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     @tenant.enable_feature_flag!("stripe_billing")
     @api_token.destroy
     @collective.update!(tier: Collective::TIER_FREE)

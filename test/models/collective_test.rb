@@ -1637,8 +1637,6 @@ class CollectiveTest < ActiveSupport::TestCase
   end
 
   def enable_stripe_billing!(tenant)
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
   end
 
@@ -1650,8 +1648,6 @@ class CollectiveTest < ActiveSupport::TestCase
     tenant.add_user!(user)
     collective = Collective.create!(tenant: tenant, created_by: user, name: "Pool", handle: "pool-#{SecureRandom.hex(4)}")
     enable_stripe_billing!(tenant)
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     tenant.enable_feature_flag!("funding_pools") if tenant_flag
     collective
   end
@@ -1706,8 +1702,6 @@ class CollectiveTest < ActiveSupport::TestCase
     user = create_user
     tenant.add_user!(user)
     collective = Collective.create!(tenant: tenant, created_by: user, name: "Pool", handle: "pool-#{SecureRandom.hex(4)}")
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     tenant.enable_feature_flag!("funding_pools")
     collective.update!(tier: Collective::TIER_PAID)
 

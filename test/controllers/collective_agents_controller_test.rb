@@ -27,14 +27,10 @@ class CollectiveAgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   def enable_stripe_billing_flag!(tenant)
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
   end
 
   def offer_trio!(tenant)
-    FeatureFlagService.config["trio"] ||= {}
-    FeatureFlagService.config["trio"]["app_enabled"] = true
     tenant.enable_feature_flag!("trio")
   end
 
@@ -48,8 +44,6 @@ class CollectiveAgentsControllerTest < ActionDispatch::IntegrationTest
 
   def enable_self_serve_pools!(collective)
     enable_stripe_billing_flag!(@tenant)
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     upgrade_collective_to_paid!(collective)
