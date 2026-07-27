@@ -772,6 +772,20 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "submitting the new agent form after reverification expires refreshes reverification" do
+    sign_in_with_ai_agents_reverify(@user)
+    get "/ai-agents/new"
+    assert_response :success
+
+    travel 90.minutes do
+      post "/ai-agents/new/actions/create_ai_agent",
+           params: { name: "Expired Reverification Agent", mode: "internal" },
+           headers: { "HTTP_REFERER" => "http://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/ai-agents/new" }
+
+      assert_redirected_to "/reverify"
+    end
+  end
+
   test "new agent form shows per-model prices when billing is on" do
     enable_stripe_billing_flag!(@tenant)
     StripeCustomer.create!(billable: @user, stripe_id: "cus_pricing_ok", stripe_subscription_id: "sub_pricing_ok", active: true)
