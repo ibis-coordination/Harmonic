@@ -14,8 +14,6 @@ module LLMGateway
     end
 
     def create_funding_pool!(primary_stripe_id: "cus_primary", primary_cap: 500)
-      FeatureFlagService.config["funding_pools"] ||= {}
-      FeatureFlagService.config["funding_pools"]["app_enabled"] = true
       @tenant.enable_feature_flag!("funding_pools")
       @collective.enable_feature_flag!("funding_pools")
       pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_draw_cap_cents: 500)

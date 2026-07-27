@@ -12,7 +12,10 @@
 // Goose is the first supported harness with no interactive login: its provider
 // credential is an environment variable (GOOSE_PROVIDER, GOOSE_MODEL, and the
 // provider's own key), supplied by the operator and inherited into the wake.
-// The bridge does not manage it.
+// The bridge does not manage it — with one exception: when the agent's config
+// carries the harmonic_llm_* keys (the handshake delivered an LLM gateway
+// token), the wake command maps that credential into goose's provider
+// variables itself, so the agent runs with zero provider setup.
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -38,16 +41,32 @@ const DEFAULT_TIMEOUT_SECONDS = 900;
 // --with-builtin developer belongs here rather than in the written config: it
 // keeps the agent's local tool surface visible in the command the operator
 // reads and edits.
-const WAKE_COMMAND =
-  'XDG_CONFIG_HOME="$HARMONIC_BRIDGE_AGENT_DIR/config" \\\n' +
-  "goose run \\\n" +
-  "  --no-session \\\n" +
-  "  --quiet \\\n" +
-  `  --max-turns ${MAX_TURNS} \\\n` +
-  `  --max-tool-repetitions ${MAX_TOOL_REPETITIONS} \\\n` +
-  "  --with-builtin developer \\\n" +
-  '  --system "$(cat "$HARMONIC_BRIDGE_AGENT_DIR/system-prompt.md")" \\\n' +
-  "  -i -\n";
+// LLM-gateway mapping, emitted only when the agent's config carries the
+// harmonic_llm_* keys. ${VAR:-default} defers to the daemon's environment:
+// an operator who sets provider variables there (BYO key) always wins, and
+// goose itself ranks an explicit OPENAI_HOST above OPENAI_BASE_URL. The
+// endpoint is passed verbatim — goose parses a /v1 base URL into host +
+// "v1/chat/completions" base path (verified against goose source).
+const GATEWAY_ENV_MAPPING =
+  'GOOSE_PROVIDER="${GOOSE_PROVIDER:-openai}" \\\n' +
+  'GOOSE_MODEL="${GOOSE_MODEL:-$HARMONIC_BRIDGE_LLM_MODEL}" \\\n' +
+  'OPENAI_BASE_URL="${OPENAI_BASE_URL:-$HARMONIC_BRIDGE_LLM_ENDPOINT}" \\\n' +
+  'OPENAI_API_KEY="${OPENAI_API_KEY:-$HARMONIC_BRIDGE_LLM_TOKEN}" \\\n';
+
+function wakeCommand(withGateway: boolean): string {
+  return (
+    'XDG_CONFIG_HOME="$HARMONIC_BRIDGE_AGENT_DIR/config" \\\n' +
+    (withGateway ? GATEWAY_ENV_MAPPING : "") +
+    "goose run \\\n" +
+    "  --no-session \\\n" +
+    "  --quiet \\\n" +
+    `  --max-turns ${MAX_TURNS} \\\n` +
+    `  --max-tool-repetitions ${MAX_TOOL_REPETITIONS} \\\n` +
+    "  --with-builtin developer \\\n" +
+    '  --system "$(cat "$HARMONIC_BRIDGE_AGENT_DIR/system-prompt.md")" \\\n' +
+    "  -i -\n"
+  );
+}
 
 function toolsParagraph(agentHandle: string): string {
   return (
@@ -77,7 +96,8 @@ export async function applyGooseHarness(args: ApplyGooseHarnessArgs): Promise<Ap
   const doc = parseDocument(await fs.readFile(ymlPath, "utf8"));
   const currentWake = doc.get("wake_command");
   if (typeof currentWake === "string" && currentWake.includes(STUB_MARKER)) {
-    doc.set("wake_command", WAKE_COMMAND);
+    const withGateway = doc.has("harmonic_llm_endpoint") && doc.has("harmonic_llm_token");
+    doc.set("wake_command", wakeCommand(withGateway));
     if (!doc.has("timeout_seconds")) {
       doc.set("timeout_seconds", DEFAULT_TIMEOUT_SECONDS);
     }

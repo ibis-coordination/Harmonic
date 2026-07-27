@@ -212,6 +212,132 @@ test("add: after_add steps are followed by a second SIGHUP so the daemon picks u
   }
 });
 
+// ---------- LLM gateway credential bundle ----------
+
+/** Redeem response from the opted-in fixture (base shape + harmonic_llm_*). */
+function makeLlmMetadataResponse(overrides?: Record<string, unknown>): Response {
+  const base = loadProtocolFixture("redeem_response_with_llm.json") as Record<string, unknown>;
+  return new Response(JSON.stringify({
+    ...base,
+    agent_handle: "alice",
+    webhook_register_url: REGISTER_URL,
+    ...overrides,
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+}
+
+test("add: LLM credential bundle is stored as a secret and referenced in the agent config", async () => {
+  const f = makeFixture();
+  try {
+    const { fetch: fakeFetch } = recordingFetch([() => makeLlmMetadataResponse(), () => makeOkResponse()]);
+    const code = await runAdd(["--from", SETUP_URL], {
+      configDir: f.configDir,
+      fetch: fakeFetch,
+      kill: () => undefined,
+    });
+    assert.equal(code, 0);
+
+    const fixture = loadProtocolFixture("redeem_response_with_llm.json") as Record<string, string>;
+    const llmTokenPath = path.join(f.secretsDir, "alice", "harmonic_llm_token");
+    assert.equal(readFileSync(llmTokenPath, "utf8"), fixture.harmonic_llm_token);
+    assert.equal(statSync(llmTokenPath).mode & 0o777, 0o600);
+
+    const agentYml = readFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), "utf8");
+    assert.ok(agentYml.includes(`harmonic_llm_endpoint: ${fixture.harmonic_llm_endpoint}`));
+    assert.ok(agentYml.includes(`harmonic_llm_token: file://${llmTokenPath}`));
+    // No --model flag: the "default" sentinel, resolved by the gateway per
+    // call, so the agent tracks the platform default.
+    assert.ok(agentYml.includes("harmonic_llm_model: default"));
+  } finally {
+    f.cleanup();
+  }
+});
+
+test("add: --model writes the chosen model into the agent config", async () => {
+  const f = makeFixture();
+  try {
+    const { fetch: fakeFetch } = recordingFetch([() => makeLlmMetadataResponse(), () => makeOkResponse()]);
+    const code = await runAdd(["--from", SETUP_URL, "--model", "anthropic/claude-opus-5"], {
+      configDir: f.configDir,
+      fetch: fakeFetch,
+      kill: () => undefined,
+    });
+    assert.equal(code, 0);
+    const agentYml = readFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), "utf8");
+    assert.ok(agentYml.includes("harmonic_llm_model: anthropic/claude-opus-5"));
+  } finally {
+    f.cleanup();
+  }
+});
+
+test("add: --model without an LLM credential changes nothing", async () => {
+  const f = makeFixture();
+  try {
+    const { fetch: fakeFetch } = recordingFetch([() => makeMetadataResponse(), () => makeOkResponse()]);
+    const code = await runAdd(["--from", SETUP_URL, "--model", "anthropic/claude-opus-5"], {
+      configDir: f.configDir,
+      fetch: fakeFetch,
+      kill: () => undefined,
+    });
+    assert.equal(code, 0);
+    const agentYml = readFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), "utf8");
+    assert.ok(!agentYml.includes("harmonic_llm_"), "the model rides the LLM credential; alone it means nothing");
+  } finally {
+    f.cleanup();
+  }
+});
+
+test("add: base response without LLM fields writes no LLM secret or config keys", async () => {
+  const f = makeFixture();
+  try {
+    const { fetch: fakeFetch } = recordingFetch([() => makeMetadataResponse(), () => makeOkResponse()]);
+    const code = await runAdd(["--from", SETUP_URL], {
+      configDir: f.configDir,
+      fetch: fakeFetch,
+      kill: () => undefined,
+    });
+    assert.equal(code, 0);
+    assert.ok(!existsSync(path.join(f.secretsDir, "alice", "harmonic_llm_token")));
+    const agentYml = readFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), "utf8");
+    assert.ok(!agentYml.includes("harmonic_llm_"));
+  } finally {
+    f.cleanup();
+  }
+});
+
+test("add: harmonic_llm_status is surfaced to the operator, nothing LLM is written", async () => {
+  const f = makeFixture();
+  try {
+    const status = "The agent has no funding source, so no LLM token was issued.";
+    const base = loadProtocolFixture("redeem_response.json") as Record<string, unknown>;
+    const { fetch: fakeFetch } = recordingFetch([
+      () => new Response(JSON.stringify({
+        ...base,
+        agent_handle: "alice",
+        webhook_register_url: REGISTER_URL,
+        harmonic_llm_status: status,
+      }), { status: 200, headers: { "Content-Type": "application/json" } }),
+      () => makeOkResponse(),
+    ]);
+    const stdout = new PassThrough();
+    const stdoutPromise = collect(stdout);
+    const code = await runAdd(["--from", SETUP_URL], {
+      configDir: f.configDir,
+      stdout,
+      fetch: fakeFetch,
+      kill: () => undefined,
+    });
+    stdout.end();
+    const out = await stdoutPromise;
+    assert.equal(code, 0, "an omitted LLM token must not fail the add");
+    assert.ok(out.includes(status), `status should be relayed to the operator; got: ${out}`);
+    assert.ok(!existsSync(path.join(f.secretsDir, "alice", "harmonic_llm_token")));
+    const agentYml = readFileSync(path.join(f.configDir, "agents", "alice", "harmonic-bridge.yml"), "utf8");
+    assert.ok(!agentYml.includes("harmonic_llm_"));
+  } finally {
+    f.cleanup();
+  }
+});
+
 // ---------- argument + config-side errors ----------
 
 test("add: missing --from returns 64 with usage", async () => {

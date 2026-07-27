@@ -71,6 +71,79 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to show_path(existing.public_id)
   end
 
+  test "POST execute_connect_harmonic_bridge: stores the LLM token opt-in" do
+    post connect_action_path, params: { include_llm_token: "1" }
+    setup = HarmonicBridgeSetup.tenant_scoped_only(@tenant.id).order(created_at: :desc).first
+    assert setup.include_llm_token?
+  end
+
+  test "POST execute_connect_harmonic_bridge: LLM token opt-in defaults to off" do
+    post connect_action_path
+    setup = HarmonicBridgeSetup.tenant_scoped_only(@tenant.id).order(created_at: :desc).first
+    assert_not setup.include_llm_token?
+  end
+
+  test "POST execute_connect_harmonic_bridge: reusing a pending setup updates the opt-in" do
+    existing = make_setup
+    assert_not existing.include_llm_token?
+
+    assert_no_difference -> { HarmonicBridgeSetup.tenant_scoped_only(@tenant.id).count } do
+      post connect_action_path, params: { include_llm_token: "1" }
+    end
+    assert existing.reload.include_llm_token?, "the reused setup must reflect the submitted choice"
+  end
+
+  test "GET show: confirms the LLM token opt-in when the setup carries it" do
+    setup_record = make_setup
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    setup_record.update!(include_llm_token: true)
+    Tenant.clear_thread_scope
+
+    get show_path(setup_record.public_id)
+    assert_response :ok
+    assert_match(/This setup also issues/, response.body)
+  end
+
+  test "GET show: no LLM token confirmation when the setup did not opt in" do
+    setup_record = make_setup
+    get show_path(setup_record.public_id)
+    assert_response :ok
+    assert_no_match(/This setup also issues/, response.body)
+  end
+
+  test "GET show: offers a model selector when the setup carries the LLM opt-in" do
+    setup_record = make_setup
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    setup_record.update!(include_llm_token: true)
+    Tenant.clear_thread_scope
+
+    get show_path(setup_record.public_id)
+    assert_response :ok
+    assert_match(/name="sprite_model"/, response.body)
+    assert_match(/harness-selector#selectModel/, response.body)
+  end
+
+  test "GET show: no model selector without the LLM opt-in" do
+    setup_record = make_setup
+    get show_path(setup_record.public_id)
+    assert_response :ok
+    assert_no_match(/name="sprite_model"/, response.body)
+  end
+
+  test "GET new: offers the LLM token checkbox when the tenant has the gateway" do
+    @tenant.enable_feature_flag!("llm_gateway")
+
+    get "/ai-agents/#{@agent_handle}/bridge-setup"
+    assert_response :ok
+    assert_match(/include_llm_token/, response.body)
+  end
+
+  test "GET new: hides the LLM token checkbox when the tenant has no gateway" do
+    get "/ai-agents/#{@agent_handle}/bridge-setup"
+    assert_response :ok
+    assert_no_match(/include_llm_token/, response.body)
+  end
+
   test "POST execute_connect_harmonic_bridge: rejects when the agent already has an active webhook" do
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     AutomationRule.create!(

@@ -774,8 +774,13 @@ class ActionsHelper
       description: "Mint a one-time-use setup URL that lets the agent's harmonic-bridge daemon " \
                    "redeem an MCP token + notification webhook subscription. The setup is consumed " \
                    "the first time the bridge POSTs the URL on the operator's host.",
-      params_string: "()",
-      params: [],
+      params_string: "(include_llm_token)",
+      params: [
+        { name: "include_llm_token", type: "boolean",
+          description: "Also issue an LLM gateway token so the agent's host can make LLM calls " \
+                       "billed to the agent's funding (the principal's prepaid credits, or the " \
+                       "collective's funding pool). Only where the tenant offers the LLM gateway." },
+      ],
       # The bridge mints credentials with broad scopes for the agent. Only the
       # human who owns the agent should be able to initiate that — same
       # restriction `create_api_token` and `create_ai_agent` carry.

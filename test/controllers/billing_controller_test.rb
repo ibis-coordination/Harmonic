@@ -1219,8 +1219,6 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
     StripeCustomer.create!(
       billable: @user, stripe_id: stripe_id, active: active, pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
     )
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     collective = create_test_collective(name: "Pool Collective")
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
@@ -1247,8 +1245,6 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
   end
 
   def enable_stripe_billing_flag!(tenant)
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
   end
 

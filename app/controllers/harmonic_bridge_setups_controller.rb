@@ -56,7 +56,15 @@ class HarmonicBridgeSetupsController < ApplicationController
       agent_handle: handle_for(setup.ai_agent_user),
       webhook_register_url: harmonic_bridge_setup_webhook_url(public_id: setup.public_id),
       events_recommended: setup.events_recommended,
-    }
+      # Optional third credential (see redeem_response_with_llm.json):
+      # endpoint + token appear together when the setup opted in and the
+      # token was minted; harmonic_llm_status appears instead when the setup
+      # opted in but no token could be issued. All compacted away when the
+      # setup didn't opt in.
+      harmonic_llm_endpoint: credentials[:harmonic_llm_endpoint],
+      harmonic_llm_token: credentials[:harmonic_llm_token],
+      harmonic_llm_status: credentials[:harmonic_llm_status],
+    }.compact
   rescue HarmonicBridgeSetup::Expired, HarmonicBridgeSetup::Redeemed
     render_not_found
   rescue HarmonicBridgeSetup::ConflictingSetup

@@ -171,6 +171,13 @@ export async function startDaemon(opts: DaemonOpts): Promise<RunningDaemon> {
     env["HARMONIC_BRIDGE_EVENT_TYPE"] = eventType;
     env["HARMONIC_BRIDGE_MCP_ENDPOINT"] = cfg.harmonicMcpEndpoint;
     env["HARMONIC_BRIDGE_TOKEN"] = token;
+    // Optional LLM gateway trio — present only when `add` wrote the agent's
+    // harmonic_llm_* config keys (the setup opted into a gateway token).
+    if (cfg.llmEndpoint && cfg.llmToken) {
+      env["HARMONIC_BRIDGE_LLM_ENDPOINT"] = cfg.llmEndpoint;
+      env["HARMONIC_BRIDGE_LLM_TOKEN"] = await resolveMaybe(cfg.llmToken, daemon.secretResolvers);
+      if (cfg.llmModel) env["HARMONIC_BRIDGE_LLM_MODEL"] = cfg.llmModel;
+    }
 
     const logs = await openAgentLogStreams(daemon.logDir, handle);
     logLine(`wake ${handle} event=${eventType} spawned`);

@@ -20,6 +20,7 @@ non-empty.
 | Fixture | Direction | When |
 |---|---|---|
 | `redeem_response.json` | Harmonic → bridge | `POST /bridge-setups/:public_id` success body |
+| `redeem_response_with_llm.json` | Harmonic → bridge | Same, when the setup opted into an LLM gateway token and one was minted: base shape + `harmonic_llm_endpoint` and `harmonic_llm_token`. (Opted in but not mintable → base shape + a `harmonic_llm_status` string instead. The model is not on the wire — it's the bridge's `--model` flag, defaulting to the `"default"` sentinel the gateway resolves.) |
 | `post_request.json` | bridge → Harmonic | `POST /bridge-setups/:public_id/webhook` request body |
 | `post_response.json` | Harmonic → bridge | `POST /bridge-setups/:public_id/webhook` success body |
 | `post_error_webhook_unreachable.json` | Harmonic → bridge | `POST` 422 body when verification fails |

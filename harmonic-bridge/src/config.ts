@@ -45,6 +45,15 @@ export interface AgentConfig {
   readonly webhookSecret: string;
   readonly workingDir: string;
   readonly wakeCommand: string;
+  /**
+   * Optional LLM gateway credential trio, written by `add` when the setup
+   * opted in and Harmonic minted the token. The daemon exports them into
+   * the wake env as HARMONIC_BRIDGE_LLM_{ENDPOINT,MODEL,TOKEN}; llmToken
+   * is a secret reference resolved like harmonicToken.
+   */
+  readonly llmEndpoint?: string;
+  readonly llmToken?: string;
+  readonly llmModel?: string;
   readonly events?: readonly string[];
   readonly timeoutSeconds?: number;
   readonly env?: Readonly<Record<string, string>>;
@@ -100,6 +109,11 @@ export function parseAgentConfig(raw: unknown): AgentConfig {
   const workingDir = expectString(raw, "working_dir");
   const wakeCommand = expectString(raw, "wake_command");
 
+  const llmEndpoint = "harmonic_llm_endpoint" in raw ? expectString(raw, "harmonic_llm_endpoint") : undefined;
+  if (llmEndpoint !== undefined) validateUrl(llmEndpoint, "harmonic_llm_endpoint");
+  const llmToken = "harmonic_llm_token" in raw ? expectString(raw, "harmonic_llm_token") : undefined;
+  const llmModel = "harmonic_llm_model" in raw ? expectString(raw, "harmonic_llm_model") : undefined;
+
   const events = "events" in raw ? parseStringArray(raw["events"], "events") : undefined;
   const timeoutSeconds = "timeout_seconds" in raw
     ? parsePositiveNumber(raw["timeout_seconds"], "timeout_seconds")
@@ -115,6 +129,9 @@ export function parseAgentConfig(raw: unknown): AgentConfig {
     webhookSecret,
     workingDir,
     wakeCommand,
+    llmEndpoint,
+    llmToken,
+    llmModel,
     events,
     timeoutSeconds,
     env,

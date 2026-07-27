@@ -38,12 +38,26 @@
           and verifies reachability before going live. The bridge then runs whatever wake_command you've
           wired up (Claude Code, Codex, a Python script — your call) for each event.
         </p>
-        <p class="pulse-action-row">
-          <%= form_with(url: "/ai-agents/#{@ai_agent.handle}/bridge-setup/actions/connect_harmonic_bridge", method: :post, html: { style: "display:inline;" }, data: { turbo: false }) do %>
-            <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Connect harmonic-bridge</button>
+        <%= form_with(url: "/ai-agents/#{@ai_agent.handle}/bridge-setup/actions/connect_harmonic_bridge", method: :post, data: { turbo: false }) do %>
+          <% if @llm_gateway_available %>
+            <p>
+              <label class="pulse-checkbox-label">
+                <%= check_box_tag :include_llm_token, "1", false %>
+                Also issue an LLM gateway token
+              </label>
+              <span class="pulse-hint">
+                The bridge host gets a token for LLM calls through Harmonic's gateway, billed to this
+                agent's funding — the principal's prepaid credits, or the collective's funding pool.
+                No provider API key needed on the host; with the goose harness, setup is fully
+                automatic. Revoke the token anytime from the agent's API tokens.
+              </span>
+            </p>
           <% end %>
-          <%= link_to "Back to settings", ai_agent_settings_path(@ai_agent.handle), class: "pulse-action-btn" %>
-        </p>
+          <p class="pulse-action-row">
+            <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Connect harmonic-bridge</button>
+            <%= link_to "Back to settings", ai_agent_settings_path(@ai_agent.handle), class: "pulse-action-btn" %>
+          </p>
+        <% end %>
         <p class="pulse-hint">
           Prefer to point at your own webhook URL directly?
           <%= link_to "Set up the webhook manually", ai_agent_notification_webhook_path(@ai_agent.handle), class: "pulse-link" %>.

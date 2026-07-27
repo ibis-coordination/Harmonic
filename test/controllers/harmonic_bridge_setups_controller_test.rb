@@ -42,6 +42,12 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     s
   end
 
+  # llm_gateway is app_enabled in config/feature_flags.yml; only the
+  # tenant-level flag needs turning on.
+  def enable_llm_gateway!
+    @tenant.enable_feature_flag!("llm_gateway")
+  end
+
   # ---------- POST redeem ----------
 
   test "POST redeem: returns the full credential bundle and marks redeemed" do
@@ -65,6 +71,51 @@ class HarmonicBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
     assert setup.automation_rule.present?, "pending rule is created at GET so signing secret has a home"
     assert_equal body["signing_secret"], setup.automation_rule.webhook_secret
     assert_equal false, setup.automation_rule.enabled?, "rule is disabled until POST"
+  end
+
+  test "POST redeem: includes the LLM credential bundle when opted in and fundable" do
+    enable_llm_gateway!
+    StripeCustomer.create!(
+      billable: @human, stripe_id: "cus_redeem_llm", active: true,
+      pricing_plan_subscription_id: "bpps_#{SecureRandom.hex(4)}"
+    )
+    setup = make_setup(include_llm_token: true)
+
+    post "/bridge-setups/#{setup.public_id}"
+
+    assert_response :ok
+    body = response.parsed_body
+    assert_matches_bridge_protocol_fixture(body, "redeem_response_with_llm.json")
+    assert body["harmonic_llm_endpoint"].start_with?("https://llm.")
+    assert body["harmonic_llm_token"].present?
+    assert_not body.key?("harmonic_llm_model"), "model is chosen bridge-side (--model flag), not on the wire"
+    assert_not body.key?("harmonic_llm_status")
+  end
+
+  test "POST redeem: omits every LLM field when the setup did not opt in" do
+    enable_llm_gateway!
+    setup = make_setup
+
+    post "/bridge-setups/#{setup.public_id}"
+
+    assert_response :ok
+    body = response.parsed_body
+    ["harmonic_llm_endpoint", "harmonic_llm_token", "harmonic_llm_model", "harmonic_llm_status"].each do |key|
+      assert_not body.key?(key), "expected #{key} to be absent"
+    end
+  end
+
+  test "POST redeem: carries a status instead of a token when opted in without funding" do
+    enable_llm_gateway!
+    setup = make_setup(include_llm_token: true)
+
+    post "/bridge-setups/#{setup.public_id}"
+
+    assert_response :ok
+    body = response.parsed_body
+    assert_not body.key?("harmonic_llm_token")
+    assert_not body.key?("harmonic_llm_endpoint")
+    assert_match(/funding/i, body["harmonic_llm_status"])
   end
 
   test "POST redeem: 404 on second redemption" do

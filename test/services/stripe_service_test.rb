@@ -2028,8 +2028,6 @@ class StripeServiceTest < ActiveSupport::TestCase
   private
 
   def enable_stripe_billing_flag!(tenant)
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     tenant.enable_feature_flag!("stripe_billing")
   end
 

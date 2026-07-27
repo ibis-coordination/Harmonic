@@ -164,11 +164,7 @@ class Internal::LLMGatewayControllerTest < ActionDispatch::IntegrationTest
   # stripe_billing too — pool availability (checked per draw) requires it.
   def attach_funding_pool!(agent, stripe_ids)
     Collective.scope_thread_to_collective(subdomain: @tenant.subdomain, handle: @collective.handle)
-    FeatureFlagService.config["stripe_billing"] ||= {}
-    FeatureFlagService.config["stripe_billing"]["app_enabled"] = true
     @tenant.enable_feature_flag!("stripe_billing")
-    FeatureFlagService.config["funding_pools"] ||= {}
-    FeatureFlagService.config["funding_pools"]["app_enabled"] = true
     @tenant.enable_feature_flag!("funding_pools")
     @collective.enable_feature_flag!("funding_pools")
     pool = FundingPool.create!(tenant: @tenant, collective: @collective, created_by: @user, member_draw_cap_cents: 500)

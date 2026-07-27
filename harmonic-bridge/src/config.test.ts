@@ -215,6 +215,31 @@ env:
   });
 });
 
+test("parseAgentConfig: LLM gateway fields parse cleanly", () => {
+  const cfg = parseAgentConfig(parseYaml(validAgent + `
+harmonic_llm_endpoint: https://llm.harmonic.example/v1
+harmonic_llm_token: file:///secrets/alice/harmonic_llm_token
+harmonic_llm_model: anthropic/claude-sonnet-4.6
+`));
+  assert.equal(cfg.llmEndpoint, "https://llm.harmonic.example/v1");
+  assert.equal(cfg.llmToken, "file:///secrets/alice/harmonic_llm_token");
+  assert.equal(cfg.llmModel, "anthropic/claude-sonnet-4.6");
+});
+
+test("parseAgentConfig: LLM gateway fields default to undefined", () => {
+  const cfg = parseAgentConfig(parseYaml(validAgent));
+  assert.equal(cfg.llmEndpoint, undefined);
+  assert.equal(cfg.llmToken, undefined);
+  assert.equal(cfg.llmModel, undefined);
+});
+
+test("parseAgentConfig: invalid harmonic_llm_endpoint URL throws", () => {
+  assert.throws(
+    () => parseAgentConfig(parseYaml(validAgent + "harmonic_llm_endpoint: not a url\n")),
+    (e: unknown) => e instanceof ConfigError && /harmonic_llm_endpoint/.test(e.message),
+  );
+});
+
 test("parseAgentConfig: missing required field", () => {
   // missing wake_command
   assert.throws(

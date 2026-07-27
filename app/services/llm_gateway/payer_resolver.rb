@@ -68,6 +68,19 @@ module LLMGateway
       pool_result(agent, context: "agent=#{agent.id}") || funded_result(agent.resolved_billing_customer)
     end
 
+    # Structure only, never balance: does any payer arrangement exist for
+    # this agent — a funding pool, or a billing customer with a
+    # prepaid-credit subscription. For setup-time flows (e.g. the bridge
+    # handshake) that must not block on a transiently dry balance; the
+    # per-call resolve paths above remain the authority on whether a given
+    # call is actually payable.
+    sig { params(agent: User).returns(T::Boolean) }
+    def self.structurally_fundable?(agent)
+      return true if agent.funding_pool_id.present?
+
+      agent.resolved_billing_customer&.pricing_plan_subscription_id.present?
+    end
+
     # The agent's own per-UTC-day spend ceiling, whoever pays. Enforced
     # against the usage ledger before any payer is picked.
     sig { params(agent: User).void }

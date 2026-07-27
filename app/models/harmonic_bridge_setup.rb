@@ -40,7 +40,26 @@ class HarmonicBridgeSetup < ApplicationRecord
   belongs_to :ai_agent_user, class_name: "User"
   belongs_to :created_by_user, class_name: "User"
   belongs_to :api_token, optional: true
+  # Second credential, minted by redeem! only when the human opted in at
+  # setup creation (include_llm_token) and the agent had a structural payer.
+  belongs_to :llm_api_token, class_name: "ApiToken", optional: true
   belongs_to :automation_rule, optional: true
+
+  # redeem!'s return shape. harmonic_llm_endpoint + harmonic_llm_token are
+  # set together when the LLM token was minted; harmonic_llm_status carries
+  # the reason it wasn't (only when the setup opted in). The model is not
+  # part of the handshake — it's chosen bridge-side (the `--model` flag, or
+  # the "default" sentinel the gateway resolves per call). Callers rendering
+  # JSON should compact out the nils.
+  RedeemResult = T.type_alias do
+    {
+      harmonic_token: String,
+      signing_secret: String,
+      harmonic_llm_endpoint: T.nilable(String),
+      harmonic_llm_token: T.nilable(String),
+      harmonic_llm_status: T.nilable(String),
+    }
+  end
 
   DEFAULT_LIFETIME = T.let(15.minutes, ActiveSupport::Duration)
 
@@ -63,9 +82,10 @@ class HarmonicBridgeSetup < ApplicationRecord
       },
       {
         slug: "goose",
-        note: "No login. Reads its provider credentials from the sprite's environment " \
-              "(GOOSE_PROVIDER, GOOSE_MODEL, and the provider's own API key variable), " \
-              "which you set. Installed during setup.",
+        note: "No login. With an LLM gateway token from this setup, no provider " \
+              "configuration at all — the agent wakes ready. Otherwise reads provider " \
+              "credentials (GOOSE_PROVIDER, GOOSE_MODEL, and the provider's own API key " \
+              "variable) from the sprite's environment, which you set. Installed during setup.",
       },
     ].freeze,
     T::Array[T::Hash[Symbol, String]]
@@ -124,9 +144,9 @@ class HarmonicBridgeSetup < ApplicationRecord
   #
   # `with_lock` + post-lock re-check makes this safe against two concurrent
   # GETs both passing redeemable? before either commits.
-  sig { returns({ harmonic_token: String, signing_secret: String }) }
+  sig { returns(RedeemResult) }
   def redeem!
-    result = T.let(nil, T.nilable({ harmonic_token: String, signing_secret: String }))
+    result = T.let(nil, T.nilable(RedeemResult))
     with_lock do
       raise Expired if expired?
       raise Redeemed unless redeemed_at.nil?
@@ -146,8 +166,15 @@ class HarmonicBridgeSetup < ApplicationRecord
 
       token = mint_bridge_token!
       rule = mint_bridge_rule!
-      update!(api_token: token, automation_rule: rule, redeemed_at: Time.current)
-      result = { harmonic_token: T.must(token.plaintext_token), signing_secret: T.must(rule.webhook_secret) }
+      llm_token, llm_status = mint_llm_token_if_requested
+      update!(api_token: token, llm_api_token: llm_token, automation_rule: rule, redeemed_at: Time.current)
+      result = {
+        harmonic_token: T.must(token.plaintext_token),
+        signing_secret: T.must(rule.webhook_secret),
+        harmonic_llm_endpoint: llm_token && llm_gateway_endpoint,
+        harmonic_llm_token: llm_token&.plaintext_token,
+        harmonic_llm_status: llm_status,
+      }
     end
     T.must(result)
   end
@@ -218,12 +245,14 @@ class HarmonicBridgeSetup < ApplicationRecord
     transaction do
       rule = automation_rule
       token = api_token
-      update!(api_token: nil, automation_rule: nil, webhook_registered_at: nil)
+      llm_token = llm_api_token
+      update!(api_token: nil, llm_api_token: nil, automation_rule: nil, webhook_registered_at: nil)
       # Hard destroy is sanctioned here: the rule was minted moments ago by
       # this setup's redeem! and never registered, so it has no history.
       rule&.allow_hard_destroy = true
       rule&.destroy!
       token&.destroy!
+      llm_token&.destroy!
     end
   end
 
@@ -241,6 +270,42 @@ class HarmonicBridgeSetup < ApplicationRecord
     )
     token.save!
     token
+  end
+
+  # The opt-in third credential. Gated on structure, never balance: the
+  # tenant must offer the gateway and the agent must have some payer
+  # arrangement (funding pool, or a billing customer with a prepaid-credit
+  # subscription). A dry balance doesn't block minting — credits can be
+  # added after setup. Returns [token, nil] on mint, [nil, reason] on an
+  # opted-in omission, [nil, nil] when the setup didn't opt in.
+  sig { returns([T.nilable(ApiToken), T.nilable(String)]) }
+  def mint_llm_token_if_requested
+    return [nil, nil] unless include_llm_token?
+
+    return [nil, "The LLM gateway is not enabled for this Harmonic tenant."] unless T.must(tenant).feature_enabled?("llm_gateway")
+
+    unless LLMGateway::PayerResolver.structurally_fundable?(T.must(ai_agent_user))
+      return [nil, "The agent has no funding source. " \
+                   "Attach a funding pool or set up prepaid billing, then connect again.",]
+    end
+
+    token = T.must(ai_agent_user).api_tokens.new(
+      tenant: tenant,
+      name: "harmonic-bridge LLM gateway",
+      client_name: "harmonic-bridge",
+      # Scopes are presence-validated but not consulted on the gateway auth
+      # path, and the llm_gateway type carries no content access anyway.
+      scopes: ApiToken.read_scopes,
+      expires_at: 1.year.from_now,
+      token_type: "llm_gateway"
+    )
+    token.save!
+    [token, nil]
+  end
+
+  sig { returns(String) }
+  def llm_gateway_endpoint
+    "https://llm.#{ENV.fetch("HOSTNAME", "harmonic.local")}/v1"
   end
 
   # AutomationRule's before_validation :generate_webhook_secret populates

@@ -19,10 +19,11 @@ interface Fixture {
   outputFile: string;
   envDumpFile: string;
   token: string;
+  llmToken: string;
   webhookSecret: string;
 }
 
-function makeFixture(opts?: { events?: string[] }): Fixture {
+function makeFixture(opts?: { events?: string[]; llm?: boolean }): Fixture {
   const configDir = mkdtempSync(path.join(tmpdir(), "harmonic-bridge-daemon-"));
   const secretsDir = path.join(configDir, "secrets");
   const agentDir = path.join(configDir, "agents", "alice");
@@ -31,8 +32,10 @@ function makeFixture(opts?: { events?: string[] }): Fixture {
 
   const token = "tok-" + Math.random().toString(36).slice(2);
   const webhookSecret = "ws-" + Math.random().toString(36).slice(2);
+  const llmToken = "llmtok-" + Math.random().toString(36).slice(2);
   writeFileSync(path.join(secretsDir, "token"), token);
   writeFileSync(path.join(secretsDir, "webhook-secret"), webhookSecret);
+  writeFileSync(path.join(secretsDir, "llm-token"), llmToken);
 
   const outputFile = path.join(configDir, "wake-output.txt");
   const envDumpFile = path.join(configDir, "wake-env.txt");
@@ -46,13 +49,19 @@ log_dir: ${path.join(configDir, "logs")}
 
   const wakeCommand = [
     `cat > ${outputFile}`,
-    `printf 'agent=%s\\nevent=%s\\nendpoint=%s\\ntoken=%s\\n' ` +
+    `printf 'agent=%s\\nevent=%s\\nendpoint=%s\\ntoken=%s\\nllm_endpoint=%s\\nllm_model=%s\\nllm_token=%s\\n' ` +
       `"$HARMONIC_BRIDGE_AGENT_NAME" "$HARMONIC_BRIDGE_EVENT_TYPE" ` +
-      `"$HARMONIC_BRIDGE_MCP_ENDPOINT" "$HARMONIC_BRIDGE_TOKEN" > ${envDumpFile}`,
+      `"$HARMONIC_BRIDGE_MCP_ENDPOINT" "$HARMONIC_BRIDGE_TOKEN" ` +
+      `"$HARMONIC_BRIDGE_LLM_ENDPOINT" "$HARMONIC_BRIDGE_LLM_MODEL" "$HARMONIC_BRIDGE_LLM_TOKEN" > ${envDumpFile}`,
   ].join(" && ");
 
   const eventsBlock = opts?.events
     ? "events:\n" + opts.events.map((e) => `  - ${e}`).join("\n") + "\n"
+    : "";
+  const llmBlock = opts?.llm
+    ? `harmonic_llm_endpoint: https://llm.harmonic.example/v1\n` +
+      `harmonic_llm_token: file://${path.join(secretsDir, "llm-token")}\n` +
+      `harmonic_llm_model: anthropic/claude-sonnet-4.6\n`
     : "";
 
   writeFileSync(path.join(agentDir, "harmonic-bridge.yml"), `
@@ -60,11 +69,11 @@ harmonic_mcp_endpoint: https://app.harmonic.example/mcp
 harmonic_token: file://${path.join(secretsDir, "token")}
 webhook_secret: file://${path.join(secretsDir, "webhook-secret")}
 working_dir: ${configDir}
-wake_command: |
+${llmBlock}wake_command: |
   ${wakeCommand}
 ${eventsBlock}`);
 
-  return { configDir, outputFile, envDumpFile, token, webhookSecret };
+  return { configDir, outputFile, envDumpFile, token, llmToken, webhookSecret };
 }
 
 const cleanups: Array<() => Promise<void> | void> = [];
@@ -137,6 +146,47 @@ test("daemon: wake command sees HARMONIC_BRIDGE_* env vars and resolved token", 
   assert.match(env, /event=comment\.created/);
   assert.match(env, /endpoint=https:\/\/app\.harmonic\.example\/mcp/);
   assert.match(env, new RegExp(`token=${f.token}`));
+});
+
+test("daemon: wake env carries the LLM gateway trio when configured", async () => {
+  const f = makeFixture({ llm: true });
+  const d = await startWithFixture(f);
+  const body = "{}";
+  await fetch(`http://${HOST}:${d.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign(body, TS, f.webhookSecret),
+      "X-Harmonic-Timestamp": String(TS),
+      "X-Harmonic-Event": "notifications.delivered",
+    },
+    body,
+  });
+  await waitForFile(f.envDumpFile);
+  const env = readFileSync(f.envDumpFile, "utf8");
+  assert.match(env, /llm_endpoint=https:\/\/llm\.harmonic\.example\/v1/);
+  assert.match(env, /llm_model=anthropic\/claude-sonnet-4\.6/);
+  assert.match(env, new RegExp(`llm_token=${f.llmToken}`), "secret ref must resolve to the plaintext token");
+});
+
+test("daemon: wake env has no LLM vars when the agent config has none", async () => {
+  const f = makeFixture();
+  const d = await startWithFixture(f);
+  const body = "{}";
+  await fetch(`http://${HOST}:${d.port}/webhook/alice`, {
+    method: "POST",
+    headers: {
+      "X-Harmonic-Signature": sign(body, TS, f.webhookSecret),
+      "X-Harmonic-Timestamp": String(TS),
+      "X-Harmonic-Event": "notifications.delivered",
+    },
+    body,
+  });
+  await waitForFile(f.envDumpFile);
+  const env = readFileSync(f.envDumpFile, "utf8");
+  // The dump prints unset vars as empty strings.
+  assert.match(env, /llm_endpoint=\n/);
+  assert.match(env, /llm_model=\n/);
+  assert.match(env, /llm_token=\n/);
 });
 
 test("daemon: wake command inherits HOME and other env vars from the daemon", async () => {
