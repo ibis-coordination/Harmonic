@@ -50,8 +50,12 @@ test("codex-harness: replaces the stub wake_command and writes system-prompt.md"
   assert.match(wake, /--skip-git-repo-check/);
   // Real work in the agent's own directory without danger-full-access.
   assert.match(wake, /--sandbox workspace-write/);
-  // Unattended: nothing may stall waiting for an approval.
-  assert.match(wake, /--ask-for-approval never/);
+  // Unattended: nothing may stall waiting for an approval. The config-key
+  // form, not the flag: `codex exec` on the desktop-bundled alpha rejects
+  // --ask-for-approval outright (verified live), while -c approval_policy
+  // is accepted there and documented on stable.
+  assert.match(wake, /-c 'approval_policy="never"'/);
+  assert.doesNotMatch(wake, /--ask-for-approval/);
 
   // The MCP server arrives as three -c overrides parameterized on the agent
   // name; auth stays in the shared ~/.codex, so one login serves every agent.

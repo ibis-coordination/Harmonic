@@ -24,16 +24,18 @@ const DEFAULT_TIMEOUT_SECONDS = 900;
 
 // --skip-git-repo-check: working_dir is usually not a git repo, and the check
 //   would refuse to run.
-// --sandbox workspace-write + --ask-for-approval never: real work in the
-//   agent's own directory, unattended — nothing may stall waiting for an
-//   approval, because a stalled wake holds a hibernating host awake.
+// --sandbox workspace-write + approval_policy never: real work in the agent's
+//   own directory, unattended — nothing may stall waiting for an approval,
+//   because a stalled wake holds a hibernating host awake. The config-key
+//   form rather than --ask-for-approval: newer codex builds removed that flag
+//   from `exec` while the config key stays accepted everywhere.
 // required=true: a Harmonic server that fails to start aborts the run instead
 //   of silently proceeding without tools. The token is named, never inlined.
 const WAKE_COMMAND =
   "codex exec \\\n" +
   "  --skip-git-repo-check \\\n" +
   "  --sandbox workspace-write \\\n" +
-  "  --ask-for-approval never \\\n" +
+  "  -c 'approval_policy=\"never\"' \\\n" +
   '  -c "mcp_servers.harmonic-$HARMONIC_BRIDGE_AGENT_NAME.url=\\"$HARMONIC_BRIDGE_MCP_ENDPOINT\\"" \\\n' +
   '  -c "mcp_servers.harmonic-$HARMONIC_BRIDGE_AGENT_NAME.bearer_token_env_var=\\"HARMONIC_BRIDGE_TOKEN\\"" \\\n' +
   '  -c "mcp_servers.harmonic-$HARMONIC_BRIDGE_AGENT_NAME.required=true" \\\n' +
