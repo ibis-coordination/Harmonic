@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.62.0] - 2026-07-28
+
+### Added
+
+- **Codex as a supported harmonic-bridge harness** (#537) — harmonic-bridge 0.4.0 adds `codex` as the third harness: a `codex-harness` built-in, `setup-sprite --harness codex` with a device-code login handoff, and the codex option on the bridge-setup page's selector. No config-file companion — the MCP server rides in the wake command as `-c` overrides with the token named via `bearer_token_env_var`, never inlined, and one `~/.codex` login serves every agent on a host. Two live findings shaped it: current codex builds reject `--ask-for-approval` on `exec` (shipped as `-c 'approval_policy="never"'`), and codex cannot sandbox inside a sprite (bwrap and legacy Landlock both fail), so the sandbox is env-overridable — `workspace-write` by default, `danger-full-access` set on sprite services where the single-agent micro-VM is the boundary. Publish 0.4.0 by tagging `bridge-v0.4.0`. Deploy: web only, no migrations.
+
+### Fixed
+
+- **`setup-sprite` repair runs apply required service env** (#537) — re-running on a sprite whose service predated a harness's env requirement only restarted it, leaving codex wakes failing on the sandbox error; the service is now recreated with the merged env, preserving operator-set vars. The goose readiness failure and docs also now print the exact `sprite-env services` commands instead of pointing at external documentation.
+
 ## [1.61.0] - 2026-07-27
 
 ### Added
