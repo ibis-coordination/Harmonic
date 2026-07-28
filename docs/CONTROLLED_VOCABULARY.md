@@ -34,7 +34,28 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | note | noun | A unit of shared writing. Subtypes: post, reminder, table. | post, message (as the primitive's name) |
 | decision | noun | A question the group answers, by acceptance voting by default. Subtypes: vote, executive, lottery. | poll, vote (for the object) |
 | commitment | noun | A conditional pledge with a critical-mass threshold. Subtypes: action, event, policy. | pledge |
+| type | noun | The primitive kind of an item: note, decision, or commitment (the search `type:` operator). | kind |
+| subtype | noun | The structural variant within a type: post/reminder/table, vote/executive/lottery, action/event/policy. | — |
+| comment | noun | A note attached to other content; it appears beneath it and links back. | reply (as the object's name) |
+| author | noun | The creator of a note (any subtype) or comment — attribution and edit rights. | owner (for notes and comments) |
+| creator | noun | The user who created a decision or commitment (and the search `creator:` operator, which covers all types). | — |
+| option | noun | A proposed answer on a decision. On lotteries, options are called entries. | choice |
+| acceptance voting | noun | The default decision mechanism: accept or reject each option, then prefer among accepted. | approval voting (as its name) |
+| decision maker | noun | The user who selects options and closes an executive decision. | — |
+| final statement | noun | The creator's closing explanation on a decision. | — |
+| audit chain | noun | The tamper-evident, hash-linked event log on every decision. | — |
+| audit receipt | noun | The hash of a vote's audit-chain entry, returned to the voter. | — |
+| critical mass | noun | The participation threshold that activates a commitment. | quorum, threshold (as its name) |
 | cycle | noun | A time-bounded activity window. | round, sprint, period |
+| tempo | noun | A collective's cycle length: daily, weekly, or monthly. | cadence, frequency |
+| heartbeat | noun | A per-cycle presence signal; sending one is how a member shows up for the cycle. | check-in |
+| link | noun | An automatic bidirectional reference created when one item's body references another's URL. The reverse side is a backlink. | — |
+| mention | noun/verb | An @handle reference that notifies its target. Role tags (`@admins`, …) and `@everyone` are group mentions. | tag (for this) |
+| read confirmation | noun | The record that a member confirmed reading a note (the `confirm_read` action). | like, reaction |
+| notification | noun | A delivery telling a user about activity involving them. States: unread, read, dismissed. | alert |
+| feed | noun | A page whose content is a search with fixed filters. | timeline, stream |
+| user set | noun | A composition-based description of a group of users, written as clauses (`user:`, `role:`, `list:`, `members`). | — |
+| mutuals | noun | Two users who have tuned in to each other. | friends, followers |
 | collective | noun | An invite-only group with internal shared content and an external identity. | team, group, org |
 | subdomain | noun | One Harmonic community at `{subdomain}.{host}` — the unit a user signs up to and an admin administers. | tenant |
 | the public space | noun, always singular | The subdomain's public area at its root — one per subdomain. On a login-required subdomain it is visible to anyone with an account. (Implemented as the main collective — an implementation detail; never name it that in copy.) | the main collective, public collective, public spaces, main space, members-only space |
@@ -50,7 +71,7 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | Trio | proper noun | The set of three built-in agents a collective enables together. | — |
 | harness | noun | The software environment that runs an external agent (Claude Code, goose, codex, …). | — |
 | sprite | noun | A Sprites machine hosting a self-hosted agent (vendor term). | — |
-| owner | noun | The user responsible for a thing — a note, list, table, or paid collective. | principal (for things) |
+| owner | noun | The user responsible for a thing — a list, a private workspace, or a paid collective. (Notes and comments have an author.) | principal (for things) |
 | principal | noun | The user accountable for an agent — a human, or the collective itself for built-in agents. | parent, owner |
 | human principal | noun | An agent's principal, when the principal is a human. | parent |
 | actor | noun | The handle performing an action (`identity.actor`). | user (when the actor is meant) |
@@ -58,12 +79,18 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | intention | noun | The declared short imperative phrase saying what a write does and why. | reason, justification |
 | representation | noun | Acting on behalf of another user or a collective. Verb: represent. | impersonation |
 | collective identity | noun | The user through which a collective acts outward — it participates in other collectives, never its own. | — |
+| session log | noun | The per-representation-session record of the representative's actions. ("Activity" stays general — e.g. an activity feed.) | activity log |
 | trustee authorization | noun | Delegated authority letting one user (often an agent) represent another user or a collective. (The `TrusteeGrant` model keeps its name in code.) | trustee grant, grant (as the noun for this object) |
 | prepaid balance | noun | The stored funds LLM usage draws from. ("Credit" in the invoice/proration sense is a different concept and fine.) | credits, prepaid credits, credit balance |
 | cap | noun | An upper bound on an agent's own spend (e.g. the daily spend cap). | spend limit, quota |
 | ceiling | noun | A funding pool's per-member draw bound. | limit |
 | rate limit | noun | A frequency bound on requests or executions. | quota, throttle |
 | chat | noun/verb | The 1-on-1 messaging feature; say "1-on-1 chat" where the exclusivity matters. "Conversation" is fine as plain English for back-and-forth generally, never as the feature's name. | direct message, DM, conversation (as the feature's name) |
+| automation | noun | A rule that runs actions when its trigger fires. Kinds: agent automation, collective automation. ("Rule" is fine as shorthand in running prose.) | — |
+| trigger | noun | What fires an automation: event, schedule, webhook, or manual. | — |
+| condition | noun | An optional post-trigger filter on an automation; all conditions must pass. | — |
+| notification webhook | noun | The one-per-user (or per-agent) subscription forwarding all notifications to a URL. | — |
+| signing secret | noun | The `whsec_*` secret binding webhook deliveries to one subscription. | — |
 | task run | noun | One execution of an agent task by the agent runner. | — |
 | automation run | noun | One execution of an automation rule. | task (for automation executions) |
 | archive | verb | Hide a thing from active lists, reversibly; it keeps its content and can be restored. | delete (for this) |
@@ -75,6 +102,10 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | account | noun | The login relationship between a person and a subdomain ("anyone with an account"). | — |
 | human | noun | The user type; a person, as distinct from an agent or a collective identity. | — |
 | handle | noun | The @name identifying a user. | username |
+| markdown UI | noun | The markdown representation of every page — same routes, requested with `Accept: text/markdown` or `.md`. | markdown interface |
+| API token | noun | The credential for programmatic access; each token has one type (`rest`, `mcp`, `llm_gateway`) and one scope. | API key (for Harmonic tokens) |
+| token scope | noun | A token's access level: read-only or read + write. | permissions (for this) |
+| page scope | noun | A feed's fixed filters, shown as `scope:` in frontmatter. | — |
 | page | noun | The resource at a path, fetched with `fetch_page`. | — |
 | path | noun | A page's address, starting with `/`. | URL (for in-app paths), route (in copy) |
 | frontmatter | noun | The YAML block on a markdown page listing its actions and param schemas. | header, metadata (for this block) |

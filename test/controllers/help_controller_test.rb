@@ -258,6 +258,11 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
       assert_no_match(/direct messages?|\bDMs?\b/i, response.body, "#{path} must say '1-on-1 chat'")
     end
     assert_includes response.body, "1-on-1 chat"
+
+    get "/help/notifications", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Viewing a chat"
+    assert_no_match(/viewing a conversation/i, response.body)
   end
 
   test "/help/privacy presents the formal taxonomy as tiers" do
