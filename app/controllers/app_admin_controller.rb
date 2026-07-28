@@ -291,9 +291,9 @@ class AppAdminController < ApplicationController
     collective = Collective.unscoped_for_admin(@current_user).find_by(id: params[:id])
     return render(plain: "404 Not Found", status: :not_found) unless collective
 
-    # Main collectives are never billed — nothing to exempt.
+    # The public space is never billed — nothing to exempt.
     if collective.is_main_collective?
-      flash[:notice] = "Main collectives are never billed."
+      flash[:notice] = "The public space is never billed."
       return redirect_back(fallback_location: "/app-admin")
     end
 

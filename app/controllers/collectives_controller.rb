@@ -367,7 +367,7 @@ class CollectivesController < ApplicationController
   def archive
     return render status: 403, plain: "Only the collective owner can archive." unless @current_user.id == @current_collective.created_by_id
     if @current_collective.is_main_collective?
-      flash[:error] = "The main collective cannot be archived."
+      flash[:error] = "The public space cannot be archived."
       return redirect_to "#{@current_collective.path}/settings"
     end
 

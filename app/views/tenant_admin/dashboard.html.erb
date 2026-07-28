@@ -66,9 +66,9 @@
   <% end %>
 <% end %>
 
-<%= render 'shared/pulse_accordion', title: 'Main Collective', icon: 'home', open: false do %>
+<%= render 'shared/pulse_accordion', title: 'The Public Space', icon: 'home', open: false do %>
   <p class="pulse-form-hint" style="margin-bottom:16px;">
-    The main collective is the default collective at the base path (i.e. <code class="pulse-code"><%= @current_tenant.domain %>/</code>).
+    The public space lives at the base path (i.e. <code class="pulse-code"><%= @current_tenant.domain %>/</code>) — implemented as the subdomain's main collective. <%# vocab-ok %>
   </p>
 
   <div class="pulse-table-wrapper">

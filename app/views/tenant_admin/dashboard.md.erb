@@ -1,6 +1,6 @@
 # Subdomain Admin
 
-Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>`)
+Subdomain: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>`)
 
 ## Admin Users
 
@@ -27,9 +27,9 @@ Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= E
 <%= JSON.pretty_generate(@current_tenant.settings) %>
 ```
 
-## Main Collective
+## The Public Space
 
-The main collective is the default collective at the base path (i.e. `<%= @current_tenant.domain %>/`).
+The public space lives at the base path (i.e. `<%= @current_tenant.domain %>/`) — implemented as the subdomain's main collective.<%# vocab-ok %>
 
 | Property | Value |
 |----------|-------|

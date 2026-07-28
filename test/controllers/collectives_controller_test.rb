@@ -1325,7 +1325,7 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect
     assert_match(%r{/settings\z}, URI(response.location).path)
-    assert_match(/main collective cannot be archived/i, flash[:error].to_s)
+    assert_match(/public space cannot be archived/i, flash[:error].to_s)
     assert_not @collective.reload.archived?
   end
 
