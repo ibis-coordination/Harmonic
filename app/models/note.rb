@@ -19,6 +19,12 @@ class Note < ApplicationRecord
   MAX_TITLE_LENGTH = 1000
   MAX_TEXT_LENGTH = 1_000_000
 
+  # Only bounds the legacy fallback in #resolve_root_commentable; threads
+  # themselves are not depth-limited. See #root_commentable.
+  MAX_COMMENT_DEPTH = 100
+
+  class UnresolvableThreadRoot < StandardError; end
+
   self.implicit_order_column = "created_at"
   belongs_to :tenant
   before_validation :set_tenant_id
@@ -29,6 +35,11 @@ class Note < ApplicationRecord
 
   # Commentable pattern - allows notes to be comments on other resources
   belongs_to :commentable, polymorphic: true, optional: true
+
+  # The resource the whole thread hangs off, denormalized so no read has to
+  # walk the comment chain. See #root_commentable.
+  belongs_to :root_commentable, polymorphic: true, optional: true
+  before_validation :set_root_commentable
 
   # Statementable pattern - allows notes to be statements on statementable resources
   belongs_to :statementable, polymorphic: true, optional: true
@@ -355,29 +366,24 @@ class Note < ApplicationRecord
 
   # The non-comment ancestor this conversation is *about* — the Decision /
   # standalone Note / Commitment / etc. that the thread is rooted on. Returns
-  # self for non-comments. Walks up the polymorphic `commentable` chain while
-  # the parent is itself a Note (i.e. another comment).
+  # self for non-comments; for comments it reads the denormalized
+  # `root_commentable` association written at create time.
   #
-  # Result is memoized per instance. Bulk callers that already know the root
-  # (e.g. Commentable#comments_with_threads) should set it via
-  # `root_commentable=` after preloading to avoid the polymorphic walk
-  # entirely — that's the hot path for rendering a thread.
-  sig { params(root_commentable: T.untyped).void }
-  attr_writer :root_commentable
-
+  # This used to walk the polymorphic `commentable` chain on every read,
+  # capped at 20 hops. Past that cap the walk returned the ancestor it
+  # stopped on *as if it were the root*, which silently broke replies and
+  # links on deep threads (#539). Storing the root removes the ceiling: a new
+  # comment copies its parent's root, so the chain is never walked.
+  #
+  # Bulk callers that already know the root (e.g.
+  # Commentable#comments_with_threads) may still assign it to prime the
+  # association and skip the lookup — that's the hot path for rendering a
+  # thread.
   sig { returns(T.untyped) }
   def root_commentable
-    return @root_commentable if defined?(@root_commentable)
-    return @root_commentable = self unless is_comment? && has_commentable?
+    return self unless is_comment? && has_commentable?
 
-    cur = T.let(T.unsafe(self).commentable, T.untyped)
-    depth = 0
-    while cur.is_a?(Note) && T.unsafe(cur).is_comment? && T.unsafe(cur).has_commentable?
-      cur = T.unsafe(cur).commentable
-      depth += 1
-      break if depth > 20 # cycle / depth guard
-    end
-    @root_commentable = cur
+    super || resolve_root_commentable
   end
 
   # The in-thread parent comment, resolved from the loaded thread set by
@@ -457,48 +463,25 @@ class Note < ApplicationRecord
   end
 
   # Every comment on `commentable` — top-level and replies of any depth —
-  # fetched chronologically in a single recursive CTE (instead of one query per
-  # top-level comment). Returns the WHOLE tree, soft-deleted comments included,
-  # so a surviving reply can still resolve its deleted parent for
-  # "Replying to @handle [deleted]" context. Callers hide the deleted rows
-  # themselves (see Commentable#all_comments_chronological).
-  # IMPORTANT: find_by_sql bypasses default_scope, so filter tenant/collective.
+  # fetched chronologically in a single indexed scan on the denormalized
+  # `root_commentable` column (see migration 20260727170000). Returns the
+  # WHOLE tree, soft-deleted comments included, so a surviving reply can
+  # still resolve its deleted parent for "Replying to @handle [deleted]"
+  # context. Callers hide the deleted rows themselves (see
+  # Commentable#all_comments_chronological).
   sig { params(commentable: T.untyped).returns(T::Array[Note]) }
   def self.comment_tree_for(commentable)
     return [] unless commentable.persisted?
 
-    sql = <<~SQL.squish
-      WITH RECURSIVE comment_tree AS (
-        SELECT notes.*
-        FROM notes
-        WHERE notes.commentable_id = :root_id
-          AND notes.commentable_type = :root_type
-          AND notes.tenant_id = :tenant_id
-          AND notes.collective_id = :collective_id
-
-        UNION ALL
-
-        SELECT n.*
-        FROM notes n
-        INNER JOIN comment_tree t ON n.commentable_id = t.id
-          AND n.commentable_type = 'Note'
-        WHERE n.tenant_id = :tenant_id
-          AND n.collective_id = :collective_id
-      )
-      SELECT * FROM comment_tree
-      ORDER BY created_at ASC
-    SQL
-
-    sanitized_sql = Note.sanitize_sql_array([
-      sql,
-      {
-        root_id: commentable.id,
-        root_type: commentable.class.name,
-        tenant_id: commentable.tenant_id,
-        collective_id: commentable.collective_id,
-      },
-    ])
-    Note.find_by_sql(sanitized_sql)
+    Note.with_deleted
+        .where(
+          root_commentable_type: commentable.class.name,
+          root_commentable_id: commentable.id,
+          tenant_id: commentable.tenant_id,
+          collective_id: commentable.collective_id,
+        )
+        .order(created_at: :asc)
+        .to_a
   end
 
   # Broadcast a lightweight "comments changed" signal to the root resource's
@@ -523,7 +506,7 @@ class Note < ApplicationRecord
   def self.preload_for_display(notes)
     ActiveRecord::Associations::Preloader.new(
       records: notes,
-      associations: [:created_by, :commentable, :note_history_events,
+      associations: [:created_by, :commentable, :root_commentable, :note_history_events,
                      { media_items: { file_attachment: :blob } },]
     ).call
     notes
@@ -545,6 +528,34 @@ class Note < ApplicationRecord
   sig { returns(String) }
   def tracked_event_prefix
     is_comment? ? "comment" : "note"
+  end
+
+  # Copy the thread root down from the parent. Because every parent already
+  # carries its own root, this is one hop regardless of how deep the thread
+  # runs — which is the whole point of storing it.
+  def set_root_commentable
+    return unless is_comment? && has_commentable?
+    return if root_commentable_id.present?
+
+    self.root_commentable = resolve_root_commentable
+  end
+
+  # Fallback for rows that predate the denormalization and for parents still
+  # missing a root. Bounded, and unlike the read-time walk it replaced this
+  # raises instead of quietly handing back a mid-chain ancestor.
+  sig { returns(T.untyped) }
+  def resolve_root_commentable
+    cur = T.let(T.unsafe(self).commentable, T.untyped)
+    MAX_COMMENT_DEPTH.times do
+      return cur unless cur.is_a?(Note) && T.unsafe(cur).is_comment? && T.unsafe(cur).has_commentable?
+
+      stored = T.unsafe(cur).association(:root_commentable).reader
+      return stored if stored
+
+      cur = T.unsafe(cur).commentable
+    end
+    raise UnresolvableThreadRoot,
+          "comment #{id.inspect} has no stored root and its chain exceeds #{MAX_COMMENT_DEPTH} hops (cycle?)"
   end
 
   def should_validate_table_data?

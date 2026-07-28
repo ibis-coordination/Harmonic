@@ -85,8 +85,8 @@ module Commentable
       Note.preload_for_display(tree)
       by_id = tree.index_by(&:id)
       tree.each do |c|
-        # Inject the root so render-time `comment.path` / `comment.root_commentable`
-        # don't walk the polymorphic chain.
+        # Prime the root association so render-time `comment.path` /
+        # `comment.root_commentable` don't each issue a lookup.
         c.root_commentable = self
         # Resolve the parent from the loaded set (incl. deleted parents, which
         # the not_deleted-scoped `commentable` association can't return).
