@@ -10,8 +10,13 @@
 #      "members-only space", and "the main collective" are banned in copy.
 #   3. User-facing copy says "subdomain", not "tenant".
 #   4. An agent's accountable user is their "principal", never their "owner";
-#      a chat is not "a private chat".
-#   5. "primary list" and "user list" are internal terms, never copy.
+#      a chat is not "a private chat", a "direct message", or a "DM".
+#   5. "primary list", "user list", and "persona" are internal terms, never copy.
+#   6. Stored funds are the "prepaid balance", never "credits".
+#   7. Spend controls are "caps" (per-agent) and "ceilings" (pool draws) —
+#      never "spend limits" or "quotas". Frequency bounds are "rate limits".
+#   8. Users have a "handle", never a "username" (external providers' own
+#      usernames are the exception — mark those vocab-ok).
 #
 # Scope:
 #   - View templates (app/views/**/*.erb): prose outside ERB tags. ERB code
@@ -41,7 +46,7 @@ NC='\033[0m'
 found=0
 
 # Banned patterns in rendered prose (case-insensitive).
-PROSE_PATTERN='visibility (zone|level)|levels of visibility|\bpublic spaces\b|\bmain space\b|\bmembers-only space\b|\bmain collective\b|\btenants?\b|\bprivate chats?\b|agent'"'"'?s owner|owner of this (ai_)?agent|\bprimary list\b|\buser list\b'
+PROSE_PATTERN='visibility (zone|level)|levels of visibility|\bpublic spaces\b|\bmain space\b|\bmembers-only space\b|\bmain collective\b|\btenants?\b|\bprivate chats?\b|agent'"'"'?s owner|owner of this (ai_)?agent|\bprimary list\b|\buser list\b|\bpersonas?\b|\busernames?\b|spend(ing)? limits?|\bquotas?\b|direct messages?|\bDMs?\b|prepaid credits?|credit balance|\bcredits\b'
 
 # Strip ERB regions (<% ... %>, including <%= and <%#) while preserving line
 # numbers, so grep line numbers refer to the original file.
@@ -75,7 +80,7 @@ check_ruby_file() {
         found=1
     done < <(grep -nE '"[^"]*"' "$file" \
         | grep -viE '^[0-9]+:\s*#' \
-        | grep -vE '\braise\b|vocab-ok|logger\.' \
+        | grep -vE '\braise\b|vocab-ok|logger\.|"[a-z_]+" *=>' \
         | sed 's/#{[^}]*}//g' \
         | grep -iE '"[^"]*('"$PROSE_PATTERN"')[^"]*"' || true)
 }
