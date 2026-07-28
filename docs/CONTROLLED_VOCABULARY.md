@@ -98,3 +98,8 @@ them here first.
 
 Settle the term in review, then land the glossary row, the copy changes, and tests that
 lock the term in as one change — a stale glossary is worse than none.
+
+`scripts/check-vocabulary.sh` enforces the mechanically checkable subset (banned words
+in view prose and copy strings) and runs in pre-commit and CI. Mark a deliberate
+exception with a `vocab-ok` comment on the line. Rules that need judgment — a tier word
+used against its tier, informal "space" matching its place — stay human-reviewed.

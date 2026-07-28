@@ -10,8 +10,9 @@
 # 5. Checks for audit-immutability trigger toggles outside db/migrate/
 # 6. Checks for job base class inheritance
 # 7. Checks for style guide violations in Pulse CSS
-# 8. Runs Sorbet type checking
-# 9. Runs TypeScript type checking
+# 8. Checks user-facing copy against the controlled vocabulary
+# 9. Runs Sorbet type checking
+# 10. Runs TypeScript type checking
 #
 # To install: ./scripts/setup-hooks.sh
 # To bypass: git commit --no-verify
@@ -50,6 +51,11 @@ fi
 # Check for style guide violations in Pulse CSS (blocks commit if found)
 if [[ -x "./scripts/check-style-guide.sh" ]]; then
     ./scripts/check-style-guide.sh --staged || exit 1
+fi
+
+# Check user-facing copy against the controlled vocabulary (blocks commit if found)
+if [[ -x "./scripts/check-vocabulary.sh" ]]; then
+    ./scripts/check-vocabulary.sh --staged || exit 1
 fi
 
 # Run Sorbet type check (blocks commit if types fail)

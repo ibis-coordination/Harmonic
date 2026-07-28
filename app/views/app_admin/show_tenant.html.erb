@@ -111,7 +111,7 @@
 
 <div class="pulse-form-actions" style="margin-top: 24px;">
   <a href="/app-admin/subdomains" class="pulse-action-btn-secondary">
-    <%= octicon 'arrow-left', height: 14 %> Back to Tenants
+    <%= octicon 'arrow-left', height: 14 %> Back to Subdomains
   </a>
   <% if @current_user_is_admin_of_showing_tenant %>
     <a href="https://<%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>/admin" class="pulse-action-btn" target="_blank">

@@ -177,7 +177,7 @@ class TenantAdminController < ApplicationController
     end
 
     if DataImport.tenant_scoped_only(@current_tenant.id).active.exists?
-      flash[:alert] = "An import is already in progress for this tenant."
+      flash[:alert] = "An import is already in progress for this subdomain."
       return redirect_to "/subdomain-admin/imports"
     end
 

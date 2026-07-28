@@ -143,7 +143,7 @@ class AutomationExecutor
 
     recipient_tu = recipient.tenant_users.find_by(tenant_id: @rule.tenant_id)
     if recipient_tu.nil? || recipient_tu.archived?
-      @run.mark_failed!("Recipient no longer active in this tenant.")
+      @run.mark_failed!("Recipient no longer active on this subdomain.")
       return
     end
 

@@ -441,7 +441,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :redirect
-    assert_equal "An import is already in progress for this tenant.", flash[:alert]
+    assert_equal "An import is already in progress for this subdomain.", flash[:alert]
   end
 
   test "tenant admin can view import status" do

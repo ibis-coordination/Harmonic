@@ -352,7 +352,7 @@ module Mcp
                           limit: self.class.sustained_limit_per_token, period: 1.minute)
       enforce_rate_limit!(scope: "mcp/principal", key: @current_token.user.principal_id,
                           limit: self.class.sustained_limit_per_principal, period: 1.minute)
-      enforce_rate_limit!(scope: "mcp/tenant", key: current_tenant.id,
+      enforce_rate_limit!(scope: "mcp/tenant", key: current_tenant.id, # vocab-ok
                           limit: tenant_aggregate_limit, period: 1.minute)
     rescue RateLimits::Exceeded => e
       SecurityAuditLog.log_mcp_rate_limited(
@@ -753,7 +753,7 @@ module Mcp
     end
 
     def invalid_path_message
-      "Invalid path: must start with '/' and reference a path within this tenant"
+      "Invalid path: must start with '/' and reference a path within this subdomain"
     end
 
     # Strip a query string and any pasted /actions/<name> suffix, leaving the

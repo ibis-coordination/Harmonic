@@ -36,6 +36,9 @@ jobs:
       - name: Check style guide (Pulse CSS)
         run: ./scripts/check-style-guide.sh --diff main
 
+      - name: Check controlled vocabulary (user-facing copy)
+        run: ./scripts/check-vocabulary.sh
+
       - name: Check all test directories are covered by CI matrix
         run: |
           # Directories that contain runnable tests (have *_test.rb files)
