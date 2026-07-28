@@ -319,7 +319,7 @@ module Internal
           if credit_balance.nil?
             Rails.logger.warn("[Internal::AgentRunner] Credit balance unavailable for customer #{billing_customer.stripe_id}; allowing preflight")
           elsif credit_balance <= 0
-            render json: { status: "fail", reason: "Insufficient credit balance" }
+            render json: { status: "fail", reason: "Insufficient prepaid balance" }
             return
           end
         end

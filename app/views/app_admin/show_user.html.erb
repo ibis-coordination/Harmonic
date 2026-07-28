@@ -74,13 +74,13 @@
   </div>
 <% end %>
 
-<%= render 'shared/pulse_accordion', title: 'Tenants', icon: 'organization', count: @user_tenants.count, open: true do %>
+<%= render 'shared/pulse_accordion', title: 'Subdomains', icon: 'organization', count: @user_tenants.count, open: true do %>
   <% if @user_tenants.any? %>
     <div class="pulse-home-list">
       <% @user_tenants.each do |tenant| %>
         <% tu = @showing_user.tenant_users.find { |t| t.tenant_id == tenant.id } %>
         <div class="pulse-home-list-item">
-          <a href="/app-admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
+          <a href="/app-admin/subdomains/<%= tenant.subdomain %>" class="pulse-home-list-link">
             <div class="pulse-default-icon pulse-home-list-icon">
               <%= octicon 'organization', height: 14 %>
             </div>
@@ -94,7 +94,7 @@
       <% end %>
     </div>
   <% else %>
-    <p class="pulse-empty-message">User is not a member of any tenants.</p>
+    <p class="pulse-empty-message">User is not a member of any subdomains.</p>
   <% end %>
 <% end %>
 
@@ -132,7 +132,7 @@
               </div>
               <p class="pulse-form-hint" style="margin-bottom: 16px;">
                 <%= octicon 'alert', height: 12 %>
-                Suspending this user will lock them out of all tenants, delete all of their API tokens, and recursively suspend any ai_agents that they are the parent of.
+                Suspending this user will lock them out of all subdomains, delete all of their API tokens, and recursively suspend any ai_agents that they are the parent of.
               </p>
               <div class="pulse-form-actions">
                 <button type="submit" class="pulse-action-btn-danger">Confirm Suspension</button>

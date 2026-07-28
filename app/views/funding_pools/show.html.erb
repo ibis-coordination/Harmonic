@@ -32,7 +32,7 @@
 
     <p class="pulse-muted" style="font-size: 13px;">
       <%= octicon 'info', height: 12 %>
-      These balances are prepaid usage credits — separate from the collective's $3/month plan. The plan turns paid features on; credits pay for what the agents actually run.
+      These are prepaid balances — separate from the collective's $3/month plan. The plan turns paid features on; the balances pay for what the agents actually run.
     </p>
 
     <% if @funding_pool.nil? %>
@@ -315,11 +315,11 @@
           random, and this pool stops drawing from you once its draws reach your
           ceiling. The pool's ceiling is the default; you can set your own, and
           you can change it or withdraw at any time.
-          Enrollment requires prepaid credits.
+          Enrollment requires a prepaid balance.
         </p>
         <% unless @current_user.funded_billing? %>
           <p class="pulse-body-text">
-            You don't have prepaid credits yet —
+            You don't have a prepaid balance yet —
             <a href="/billing?return_to=<%= CGI.escape("#{@current_collective.path}/pool") %>" class="pulse-link">top up on the billing page</a>
             and you'll land back here to enroll.
           </p>

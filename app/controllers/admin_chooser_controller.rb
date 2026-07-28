@@ -22,7 +22,7 @@ class AdminChooserController < ApplicationController
 
     # Check for tenant admin (any tenant)
     if @current_tenant&.is_admin?(@current_user)
-      available_admins << { path: '/tenant-admin', label: 'Tenant Admin', icon: 'gear', description: "Manage settings and users for #{@current_tenant.name}" }
+      available_admins << { path: '/subdomain-admin', label: 'Subdomain Admin', icon: 'gear', description: "Manage settings and users for #{@current_tenant.name}" }
     end
 
     case available_admins.length

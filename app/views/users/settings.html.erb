@@ -174,7 +174,7 @@
             <div class="pulse-connected-account-item">
               <div class="pulse-connected-account-info">
                 <span class="pulse-connected-account-provider"><%= identity.provider.titleize %></span>
-                <a href="<%= identity.url %>" class="pulse-connected-account-username">@<%= identity.username %></a>
+                <a href="<%= identity.url %>" class="pulse-connected-account-username">@<%= identity.username %></a><%# vocab-ok: external provider username %>
               </div>
               <span class="pulse-connected-account-date">Connected <%= time_ago_in_words(identity.created_at) %> ago</span>
             </div>
@@ -435,7 +435,7 @@
     <% if @settings_user.human? && is_own_settings && @current_tenant.feature_enabled?("user_data_export") %>
       <%= render 'shared/pulse_accordion', title: 'Download My Data' do %>
         <p class="pulse-form-hint" style="margin-bottom:16px;">
-          Download a ZIP of the data you've shared publicly and the actions you've taken in public spaces.
+          Download a ZIP of the data you've shared publicly and the actions you've taken in the public space.
           See the export page for what's included.
         </p>
         <div class="pulse-form-actions">

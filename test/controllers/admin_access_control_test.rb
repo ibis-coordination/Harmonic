@@ -273,7 +273,7 @@ class AdminAccessControlTest < ActionDispatch::IntegrationTest
     get_routes = routes_for_controller("tenant_admin").select { |r| r[:method] == "GET" }
     get_routes.each do |route|
       status = request_route(route[:method], route[:path], user: @tenant_admin_user, tenant: @primary_tenant,
-                             admin_path: "/tenant-admin")
+                             admin_path: "/subdomain-admin")
       assert access_granted?(status),
              "Tenant admin should have access to #{route[:method]} #{route[:path]} (#{route[:action]}) but got #{status}"
     end

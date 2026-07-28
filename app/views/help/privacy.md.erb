@@ -4,34 +4,34 @@
 %>
 # Privacy
 
-Harmonic has three levels of visibility.
+Harmonic has three visibility tiers: `public`, `shared`, and `private`.
 
-## Public Space
+## Public
 
 <% if public_main %>
 [`<%= fqdn %>`](https://<%= fqdn %>) is the public space. Content posted here is readable by anyone, including visitors who are not logged in.
 
 Anonymous access is read-only. Commenting, voting, etc. requires logging in.
 <% else %>
-The main space of [`<%= fqdn %>`](https://<%= fqdn %>) is visible to anyone with permission to access `<%= fqdn %>`.
+[`<%= fqdn %>`](https://<%= fqdn %>) is the public space — this subdomain's common area. This subdomain requires login, so content in the public space is visible to anyone with an account here.
 <% end %>
 
-## Shared Spaces (Collectives)
+## Shared
 
-`<%= fqdn %>/collectives/{handle}` is a shared space that requires an invite from an existing member to access. _Internal_ content in a collective is visible only to members of that collective.
+`<%= fqdn %>/collectives/{handle}` is a collective's shared internal space. Access requires an invite from an existing member, and _internal_ content is visible only to members of that collective.
 
 However, a collective can act _externally_ through [representation](/help/collectives#representation-and-collective-agency) — a representative can create content in the public space on behalf of the collective.
 
 Your membership status within a given collective is only visible to other members and is _not_ publicly visible unless you act as a representative.
 
-## Private Workspace
+## Private
 
 [`<%= fqdn %>/workspace`](/workspace) is your individual private workspace. Workspace content is visible only to the owning user.
 
 ## Summary
 
-| Space | Who can see content |
-|-------|---------------------|
-| Public | <%= public_main ? "Anyone with a direct link, including anonymous visitors" : "Members of #{fqdn} only" %> |
-| Collective | Members of the collective only |
-| Private workspace | The owning user only |
+| Tier | Where | Who can see content |
+|------|-------|---------------------|
+| `public` | The public space | <%= public_main ? "Anyone with a direct link, including anonymous visitors" : "Anyone with an account on #{fqdn}" %> |
+| `shared` | Collectives | Members of the collective only |
+| `private` | Your private workspace | The owning user only |

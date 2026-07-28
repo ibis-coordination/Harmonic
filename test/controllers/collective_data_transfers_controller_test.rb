@@ -78,7 +78,7 @@ class CollectiveDataTransfersControllerTest < ActionDispatch::IntegrationTest
 
     get "/collectives/#{@collective.handle}/exports"
     assert_response :redirect
-    assert_match(/main collective/i, flash[:alert])
+    assert_match(/public space/i, flash[:alert])
   end
 
   test "create export is blocked for the tenant's main collective" do
@@ -89,7 +89,7 @@ class CollectiveDataTransfersControllerTest < ActionDispatch::IntegrationTest
       post "/collectives/#{@collective.handle}/exports"
     end
     assert_response :redirect
-    assert_match(/main collective/i, flash[:alert])
+    assert_match(/public space/i, flash[:alert])
   end
 
   # === Authorization: admin required ===

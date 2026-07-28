@@ -1,27 +1,27 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, '/'],
   ['App Admin', '/app-admin'],
-  'Tenants'
+  'Subdomains'
 ] %>
 
 <h1 class="pulse-page-title">
-  <%= octicon 'organization', height: 24 %> All Tenants
+  <%= octicon 'organization', height: 24 %> All Subdomains
 </h1>
 
 <p class="pulse-body-text-muted" style="margin-bottom: 16px;">
-  <%= @tenants.count %> tenants total
+  <%= @tenants.count %> subdomains total
 </p>
 
 <div class="pulse-form-actions" style="margin-bottom: 24px;">
-  <a href="/app-admin/tenants/new" class="pulse-action-btn">
-    <%= octicon 'plus', height: 14 %> Create Tenant
+  <a href="/app-admin/subdomains/new" class="pulse-action-btn">
+    <%= octicon 'plus', height: 14 %> Create Subdomain
   </a>
 </div>
 
 <div class="pulse-home-list">
   <% @tenants.each do |tenant| %>
     <div class="pulse-home-list-item">
-      <a href="/app-admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
+      <a href="/app-admin/subdomains/<%= tenant.subdomain %>" class="pulse-home-list-link">
         <div class="pulse-default-icon pulse-home-list-icon">
           <%= octicon 'organization', height: 14 %>
         </div>

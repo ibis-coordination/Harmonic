@@ -81,7 +81,7 @@ class CollectiveDataTransfersController < ApplicationController
   def reject_main_collective
     return unless @current_tenant&.main_collective_id == @current_collective&.id
 
-    flash[:alert] = "The main collective is not directly exportable. Each member can export their own data from their settings."
+    flash[:alert] = "The public space is not directly exportable. Each member can export their own data from their settings."
     redirect_to @current_collective&.path || root_path
   end
 

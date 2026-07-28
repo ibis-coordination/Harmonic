@@ -117,7 +117,7 @@ module Mcp
         "Start with a `context` block declaring who you are, who will see this write, and what you're doing. " \
         "Then pass the page path (e.g. '/collectives/team/n/abc123'), the action name " \
         "(from the page's action list, e.g. 'add_comment'), and any params the action requires. " \
-        "If `identity.actor` or `visibility` don't match your handle and the actual space, " \
+        "If `identity.actor` or `visibility` don't match your handle and the actual tier, " \
         "the response names the expected value so you can correct.",
       inputSchema: {
         type: "object",
@@ -352,7 +352,7 @@ module Mcp
                           limit: self.class.sustained_limit_per_token, period: 1.minute)
       enforce_rate_limit!(scope: "mcp/principal", key: @current_token.user.principal_id,
                           limit: self.class.sustained_limit_per_principal, period: 1.minute)
-      enforce_rate_limit!(scope: "mcp/tenant", key: current_tenant.id,
+      enforce_rate_limit!(scope: "mcp/tenant", key: current_tenant.id, # vocab-ok
                           limit: tenant_aggregate_limit, period: 1.minute)
     rescue RateLimits::Exceeded => e
       SecurityAuditLog.log_mcp_rate_limited(
@@ -753,7 +753,7 @@ module Mcp
     end
 
     def invalid_path_message
-      "Invalid path: must start with '/' and reference a path within this tenant"
+      "Invalid path: must start with '/' and reference a path within this subdomain"
     end
 
     # Strip a query string and any pasted /actions/<name> suffix, leaving the

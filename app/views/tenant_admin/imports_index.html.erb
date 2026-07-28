@@ -1,5 +1,5 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  ['Tenant Admin', '/tenant-admin'],
+  ['Subdomain Admin', '/subdomain-admin'],
   'Imports'
 ] %>
 
@@ -8,7 +8,7 @@
 </h1>
 
 <div class="pulse-form-actions" style="margin-bottom: 24px;">
-  <a href="/tenant-admin/imports/new" class="pulse-action-btn">
+  <a href="/subdomain-admin/imports/new" class="pulse-action-btn">
     <%= octicon 'upload', height: 14 %> New Import
   </a>
 </div>
@@ -42,7 +42,7 @@
           </td>
           <td><%= import.user.name %></td>
           <td><%= import.collective&.name || "—" %></td>
-          <td><a href="/tenant-admin/imports/<%= import.id %>">View</a></td>
+          <td><a href="/subdomain-admin/imports/<%= import.id %>">View</a></td>
         </tr>
       <% end %>
     </tbody>

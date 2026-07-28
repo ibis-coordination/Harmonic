@@ -34,7 +34,7 @@
         <h2 class="pulse-section-title">Trio</h2>
         <% if @trio_enabled && @trio_cannot_run %>
           <p>
-            Trio's personas have joined<% if @personas.any? %> —
+            Trio's agents have joined<% if @personas.any? %> —
               <%= safe_join(@personas.map { |agent| link_to(agent.name, agent.path) }, " · ") %><% end %>, but Trio isn't running yet.
           </p>
           <div class="pulse-notice pulse-notice-warning">
@@ -53,7 +53,7 @@
           <% if @trio_enabled %>
             <%= button_to "Disable Trio", "#{@current_collective.path}/agents/set_trio_enabled",
                           params: { enabled: "false" }, class: "pulse-action-btn pulse-action-btn-danger",
-                          form: { data: { turbo_confirm: "Disable Trio? Its personas will be deactivated. Their history stays, and re-enabling brings them back." } } %>
+                          form: { data: { turbo_confirm: "Disable Trio? Its agents will be deactivated. Their history stays, and re-enabling brings them back." } } %>
           <% else %>
             <%= button_to "Enable Trio", "#{@current_collective.path}/agents/set_trio_enabled",
                           params: { enabled: "true" }, class: "pulse-action-btn" %>

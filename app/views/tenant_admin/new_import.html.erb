@@ -1,6 +1,6 @@
 <%= render 'shared/pulse_breadcrumb', items: [
-  ['Tenant Admin', '/tenant-admin'],
-  ['Imports', '/tenant-admin/imports'],
+  ['Subdomain Admin', '/subdomain-admin'],
+  ['Imports', '/subdomain-admin/imports'],
   'New Import'
 ] %>
 
@@ -29,7 +29,7 @@
       Unmatched users become placeholder accounts.
     </p>
 
-    <%= form_tag("/tenant-admin/imports", method: :post, multipart: true) do %>
+    <%= form_tag("/subdomain-admin/imports", method: :post, multipart: true) do %>
       <div style="margin-bottom: 16px;">
         <label for="file" class="pulse-label">Export ZIP file</label>
         <input type="file" name="file" id="file" accept=".zip" class="pulse-input" required>

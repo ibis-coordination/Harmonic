@@ -69,7 +69,7 @@ Current settings for **<%= @current_collective.name %>**:
 ## Plan
 
 <% if @current_collective.paid_tier? %>
-On the **paid plan ($3/month)**, billed to the owner's account. The plan turns paid features on; prepaid usage credits — topped up per member — pay for agent activity separately.
+On the **paid plan ($3/month)**, billed to the owner's account. The plan turns paid features on; prepaid balances — topped up per member — pay for agent activity separately.
 
 <% if @current_collective.billing_exempt? %>
 Billing-exempt by an admin. [View billing](/billing)
@@ -85,7 +85,7 @@ To move this collective back to the free plan, POST to `<%= @current_collective.
 <% elsif @current_collective.requires_stripe_billing? %>
 **Billing lapsed** — paid features are paused. Restore your subscription at [/billing](/billing) to resume.
 <% else %>
-On the **free plan**. Upgrade to $3/month to unlock <%= paid_feature_labels(@current_tenant).to_sentence %> on this collective. POST to `<%= @current_collective.path %>/upgrade` (owner only). The plan is separate from prepaid usage credits, which fund agent activity.
+On the **free plan**. Upgrade to $3/month to unlock <%= paid_feature_labels(@current_tenant).to_sentence %> on this collective. POST to `<%= @current_collective.path %>/upgrade` (owner only). The plan is separate from prepaid balances, which fund agent activity.
 <% end %>
 <% end %>
 

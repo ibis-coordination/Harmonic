@@ -14,8 +14,8 @@
     <a href="/app-admin" class="pulse-nav-item<%= ' active' if request.path == '/app-admin' %>">
       <%= octicon 'meter', height: 16 %> Dashboard
     </a>
-    <a href="/app-admin/tenants" class="pulse-nav-item<%= ' active' if request.path.start_with?('/app-admin/tenants') %>">
-      <%= octicon 'organization', height: 16 %> Tenants
+    <a href="/app-admin/subdomains" class="pulse-nav-item<%= ' active' if request.path.start_with?('/app-admin/subdomains') %>">
+      <%= octicon 'organization', height: 16 %> Subdomains
     </a>
     <a href="/app-admin/users" class="pulse-nav-item<%= ' active' if request.path.start_with?('/app-admin/users') %>">
       <%= octicon 'people', height: 16 %> Users
@@ -36,8 +36,8 @@
         </a>
       <% end %>
       <% if @current_tenant&.is_admin?(@current_user) %>
-        <a href="/tenant-admin" class="pulse-nav-item">
-          <%= octicon 'gear', height: 16 %> Tenant Admin
+        <a href="/subdomain-admin" class="pulse-nav-item">
+          <%= octicon 'gear', height: 16 %> Subdomain Admin
         </a>
       <% end %>
     </div>

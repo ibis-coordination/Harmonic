@@ -42,27 +42,45 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "tenant admin can access dashboard on primary tenant" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin"
+    get "/subdomain-admin"
 
     assert_response :success
-    assert_select "h1", /Tenant Admin/
+    assert_select "h1", /Subdomain Admin/
+  end
+
+  test "old /tenant-admin paths redirect to /subdomain-admin" do
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
+
+    get "/tenant-admin"
+    assert_redirected_to "/subdomain-admin"
+
+    get "/tenant-admin/settings"
+    assert_redirected_to "/subdomain-admin/settings"
+  end
+
+  test "subdomain-admin actions index lists update_tenant_settings" do
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
+
+    get "/subdomain-admin/settings/actions", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "update_tenant_settings"
   end
 
   test "tenant admin can access dashboard on secondary tenant" do
-    sign_in_as_admin(@secondary_admin, tenant: @secondary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@secondary_admin, tenant: @secondary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin"
+    get "/subdomain-admin"
 
     assert_response :success
-    assert_select "h1", /Tenant Admin/
+    assert_select "h1", /Subdomain Admin/
   end
 
   test "non-admin cannot access tenant admin dashboard" do
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
 
-    get "/tenant-admin"
+    get "/subdomain-admin"
 
     assert_response :forbidden
     assert_select "h1", /Access Denied/
@@ -73,18 +91,18 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "tenant admin can view settings" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin/settings"
+    get "/subdomain-admin/settings"
 
     assert_response :success
-    assert_select "h1", /Tenant Settings/
+    assert_select "h1", /Subdomain Settings/
   end
 
   test "tenant admin can update settings" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    post "/tenant-admin/settings", params: { name: "Updated Tenant Name" }
+    post "/subdomain-admin/settings", params: { name: "Updated Tenant Name" }
 
     assert_response :redirect
     @primary_tenant.reload
@@ -92,11 +110,11 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin can update allowed attachment categories" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
     # Form posts the hidden empty marker plus only the categories the admin
     # left checked. Here only "images" and "pdfs" are checked; "text" is not.
-    post "/tenant-admin/settings", params: {
+    post "/subdomain-admin/settings", params: {
       allowed_attachment_categories: ["", "images", "pdfs"],
     }
 
@@ -106,10 +124,10 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin can disable all attachment categories" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
     # Hidden empty marker only — no boxes checked.
-    post "/tenant-admin/settings", params: {
+    post "/subdomain-admin/settings", params: {
       allowed_attachment_categories: [""],
     }
 
@@ -120,11 +138,11 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
 
   test "settings page lists gateway models with prices when billing is on" do
     enable_stripe_billing_flag!(@primary_tenant)
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
     catalog = { "anthropic/claude-sonnet-4.6" => { input_per_million: "3.90", output_per_million: "19.50" } }
     GatewayModelCatalog.stub(:prices, catalog) do
-      get "/tenant-admin/settings"
+      get "/subdomain-admin/settings"
     end
 
     assert_response :success
@@ -134,10 +152,10 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin can set enabled gateway models" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
     # Hidden empty marker plus the checked models.
-    post "/tenant-admin/settings", params: {
+    post "/subdomain-admin/settings", params: {
       gateway_models: ["", "anthropic/claude-sonnet-4.6", "openai/gpt-5.1"],
     }
 
@@ -147,20 +165,20 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tenant admin can clear enabled gateway models" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
     @primary_tenant.update!(settings: @primary_tenant.settings.merge("gateway_models" => ["anthropic/claude-sonnet-4.6"]))
 
     # Hidden empty marker only — every box unchecked.
-    post "/tenant-admin/settings", params: { gateway_models: [""] }
+    post "/subdomain-admin/settings", params: { gateway_models: [""] }
 
     assert_response :redirect
     assert_empty @primary_tenant.reload.enabled_gateway_models
   end
 
   test "tenant admin settings update ignores unknown attachment categories" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    post "/tenant-admin/settings", params: {
+    post "/subdomain-admin/settings", params: {
       allowed_attachment_categories: ["", "images", "audio", "executables"],
     }
 
@@ -174,41 +192,41 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "tenant admin can view users list" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin/users"
+    get "/subdomain-admin/users"
 
     assert_response :success
     assert_select "h1", /Users/
   end
 
   test "tenant admin can search users by email" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin/users", params: { q: @non_admin_user.email }
+    get "/subdomain-admin/users", params: { q: @non_admin_user.email }
 
     assert_response :success
   end
 
   test "tenant admin user search escapes LIKE wildcards" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
     # Verify that a normal search finds users
-    get "/tenant-admin/users", params: { q: "non_admin" }
+    get "/subdomain-admin/users", params: { q: "non_admin" }
     assert_response :success
     assert_select "code", text: /non_admin@example\.com/
 
     # "%" as a search query should NOT match any users — LIKE wildcards must be escaped
-    get "/tenant-admin/users", params: { q: "%" }
+    get "/subdomain-admin/users", params: { q: "%" }
     assert_response :success
     assert_select "code", { text: /non_admin@example\.com/, count: 0 },
                   "Query '%' should not match users via LIKE wildcard injection"
   end
 
   test "tenant admin can view user details by handle" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin/users/#{@non_admin_tenant_user.handle}"
+    get "/subdomain-admin/users/#{@non_admin_tenant_user.handle}"
 
     assert_response :success
     assert_select "h1", /#{@non_admin_user.display_name || @non_admin_user.name}/
@@ -219,39 +237,39 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   # suspend_user / unsuspend_user are app-admin actions; they only exist at
-  # /admin/users/:handle. Posting them to /tenant-admin/users/:handle hits
+  # /admin/users/:handle. Posting them to /subdomain-admin/users/:handle hits
   # the unknown-action catch-all, which returns 404 (markdown clients also
   # get the available-actions list for the path; HTML clients just see the
   # status). These tests use the default HTML format, so we only check the
   # status.
 
   test "tenant admin cannot access suspend user route (only app admins can suspend)" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    post "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Test suspension" }
+    post "/subdomain-admin/users/#{@non_admin_tenant_user.handle}/actions/suspend_user", params: { reason: "Test suspension" }
     assert_response :not_found
   end
 
   test "tenant admin cannot access unsuspend user route (only app admins can unsuspend)" do
     @non_admin_user.update!(suspended_at: Time.current, suspended_reason: "Test")
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    post "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/unsuspend_user"
+    post "/subdomain-admin/users/#{@non_admin_tenant_user.handle}/actions/unsuspend_user"
     assert_response :not_found
   end
 
   test "tenant admin cannot access describe suspend user route" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/suspend_user"
+    get "/subdomain-admin/users/#{@non_admin_tenant_user.handle}/actions/suspend_user"
     assert_response :not_found
   end
 
   test "tenant admin cannot access describe unsuspend user route" do
     @non_admin_user.update!(suspended_at: Time.current, suspended_reason: "Test")
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin/users/#{@non_admin_tenant_user.handle}/actions/unsuspend_user"
+    get "/subdomain-admin/users/#{@non_admin_tenant_user.handle}/actions/unsuspend_user"
     assert_response :not_found
   end
 
@@ -260,36 +278,36 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   # ==========================================
 
   test "tenant admin dashboard responds to markdown format" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin", headers: { "Accept" => "text/markdown" }
+    get "/subdomain-admin", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    assert_match(/# Tenant Admin/, response.body)
+    assert_match(/# Subdomain Admin/, response.body)
   end
 
   test "settings responds to markdown format" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin/settings", headers: { "Accept" => "text/markdown" }
+    get "/subdomain-admin/settings", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    assert_match(/# Tenant Settings/, response.body)
+    assert_match(/# Subdomain Settings/, response.body)
   end
 
   test "users list responds to markdown format" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin/users", headers: { "Accept" => "text/markdown" }
+    get "/subdomain-admin/users", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_match(/# Users/, response.body)
   end
 
   test "user show responds to markdown format" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
 
-    get "/tenant-admin/users/#{@non_admin_tenant_user.handle}", headers: { "Accept" => "text/markdown" }
+    get "/subdomain-admin/users/#{@non_admin_tenant_user.handle}", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_match(/Back to All Users/, response.body)
@@ -301,29 +319,29 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
 
   test "non-admin cannot access imports index" do
     sign_in_as(@non_admin_user, tenant: @primary_tenant)
-    get "/tenant-admin/imports"
+    get "/subdomain-admin/imports"
     assert_response :forbidden
   end
 
   test "tenant admin can access imports index" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
-    get "/tenant-admin/imports"
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
+    get "/subdomain-admin/imports"
     assert_response :success
   end
 
   test "tenant admin can access new import form" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
-    get "/tenant-admin/imports/new"
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
+    get "/subdomain-admin/imports/new"
     assert_response :success
   end
 
   test "tenant admin can create import" do
-    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/subdomain-admin/imports/new")
 
     file = fixture_file_upload(create_minimal_export_zip, "application/zip")
 
     assert_enqueued_jobs 1, only: CollectiveImportJob do
-      post "/tenant-admin/imports", params: { file: file }
+      post "/subdomain-admin/imports", params: { file: file }
     end
 
     assert_response :redirect
@@ -331,14 +349,14 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "import without file shows alert" do
-    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
-    post "/tenant-admin/imports"
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/subdomain-admin/imports/new")
+    post "/subdomain-admin/imports"
     assert_response :redirect
     assert_equal "Please select a ZIP file to import.", flash[:alert]
   end
 
   test "import rejects non-zip file" do
-    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/subdomain-admin/imports/new")
 
     path = Rails.root.join("tmp", "test-not-a-zip-#{SecureRandom.hex(4)}.txt")
     File.write(path, "this is not a zip file")
@@ -348,7 +366,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     file = fixture_file_upload(path.to_s, "application/zip")
 
     assert_no_enqueued_jobs only: CollectiveImportJob do
-      post "/tenant-admin/imports", params: { file: file }
+      post "/subdomain-admin/imports", params: { file: file }
     end
 
     assert_response :redirect
@@ -356,7 +374,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "import stores use_placeholders and handle_email_map options" do
-    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/subdomain-admin/imports/new")
 
     map_path = Rails.root.join("tmp", "test-user-map-#{SecureRandom.hex(4)}.json")
     File.write(map_path, JSON.generate({ "alice" => "alice@example.com", "bob" => "bob@example.com" }))
@@ -366,7 +384,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     zip = fixture_file_upload(create_minimal_export_zip, "application/zip")
     map = fixture_file_upload(map_path.to_s, "application/json")
 
-    post "/tenant-admin/imports", params: { file: zip, user_map: map, use_placeholders: "1" }
+    post "/subdomain-admin/imports", params: { file: zip, user_map: map, use_placeholders: "1" }
 
     import = DataImport.where(tenant_id: @primary_tenant.id).order(created_at: :desc).first
     assert_equal true, import.import_options["use_placeholders"]
@@ -374,7 +392,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "import rejects malformed user_map JSON" do
-    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/subdomain-admin/imports/new")
 
     map_path = Rails.root.join("tmp", "test-bad-map-#{SecureRandom.hex(4)}.json")
     File.write(map_path, "{not valid json")
@@ -385,7 +403,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     map = fixture_file_upload(map_path.to_s, "application/json")
 
     assert_no_enqueued_jobs only: CollectiveImportJob do
-      post "/tenant-admin/imports", params: { file: zip, user_map: map }
+      post "/subdomain-admin/imports", params: { file: zip, user_map: map }
     end
 
     assert_response :redirect
@@ -393,7 +411,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "import rejects user_map that is not handle→email object" do
-    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/subdomain-admin/imports/new")
 
     map_path = Rails.root.join("tmp", "test-wrong-shape-#{SecureRandom.hex(4)}.json")
     File.write(map_path, JSON.generate(["alice@example.com", "bob@example.com"]))
@@ -404,7 +422,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     map = fixture_file_upload(map_path.to_s, "application/json")
 
     assert_no_enqueued_jobs only: CollectiveImportJob do
-      post "/tenant-admin/imports", params: { file: zip, user_map: map }
+      post "/subdomain-admin/imports", params: { file: zip, user_map: map }
     end
 
     assert_response :redirect
@@ -412,56 +430,56 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "import rejects when another import is already in progress" do
-    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/subdomain-admin/imports/new")
 
     DataImport.create!(tenant: @primary_tenant, user: @tenant_admin_user, status: "importing")
 
     file = fixture_file_upload(create_minimal_export_zip, "application/zip")
 
     assert_no_enqueued_jobs only: CollectiveImportJob do
-      post "/tenant-admin/imports", params: { file: file }
+      post "/subdomain-admin/imports", params: { file: file }
     end
 
     assert_response :redirect
-    assert_equal "An import is already in progress for this tenant.", flash[:alert]
+    assert_equal "An import is already in progress for this subdomain.", flash[:alert]
   end
 
   test "tenant admin can view import status" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
     import = DataImport.create!(tenant: @primary_tenant, user: @tenant_admin_user, status: "completed")
-    get "/tenant-admin/imports/#{import.id}"
+    get "/subdomain-admin/imports/#{import.id}"
     assert_response :success
   end
 
   test "tenant admin cannot view import from another tenant" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
     other_import = DataImport.create!(tenant: @secondary_tenant, user: @secondary_admin, status: "completed")
     assert_raises(ActiveRecord::RecordNotFound) do
-      get "/tenant-admin/imports/#{other_import.id}"
+      get "/subdomain-admin/imports/#{other_import.id}"
     end
   end
 
   test "imports index responds to markdown format" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
-    get "/tenant-admin/imports", headers: { "Accept" => "text/markdown" }
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
+    get "/subdomain-admin/imports", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_match(/# Data Imports/, response.body)
   end
 
   test "show import responds to markdown format" do
-    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/tenant-admin")
+    sign_in_as_admin(@tenant_admin_user, tenant: @primary_tenant, admin_path: "/subdomain-admin")
     import = DataImport.create!(tenant: @primary_tenant, user: @tenant_admin_user, status: "completed")
-    get "/tenant-admin/imports/#{import.id}", headers: { "Accept" => "text/markdown" }
+    get "/subdomain-admin/imports/#{import.id}", headers: { "Accept" => "text/markdown" }
     assert_response :success
     assert_match(/# Import Status/, response.body)
   end
 
   test "creating import logs to security audit" do
-    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/tenant-admin/imports/new")
+    sign_in_with_reverification(@tenant_admin_user, tenant: @primary_tenant, path: "/subdomain-admin/imports/new")
     mark_audit_log_position
 
     file = fixture_file_upload(create_minimal_export_zip, "application/zip")
-    post "/tenant-admin/imports", params: { file: file }
+    post "/subdomain-admin/imports", params: { file: file }
 
     entry = find_audit_entry("data_import_created")
     assert entry, "Expected data_import_created event in security audit log"

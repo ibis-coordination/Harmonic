@@ -24,7 +24,7 @@ class CaddyfileGenerator
     # Header
     lines << "# Auto-generated Caddyfile"
     lines << "# Generated at: #{Time.current.iso8601}"
-    lines << "# Tenants: #{tenant_subdomains.size}"
+    lines << "# Tenants: #{tenant_subdomains.size}" # vocab-ok
     lines << ""
 
     # Global options

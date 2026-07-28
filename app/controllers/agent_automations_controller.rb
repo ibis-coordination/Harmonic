@@ -249,9 +249,9 @@ class AgentAutomationsController < ApplicationController
     return if @current_tenant.automations_enabled?
 
     respond_to do |format|
-      format.html { redirect_to "/", alert: "Automations are not enabled for this tenant." }
+      format.html { redirect_to "/", alert: "Automations are not enabled for this subdomain." }
       format.json { render json: { error: "Not Found" }, status: :not_found }
-      format.md { render plain: "# Error\n\nAutomations are not enabled for this tenant.", status: :not_found }
+      format.md { render plain: "# Error\n\nAutomations are not enabled for this subdomain.", status: :not_found }
     end
   end
 

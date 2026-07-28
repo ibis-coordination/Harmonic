@@ -23,9 +23,9 @@ class TenantAdminController < ApplicationController
   USERS_PER_PAGE = 50
   MAX_IMPORT_SIZE_BYTES = ENV.fetch("MAX_IMPORT_SIZE_BYTES", 2.gigabytes.to_i).to_i
 
-  # GET /tenant-admin
+  # GET /subdomain-admin
   def dashboard
-    @page_title = 'Tenant Admin'
+    @page_title = 'Subdomain Admin'
     @team = @current_tenant.team
     respond_to do |format|
       format.html
@@ -37,16 +37,16 @@ class TenantAdminController < ApplicationController
   # Tenant Settings
   # ============================================================================
 
-  # GET /tenant-admin/settings
+  # GET /subdomain-admin/settings
   def settings
-    @page_title = 'Tenant Settings'
+    @page_title = 'Subdomain Settings'
     respond_to do |format|
       format.html
       format.md
     end
   end
 
-  # POST /tenant-admin/settings
+  # POST /subdomain-admin/settings
   def update_settings
     @current_tenant.name = params[:name] if params[:name].present?
     @current_tenant.timezone = params[:timezone] if params[:timezone].present?
@@ -85,14 +85,14 @@ class TenantAdminController < ApplicationController
     end
 
     @current_tenant.save!
-    redirect_to "/tenant-admin"
+    redirect_to "/subdomain-admin"
   end
 
   # ============================================================================
   # User Management (Scoped to Current Tenant)
   # ============================================================================
 
-  # GET /tenant-admin/users
+  # GET /subdomain-admin/users
   def users
     @page_title = 'Users'
     @search_query = params[:q].to_s.strip
@@ -129,7 +129,7 @@ class TenantAdminController < ApplicationController
     end
   end
 
-  # GET /tenant-admin/users/:handle
+  # GET /subdomain-admin/users/:handle
   def show_user
     @showing_user = find_user_by_handle(params[:handle])
     return render(plain: "404 Not Found", status: :not_found) unless @showing_user
@@ -145,7 +145,7 @@ class TenantAdminController < ApplicationController
   # Data Import Actions
   # ============================================================================
 
-  # GET /tenant-admin/imports
+  # GET /subdomain-admin/imports
   def imports_index
     @imports = DataImport.tenant_scoped_only(@current_tenant.id).order(created_at: :desc)
     respond_to do |format|
@@ -154,37 +154,37 @@ class TenantAdminController < ApplicationController
     end
   end
 
-  # GET /tenant-admin/imports/new
+  # GET /subdomain-admin/imports/new
   def new_import
     @import = DataImport.new
   end
 
-  # POST /tenant-admin/imports
+  # POST /subdomain-admin/imports
   def create_import
     if params[:file].blank?
       flash[:alert] = "Please select a ZIP file to import."
-      return redirect_to "/tenant-admin/imports/new"
+      return redirect_to "/subdomain-admin/imports/new"
     end
 
     if params[:file].size > MAX_IMPORT_SIZE_BYTES
       flash[:alert] = "File too large. Maximum size is #{MAX_IMPORT_SIZE_BYTES / 1.gigabyte} GB."
-      return redirect_to "/tenant-admin/imports/new"
+      return redirect_to "/subdomain-admin/imports/new"
     end
 
     unless valid_zip_upload?(params[:file])
       flash[:alert] = "File must be a valid ZIP archive."
-      return redirect_to "/tenant-admin/imports/new"
+      return redirect_to "/subdomain-admin/imports/new"
     end
 
     if DataImport.tenant_scoped_only(@current_tenant.id).active.exists?
-      flash[:alert] = "An import is already in progress for this tenant."
-      return redirect_to "/tenant-admin/imports"
+      flash[:alert] = "An import is already in progress for this subdomain."
+      return redirect_to "/subdomain-admin/imports"
     end
 
     handle_email_map, parse_error = parse_handle_email_map(params[:user_map])
     if parse_error
       flash[:alert] = parse_error
-      return redirect_to "/tenant-admin/imports/new"
+      return redirect_to "/subdomain-admin/imports/new"
     end
 
     import_options = {
@@ -209,10 +209,10 @@ class TenantAdminController < ApplicationController
     )
 
     flash[:notice] = "Your import is being processed. This page will update when it's complete."
-    redirect_to "/tenant-admin/imports/#{data_import.id}"
+    redirect_to "/subdomain-admin/imports/#{data_import.id}"
   end
 
-  # GET /tenant-admin/imports/:id
+  # GET /subdomain-admin/imports/:id
   def show_import
     @import = DataImport.tenant_scoped_only(@current_tenant.id).find(params[:id])
     respond_to do |format|
@@ -226,13 +226,13 @@ class TenantAdminController < ApplicationController
   # ============================================================================
 
   def actions_index
-    @page_title = "Actions | Tenant Admin"
-    render_actions_index(ActionsHelper.actions_for_route('/tenant-admin'))
+    @page_title = "Actions | Subdomain Admin"
+    render_actions_index(ActionsHelper.actions_for_route('/subdomain-admin'))
   end
 
   def actions_index_settings
-    @page_title = "Actions | Tenant Settings"
-    render_actions_index(ActionsHelper.actions_for_route('/tenant-admin/settings'))
+    @page_title = "Actions | Subdomain Settings"
+    render_actions_index(ActionsHelper.actions_for_route('/subdomain-admin/settings'))
   end
 
   def describe_update_settings
@@ -273,7 +273,7 @@ class TenantAdminController < ApplicationController
 
     respond_to do |format|
       format.md { render "settings" }
-      format.html { redirect_to "/tenant-admin" }
+      format.html { redirect_to "/subdomain-admin" }
     end
   end
 

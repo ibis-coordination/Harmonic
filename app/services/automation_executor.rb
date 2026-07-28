@@ -51,7 +51,7 @@ class AutomationExecutor
     # internal-mode; exempt them from both checks, same as billing.
     unless ai_agent.system?
       unless @rule.tenant.internal_ai_agents_enabled?
-        @run.mark_failed!("Internal AI Agents are not enabled for this tenant.")
+        @run.mark_failed!("Internal AI Agents are not enabled for this subdomain.")
         return
       end
 
@@ -143,7 +143,7 @@ class AutomationExecutor
 
     recipient_tu = recipient.tenant_users.find_by(tenant_id: @rule.tenant_id)
     if recipient_tu.nil? || recipient_tu.archived?
-      @run.mark_failed!("Recipient no longer active in this tenant.")
+      @run.mark_failed!("Recipient no longer active on this subdomain.")
       return
     end
 
@@ -342,7 +342,7 @@ class AutomationExecutor
     # are exempt from both checks (same as billing).
     unless agent.system?
       unless @rule.tenant.internal_ai_agents_enabled?
-        return { "status" => "failed", "error" => "Internal AI Agents are not enabled for this tenant." }
+        return { "status" => "failed", "error" => "Internal AI Agents are not enabled for this subdomain." }
       end
 
       unless agent.internal_ai_agent?

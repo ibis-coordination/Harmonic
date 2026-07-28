@@ -281,7 +281,7 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     routes = ActionsHelper.routes_and_actions_for_user(@user)
 
     # Find the admin settings route
-    admin_settings_route = routes.find { |r| r[:route] == "/admin/settings" }
+    admin_settings_route = routes.find { |r| r[:route] == "/subdomain-admin/settings" }
     assert admin_settings_route, "Admin settings route should be visible to tenant_admin"
 
     action_names = admin_settings_route[:actions].map { |a| a[:name] }

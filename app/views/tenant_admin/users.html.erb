@@ -1,12 +1,12 @@
 <%= render layout: 'shared/admin_user_list', locals: {
   breadcrumb_items: [
     [@current_tenant.subdomain, '/'],
-    ['Tenant Admin', '/tenant-admin'],
+    ['Subdomain Admin', '/subdomain-admin'],
     'Users',
   ],
   page_title: 'Users',
   intro_html: "All users in <code class=\"pulse-code\">#{@current_tenant.subdomain}.#{ENV['HOSTNAME']}</code>".html_safe,
-  base_path: '/tenant-admin/users',
+  base_path: '/subdomain-admin/users',
   search_query: @search_query,
   page: @page,
   total_pages: @total_pages,
@@ -15,7 +15,7 @@
   counts_by_type: @counts_by_type,
   user_path: ->(user) {
     tenant_user = user.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id }
-    "/tenant-admin/users/#{tenant_user&.handle}"
+    "/subdomain-admin/users/#{tenant_user&.handle}"
   },
 } do |user| %>
   <% if @current_tenant.is_admin?(user) %>

@@ -1,19 +1,19 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, '/'],
   ['App Admin', '/app-admin'],
-  ['Tenants', '/app-admin/tenants'],
+  ['Tenants', '/app-admin/subdomains'],
   'New'
 ] %>
 
 <h1 class="pulse-page-title">
-  <%= octicon 'plus', height: 24 %> Create New Tenant
+  <%= octicon 'plus', height: 24 %> Create New Subdomain
 </h1>
 
-<%= form_tag '/app-admin/tenants', method: :post do %>
+<%= form_tag '/app-admin/subdomains', method: :post do %>
   <div class="pulse-form-group">
-    <label for="name" class="pulse-form-label">Tenant Name</label>
+    <label for="name" class="pulse-form-label">Name</label>
     <input type="text" name="name" id="name" class="pulse-form-input" placeholder="My Company" required>
-    <p class="pulse-form-hint">The display name for this tenant.</p>
+    <p class="pulse-form-hint">The display name for this subdomain.</p>
   </div>
 
   <div class="pulse-form-group">
@@ -27,8 +27,8 @@
 
   <div class="pulse-form-actions">
     <button type="submit" class="pulse-action-btn">
-      <%= octicon 'plus', height: 14 %> Create Tenant
+      <%= octicon 'plus', height: 14 %> Create Subdomain
     </button>
-    <a href="/app-admin/tenants" class="pulse-action-btn-secondary">Cancel</a>
+    <a href="/app-admin/subdomains" class="pulse-action-btn-secondary">Cancel</a>
   </div>
 <% end %>

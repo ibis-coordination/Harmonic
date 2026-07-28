@@ -164,7 +164,12 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_response :success # JSON-RPC envelopes the 403 in a tool error
     parsed = mcp_inner_error(response)
     assert_equal "public_writes_disabled", parsed["error"]
-    assert_equal "public", parsed["zone"]
+    assert_equal "public", parsed["tier"]
+    assert_includes parsed["hint"], "the public space"
+    assert_not_includes parsed["hint"], "main collective",
+                        "hint must say 'the public space', not expose the main-collective implementation detail"
+    assert_includes parsed["hint"], "Its principal can enable"
+    assert_not_includes parsed["hint"], "owner", "the accountable user is the 'principal', never the 'owner'"
   end
 
   test "AI agent with public writes enabled may act in the public space" do
@@ -224,10 +229,10 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     body = response.parsed_body
     assert_equal "public_writes_disabled", body["error"]
-    assert_equal "public", body["zone"]
+    assert_equal "public", body["tier"]
   end
 
-  test "AI agent on a rest-type token may write to the shared zone via direct REST (always allowed)" do
+  test "AI agent on a rest-type token may write to the shared tier via direct REST (always allowed)" do
     # Companion to the test above: the gate runs on the direct path but allows
     # what the agent is actually permitted. @collective is non-main → "shared",
     # always allowed. Proves the fix gates rather than blanket-blocking direct

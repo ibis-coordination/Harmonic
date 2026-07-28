@@ -174,7 +174,7 @@ class ActionsHelper
       ],
       authorization: :authenticated,
       # Always shared — joining is only meaningful for invite-only collectives;
-      # the public main space is joined automatically, not manually.
+      # the public space is joined automatically, not manually.
       visibility: :shared,
     },
     "update_collective_settings" => {
@@ -210,7 +210,7 @@ class ActionsHelper
     "enroll_in_funding_pool" => {
       description: "Enroll yourself in this collective's funding pool. Enrolling is consenting to fund the collective's agents from your own " \
                    "prepaid balance — each of their LLM calls is billed to one enrolled member, drawn at random, and the pool stops " \
-                   "drawing from you once its draws reach your ceiling. Requires active billing with prepaid credits. " \
+                   "drawing from you once its draws reach your ceiling. Requires active billing with a prepaid balance. " \
                    "Enrolling again while already enrolled updates your ceiling.",
       params_string: "(daily_draw_cap, draw_cap_period)",
       params: [
@@ -252,7 +252,7 @@ class ActionsHelper
       visibility: :by_collective,
     },
     "set_trio_enabled" => {
-      description: "Enable or disable Trio, the collective's built-in persona ensemble. Enabling adds its personas as collective members; " \
+      description: "Enable or disable Trio, the collective's built-in agent ensemble. Enabling adds its agents as collective members; " \
                    "disabling deactivates them (their history stays, and re-enabling brings them back). On billing accounts Trio " \
                    "requires the paid plan and needs an open funding pool to actually run.",
       params_string: "(enabled)",
@@ -778,8 +778,8 @@ class ActionsHelper
       params: [
         { name: "include_llm_token", type: "boolean",
           description: "Also issue an LLM gateway token so the agent's host can make LLM calls " \
-                       "billed to the agent's funding (the principal's prepaid credits, or the " \
-                       "collective's funding pool). Only where the tenant offers the LLM gateway." },
+                       "billed to the agent's funding (the principal's prepaid balance, or the " \
+                       "collective's funding pool). Only where the subdomain offers the LLM gateway." },
       ],
       # The bridge mints credentials with broad scopes for the agent. Only the
       # human who owns the agent should be able to initiate that — same
@@ -802,7 +802,7 @@ class ActionsHelper
         { name: "name", type: "string", description: "The name of the AI agent" },
         { name: "handle", type: "string",
           description: "The agent's @-mention handle (lowercase letters, numbers, dashes, underscores). " \
-                       "Optional — generated from the name if omitted. Must be unique within the tenant.", },
+                       "Optional — generated from the name if omitted. Must be unique within the subdomain.", },
         { name: "identity_prompt", type: "string",
           description: "A prompt shown to the agent on /whoami, providing context about their identity and purpose", },
         { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the AI agent" },
@@ -813,11 +813,11 @@ class ActionsHelper
 
     # Admin actions
     "update_tenant_settings" => {
-      description: "Update tenant settings",
+      description: "Update subdomain settings",
       params_string: "(name, timezone, api_enabled, require_login, allow_file_uploads, allowed_attachment_categories)",
       params: [
-        { name: "name", type: "string", description: "The name of the tenant" },
-        { name: "timezone", type: "string", description: "The default timezone for the tenant" },
+        { name: "name", type: "string", description: "The name of the subdomain" },
+        { name: "timezone", type: "string", description: "The default timezone for the subdomain" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is enabled" },
         { name: "require_login", type: "boolean", description: "Whether login is required to view content" },
         { name: "allow_file_uploads", type: "boolean", description: "Whether file uploads are allowed" },
@@ -828,11 +828,11 @@ class ActionsHelper
       visibility: :public,
     },
     "create_tenant" => {
-      description: "Create a new tenant",
+      description: "Create a new subdomain",
       params_string: "(subdomain, name)",
       params: [
-        { name: "subdomain", type: "string", description: "The subdomain for the new tenant" },
-        { name: "name", type: "string", description: "The name of the new tenant" },
+        { name: "subdomain", type: "string", description: "The host label for the new subdomain" },
+        { name: "name", type: "string", description: "The name of the new subdomain" },
       ],
       authorization: :app_admin,
       visibility: :public,
@@ -1802,18 +1802,18 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["cancel_harmonic_bridge_setup"][:description], },
       ],
     },
-    "/admin" => {
+    "/subdomain-admin" => {
       controller_actions: ["admin#index", "tenant_admin#index"],
       actions: [],
     },
-    "/admin/settings" => {
+    "/subdomain-admin/settings" => {
       controller_actions: ["admin#settings", "tenant_admin#settings"],
       actions: [
         { name: "update_tenant_settings", params_string: ACTION_DEFINITIONS["update_tenant_settings"][:params_string],
           description: ACTION_DEFINITIONS["update_tenant_settings"][:description], },
       ],
     },
-    "/admin/tenants/new" => {
+    "/app-admin/subdomains/new" => {
       controller_actions: ["app_admin#new_tenant"],
       actions: [
         { name: "create_tenant", params_string: ACTION_DEFINITIONS["create_tenant"][:params_string],

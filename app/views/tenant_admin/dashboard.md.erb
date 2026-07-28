@@ -1,16 +1,16 @@
-# Tenant Admin
+# Subdomain Admin
 
-Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>`)
+Subdomain: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>`)
 
 ## Admin Users
 
 <% @current_tenant.admin_users.each do |tu| %>
-* [<%= tu.display_name %>](/tenant-admin/users/<%= tu.handle %>) (`@<%= tu.handle %>`)
+* [<%= tu.display_name %>](/subdomain-admin/users/<%= tu.handle %>) (`@<%= tu.handle %>`)
 <% end %>
 
-[Manage All Users](/tenant-admin/users)
+[Manage All Users](/subdomain-admin/users)
 
-## Tenant Details
+## Subdomain Details
 
 | Property | Value |
 |----------|-------|
@@ -19,17 +19,17 @@ Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= E
 | Created | <%= time_ago_in_words(@current_tenant.created_at) %> ago |
 | Updated | <%= time_ago_in_words(@current_tenant.updated_at) %> ago |
 
-### Tenant Settings
+### Subdomain Settings
 
-[Edit Settings](/tenant-admin/settings)
+[Edit Settings](/subdomain-admin/settings)
 
 ```json
 <%= JSON.pretty_generate(@current_tenant.settings) %>
 ```
 
-## Main Collective
+## The Public Space
 
-The main collective is the default collective at the base path (i.e. `<%= @current_tenant.domain %>/`).
+The public space lives at the base path (i.e. `<%= @current_tenant.domain %>/`) — implemented as the subdomain's main collective.<%# vocab-ok %>
 
 | Property | Value |
 |----------|-------|

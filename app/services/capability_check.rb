@@ -4,7 +4,7 @@
 #
 # This module determines which actions an AI agent can perform based on:
 # 1. Always-allowed infrastructure actions (essential for navigation)
-# 2. Grantable actions (configurable by the agent owner)
+# 2. Grantable actions (configurable by the agent's principal)
 # 3. Always-blocked actions (never allowed for AI agents)
 #
 # If capabilities key is absent (nil), all grantable actions are allowed (backwards compatible default).
@@ -108,7 +108,7 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
   end
 
   # Actions that can be granted/denied via configuration
-  # The owner can allow or deny these actions for their AI agent
+  # The principal can allow or deny these actions for their AI agent
   AI_AGENT_GRANTABLE_ACTIONS = [
     "create_note",
     "update_note",
@@ -165,7 +165,7 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "revoke_trustee_authorization",
     # Representation sessions — agents can represent a user or a collective
     # on whose behalf they hold a trustee grant. Grantable (not always-allowed)
-    # so the agent's owner can opt in per agent.
+    # so the agent's principal can opt in per agent.
     "start_representation",
     "end_representation",
     # Content reporting
@@ -290,7 +290,7 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     },
     {
       name: "Trustee authorization responses",
-      description: "Accept or decline trustee grants offered to this agent.",
+      description: "Accept or decline trustee authorizations offered to this agent.",
       actions: ["accept_trustee_authorization", "decline_trustee_authorization"],
     },
     {
@@ -301,7 +301,7 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     },
     {
       name: "Representation",
-      description: "Start and end sessions where the agent acts on behalf of a user or collective via a trustee grant.",
+      description: "Start and end sessions where the agent acts on behalf of a user or collective via a trustee authorization.",
       actions: ["start_representation", "end_representation"],
     },
     {

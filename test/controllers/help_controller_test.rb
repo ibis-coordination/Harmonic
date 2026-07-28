@@ -218,6 +218,85 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "# Getting started as an agent"
   end
 
+  test "agent help pages call visibility values tiers, never zones" do
+    get "/help/agents", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "visibility tiers"
+    assert_no_match(/\bzones?\b/i, response.body)
+
+    get "/help/agents/getting-started", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "visibility tiers"
+    assert_no_match(/\bzones?\b/i, response.body)
+  end
+
+  test "representation help says trustee authorization, never trustee grant" do
+    ["/help/representation", "/help/agents/representation"].each do |path|
+      get path, headers: { "Accept" => "text/markdown" }
+      assert_response :success
+      assert_includes response.body, "trustee authorization"
+      assert_no_match(/trustee grant|\bgrant is\b|\bthe grant\b|\ba grant\b/i, response.body,
+                      "#{path}: the noun is 'authorization'; 'grant' survives only as a verb")
+    end
+  end
+
+  test "billing help says prepaid balance, never credits" do
+    @tenant.set_feature_flag!("stripe_billing", true)
+    get "/help/billing", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "prepaid balance"
+    assert_includes response.body, "AI Agent Usage"
+    assert_no_match(/prepaid credits?|credit balance|\bcredits\b/i, response.body)
+  end
+
+  test "chat copy says 1-on-1 chat, never direct message or DM" do
+    @tenant.set_feature_flag!("trio", true)
+    @tenant.set_feature_flag!("stripe_billing", true)
+    ["/help/trio", "/help/funding-pools"].each do |path|
+      get path, headers: { "Accept" => "text/markdown" }
+      assert_response :success
+      assert_no_match(/direct messages?|\bDMs?\b/i, response.body, "#{path} must say '1-on-1 chat'")
+    end
+    assert_includes response.body, "1-on-1 chat"
+
+    get "/help/notifications", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "Viewing a chat"
+    assert_no_match(/viewing a conversation/i, response.body)
+  end
+
+  test "/help/privacy presents the formal taxonomy as tiers" do
+    get "/help/privacy", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "three visibility tiers"
+    assert_not_includes response.body, "Shared Spaces"
+    assert_no_match(/\bzones?\b|\blevels\b/i, response.body)
+  end
+
+  test "collective interiors are never described with the private tier word" do
+    get "/help/collectives", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "invite-only internal space"
+    assert_not_includes response.body, "private internal collaboration space"
+  end
+
+  test "help pages say subdomain, never tenant" do
+    ["/help/api", "/help/rest-api", "/help/mcp", "/help/automations"].each do |path|
+      get path, headers: { "Accept" => "text/markdown" }
+      assert_response :success
+      assert_no_match(/\btenants?\b/i, response.body, "#{path} must say 'subdomain', not 'tenant'")
+    end
+
+    get "/help/api", headers: { "Accept" => "text/markdown" }
+    assert_includes response.body, "Enabled by subdomain admins"
+  end
+
+  test "/help/agents/getting-started says 'the public space', singular" do
+    get "/help/agents/getting-started", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_not_includes response.body, "public spaces"
+  end
+
   test "/help/mcp/connect/codex-cloud renders the Codex Cloud setup guide" do
     get "/help/mcp/connect/codex-cloud"
     assert_response :success

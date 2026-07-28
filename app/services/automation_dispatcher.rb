@@ -152,11 +152,9 @@ class AutomationDispatcher
 
     # Tenant-level rate limit: prevent any single tenant from overwhelming the system
     unless tenant_within_rate_limit?(event.tenant_id)
-      Rails.logger.info(
-        "[AutomationDispatcher] Tenant rate limit reached for tenant #{event.tenant_id} " \
-        "(limit: #{TENANT_RUNS_PER_MINUTE}/min)"
-      )
-      emit_rate_limit_metric(event.tenant_id, "tenant", rule_type_for_metrics(rule))
+      Rails.logger.info("[AutomationDispatcher] Tenant rate limit reached for tenant " \
+                        "#{event.tenant_id} (limit: #{TENANT_RUNS_PER_MINUTE}/min)")
+      emit_rate_limit_metric(event.tenant_id, "tenant", rule_type_for_metrics(rule)) # vocab-ok
       return
     end
 

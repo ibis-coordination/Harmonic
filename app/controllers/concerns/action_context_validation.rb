@@ -74,7 +74,7 @@ module ActionContextValidation
     # Public-write guardrail — sibling to the capability check, and like it
     # fires on every restricted-agent write regardless of dispatch path (see
     # the module comment). Gate on the resolved audience (ground truth), not
-    # the declared one: an agent whose owner hasn't enabled public writes can't
+    # the declared one: an agent whose principal hasn't enabled public writes can't
     # act in the main collective even via a direct rest-type token.
     # Only the `public` tier is gated; private and shared are always allowed.
     return unless audience == "public"
@@ -101,9 +101,9 @@ module ActionContextValidation
   def public_write_denied_error
     {
       error: "public_writes_disabled",
-      zone: "public",
-      hint: "This agent is not permitted to write to the public space (the main collective). " \
-            "Its owner can enable public writes in the agent's settings.",
+      tier: "public",
+      hint: "This agent is not permitted to write to the public space. " \
+            "Its principal can enable public writes in the agent's settings.",
     }
   end
 

@@ -342,14 +342,17 @@ Rails.application.routes.draw do
   # App Admin (primary tenant only, app_admin role on User)
   # For cross-tenant management: tenants, users across all tenants
   get 'app-admin' => 'app_admin#dashboard'
-  get 'app-admin/tenants' => 'app_admin#tenants'
-  get 'app-admin/tenants/new' => 'app_admin#new_tenant'
-  post 'app-admin/tenants' => 'app_admin#create_tenant'
-  get 'app-admin/tenants/new/actions' => 'app_admin#actions_index_new_tenant'
-  get 'app-admin/tenants/new/actions/create_tenant' => 'app_admin#describe_create_tenant'
-  post 'app-admin/tenants/new/actions/create_tenant' => 'app_admin#execute_create_tenant'
-  get 'app-admin/tenants/:subdomain/complete' => 'app_admin#complete_tenant_creation'
-  get 'app-admin/tenants/:subdomain' => 'app_admin#show_tenant'
+  get 'app-admin/subdomains' => 'app_admin#tenants'
+  get 'app-admin/subdomains/new' => 'app_admin#new_tenant'
+  post 'app-admin/subdomains' => 'app_admin#create_tenant'
+  get 'app-admin/subdomains/new/actions' => 'app_admin#actions_index_new_tenant'
+  get 'app-admin/subdomains/new/actions/create_tenant' => 'app_admin#describe_create_tenant'
+  post 'app-admin/subdomains/new/actions/create_tenant' => 'app_admin#execute_create_tenant'
+  get 'app-admin/subdomains/:subdomain/complete' => 'app_admin#complete_tenant_creation'
+  get 'app-admin/subdomains/:subdomain' => 'app_admin#show_tenant'
+  # Legacy paths (bookmarks, old links)
+  get 'app-admin/tenants', to: redirect('/app-admin/subdomains')
+  get 'app-admin/tenants/*rest', to: redirect('/app-admin/subdomains/%{rest}')
   get 'app-admin/users' => 'app_admin#users'
   get 'app-admin/users/:id' => 'app_admin#show_user', as: 'app_admin_user'
   get 'app-admin/users/:id/actions' => 'app_admin#actions_index_user'
@@ -371,21 +374,24 @@ Rails.application.routes.draw do
 
   # Tenant Admin (any tenant, admin role on TenantUser)
   # For single-tenant management: settings, users
-  get 'tenant-admin' => 'tenant_admin#dashboard'
-  get 'tenant-admin/actions' => 'tenant_admin#actions_index'
-  get 'tenant-admin/settings' => 'tenant_admin#settings'
-  post 'tenant-admin/settings' => 'tenant_admin#update_settings'
-  get 'tenant-admin/settings/actions' => 'tenant_admin#actions_index_settings'
-  get 'tenant-admin/settings/actions/update_tenant_settings' => 'tenant_admin#describe_update_settings'
-  post 'tenant-admin/settings/actions/update_tenant_settings' => 'tenant_admin#execute_update_settings'
-  get 'tenant-admin/users' => 'tenant_admin#users'
-  get 'tenant-admin/users/:handle' => 'tenant_admin#show_user', as: 'tenant_admin_user'
+  get 'subdomain-admin' => 'tenant_admin#dashboard'
+  get 'subdomain-admin/actions' => 'tenant_admin#actions_index'
+  get 'subdomain-admin/settings' => 'tenant_admin#settings'
+  post 'subdomain-admin/settings' => 'tenant_admin#update_settings'
+  get 'subdomain-admin/settings/actions' => 'tenant_admin#actions_index_settings'
+  get 'subdomain-admin/settings/actions/update_tenant_settings' => 'tenant_admin#describe_update_settings'
+  post 'subdomain-admin/settings/actions/update_tenant_settings' => 'tenant_admin#execute_update_settings'
+  get 'subdomain-admin/users' => 'tenant_admin#users'
+  get 'subdomain-admin/users/:handle' => 'tenant_admin#show_user', as: 'tenant_admin_user'
   # Note: Tenant admins do NOT have suspend/unsuspend actions - only app admins can suspend users
   # Data import (tenant admin only)
-  get 'tenant-admin/imports' => 'tenant_admin#imports_index'
-  get 'tenant-admin/imports/new' => 'tenant_admin#new_import'
-  post 'tenant-admin/imports' => 'tenant_admin#create_import'
-  get 'tenant-admin/imports/:id' => 'tenant_admin#show_import'
+  get 'subdomain-admin/imports' => 'tenant_admin#imports_index'
+  get 'subdomain-admin/imports/new' => 'tenant_admin#new_import'
+  post 'subdomain-admin/imports' => 'tenant_admin#create_import'
+  get 'subdomain-admin/imports/:id' => 'tenant_admin#show_import'
+  # Legacy paths (bookmarks, old links)
+  get 'tenant-admin', to: redirect('/subdomain-admin')
+  get 'tenant-admin/*rest', to: redirect('/subdomain-admin/%{rest}')
 
   # ============================================================
   # Admin Chooser (smart redirect based on user's admin roles)

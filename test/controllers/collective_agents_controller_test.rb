@@ -296,6 +296,21 @@ class CollectiveAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 3, persona_count(collective)
   end
 
+  test "the agents page says built-in agents, never personas" do
+    collective = create_test_collective
+    offer_trio!(@tenant)
+    sign_in_as(@user, tenant: @tenant)
+    post "#{collective.path}/agents/set_trio_enabled", params: { enabled: "true" }
+
+    get "#{collective.path}/agents", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_no_match(/\bpersonas?\b/i, response.body, "'persona' is an internal term — copy says built-in agent")
+
+    get "#{collective.path}/agents"
+    assert_response :success
+    assert_no_match(/\bpersonas?\b/i, response.body)
+  end
+
   test "enabling trio without an open pool flashes a pool-page pointer" do
     collective = create_test_collective
     offer_trio!(@tenant)

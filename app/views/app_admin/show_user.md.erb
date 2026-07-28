@@ -16,16 +16,16 @@
 **Reason:** <%= @showing_user.suspended_reason %>
 <% end -%>
 
-## Tenants (<%= @user_tenants.count %>)
+## Subdomains (<%= @user_tenants.count %>)
 
 <% if @user_tenants.any? -%>
-| Tenant | Handle | Role |
+| Subdomain | Handle | Role |
 |--------|--------|------|
 <% @user_tenants.each do |tenant| -%>
 <% tu = @showing_user.tenant_users.find { |t| t.tenant_id == tenant.id } -%>
-| [<%= tenant.name %>](/app-admin/tenants/<%= tenant.subdomain %>) | @<%= tu&.handle %> | <%= tenant.is_admin?(@showing_user) ? 'admin' : 'member' %> |
+| [<%= tenant.name %>](/app-admin/subdomains/<%= tenant.subdomain %>) | @<%= tu&.handle %> | <%= tenant.is_admin?(@showing_user) ? 'admin' : 'member' %> |
 <% end -%>
 <% else -%>
-*User is not a member of any tenants.*
+*User is not a member of any subdomains.*
 <% end -%>
 

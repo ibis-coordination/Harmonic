@@ -4,7 +4,7 @@
       <%= octicon 'shield-x', height: 48 %>
     </div>
     <h1 class="pulse-auth-title">Access Denied</h1>
-    <p class="pulse-auth-subtitle">You do not have tenant administrator access.</p>
+    <p class="pulse-auth-subtitle">You do not have subdomain administrator access.</p>
 
     <% is_primary_tenant = @current_tenant&.subdomain == ENV['PRIMARY_SUBDOMAIN'] %>
     <% other_admin_access = [] %>

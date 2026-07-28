@@ -209,7 +209,7 @@ class ChatsController < ApplicationController
   # Find the other participant by handle and resolve the chat session.
   # After finding/creating the session, switches the thread context to the
   # chat session's collective so that message creation and event tracking
-  # are scoped to the private chat collective.
+  # are scoped to the chat's own collective.
   def find_partner_and_session
     @partner = User.joins(:tenant_users)
       .where(tenant_users: { tenant_id: current_tenant&.id, handle: params[:handle] })

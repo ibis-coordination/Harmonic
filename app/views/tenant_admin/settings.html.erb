@@ -1,18 +1,18 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, '/'],
-  ['Tenant Admin', '/tenant-admin'],
+  ['Subdomain Admin', '/subdomain-admin'],
   'Settings'
 ] %>
 
 <h1 class="pulse-page-title">
-  <%= octicon 'gear', height: 24 %> Tenant Settings
+  <%= octicon 'gear', height: 24 %> Subdomain Settings
 </h1>
 
-<%= form_with(url: "/tenant-admin/settings", class: "pulse-form", style: "max-width:600px;") do |form| %>
+<%= form_with(url: "/subdomain-admin/settings", class: "pulse-form", style: "max-width:600px;") do |form| %>
   <%= render 'shared/pulse_accordion', title: 'General', icon: 'info', open: true do %>
     <div class="pulse-form-section" style="border-top:none;margin-top:0;padding-top:0;">
-      <label class="pulse-form-label" for="name">Tenant Name</label>
-      <%= form.text_field :name, placeholder: 'Tenant Name', value: @current_tenant.name, class: 'pulse-form-input' %>
+      <label class="pulse-form-label" for="name">Name</label>
+      <%= form.text_field :name, placeholder: 'Name', value: @current_tenant.name, class: 'pulse-form-input' %>
     </div>
 
     <div class="pulse-form-section">
@@ -27,13 +27,13 @@
         <%= form.check_box :require_login, { checked: @current_tenant.require_login?, class: 'pulse-checkbox-input' } %>
         <span>Require login for all users</span>
       </label>
-      <p class="pulse-form-hint">When enabled, users must be logged in to view any content on this tenant.</p>
+      <p class="pulse-form-hint">When enabled, users must be logged in to view any content on this subdomain.</p>
     </div>
   <% end %>
 
   <%= render 'shared/pulse_accordion', title: 'Attachments', icon: 'paperclip', open: true do %>
     <p class="pulse-form-hint" style="margin-bottom:16px;">
-      Which categories of file attachments may be uploaded by users in this tenant. Existing attachments are not affected when these settings change.
+      Which categories of file attachments may be uploaded by users on this subdomain. Existing attachments are not affected when these settings change.
     </p>
 
     <%# Hidden empty value ensures the param key is present even when no boxes are checked. %>
@@ -57,7 +57,7 @@
   <% if available_flags.any? %>
     <%= render 'shared/pulse_accordion', title: 'Feature Flags', icon: 'beaker', count: available_flags.count, open: true do %>
       <p class="pulse-form-hint" style="margin-bottom:16px;">
-        Features must be enabled here for collectives to use them. When disabled, the feature is unavailable for all collectives in this tenant.
+        Features must be enabled here for collectives to use them. When disabled, the feature is unavailable for all collectives on this subdomain.
       </p>
 
       <% available_flags.each do |flag_name| %>
@@ -83,7 +83,7 @@
       <% enabled_models = @current_tenant.enabled_gateway_models %>
       <%= render 'shared/pulse_accordion', title: 'AI Agent Models', icon: 'cpu', count: gateway_catalog.size, open: false do %>
         <p class="pulse-form-hint" style="margin-bottom:16px;">
-          Which models users can choose for internal AI agents. Prices are per 1M tokens (input / output), billed to your credit balance as agents run. Unchecked models are hidden from users; if none are enabled, a default set is offered.
+          Which models users can choose for internal AI agents. Prices are per 1M tokens (input / output), billed to your prepaid balance as agents run. Unchecked models are hidden from users; if none are enabled, a default set is offered.
         </p>
 
         <%# Hidden empty value ensures the param key is present even when no boxes are checked. %>
@@ -119,6 +119,6 @@
 
   <div class="pulse-form-actions">
     <%= form.submit 'Save Settings', class: 'pulse-action-btn' %>
-    <a href="/tenant-admin" class="pulse-action-btn-secondary">Cancel</a>
+    <a href="/subdomain-admin" class="pulse-action-btn-secondary">Cancel</a>
   </div>
 <% end %>

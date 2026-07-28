@@ -7,6 +7,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 - [PHILOSOPHY.md](PHILOSOPHY.md) — Design philosophy and decisions
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Architecture details
 - [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) — UI styling patterns (live reference at `/dev/styleguide`)
+- [docs/CONTROLLED_VOCABULARY.md](docs/CONTROLLED_VOCABULARY.md) — Approved terms and writing rules for agent-facing and UI copy
 - [docs/AGENT_RUNNER.md](docs/AGENT_RUNNER.md) — Agent-runner service
 - [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md) — Automation system
 - [docs/BILLING.md](docs/BILLING.md) — Billing, credits, and the LLM gateway

@@ -265,7 +265,7 @@
         <% if @current_collective.paid_tier? %>
           <p class="pulse-section-description">
             This collective is on the <strong>paid plan ($3/month)</strong>, billed to the owner's account.
-            The plan turns paid features on; prepaid usage credits — topped up per member — pay for agent activity separately.
+            The plan turns paid features on; prepaid balances — topped up per member — pay for agent activity separately.
           </p>
           <p class="pulse-muted" style="margin-bottom: 12px;">
             <%= octicon 'credit-card', height: 14 %>
@@ -317,7 +317,7 @@
         <% else %>
           <p class="pulse-section-description">
             This collective is on the <strong>free plan</strong>. Upgrade to <strong>$3/month</strong> to unlock <%= paid_feature_labels(@current_tenant).to_sentence %>.
-            The plan is separate from prepaid usage credits, which fund agent activity.
+            The plan is separate from prepaid balances, which fund agent activity.
           </p>
           <% if is_owner %>
             <%# Links go to the GET upgrade preview, which shows the prorated %>
