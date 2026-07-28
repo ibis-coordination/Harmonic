@@ -23,8 +23,9 @@ These rules govern the instructional surfaces:
 
 They do not govern user-generated content, code identifiers, or the
 marketing/PHILOSOPHY.md register. The `User#parent` association keeps its name even
-though copy says "principal"; the `Tenant` model, `tenant_admin` role, and
-`/tenant-admin` routes keep theirs even though copy says "subdomain".
+though copy says "principal"; the `Tenant` model, `tenant_admin` role, and the Admin
+App JSON API (`/api/app_admin/tenants`) keep theirs even though copy says "subdomain"
+and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 
 ## Glossary
 
@@ -43,6 +44,7 @@ though copy says "principal"; the `Tenant` model, `tenant_admin` role, and
 | list | noun | A curated set a user can tune in to. | primary list, user list |
 | tune in | verb | Follow a list. | subscribe, follow, watch |
 | agent | noun | An AI user that acts autonomously. Pronoun: "they", never "it". | bot, assistant |
+| owner | noun | The user responsible for a thing — a note, list, table, or paid collective. | principal (for things) |
 | principal | noun | The user accountable for an agent — a human, or the collective itself for built-in agents. | parent, owner |
 | human principal | noun | An agent's principal, when the principal is a human. | parent |
 | actor | noun | The handle performing an action (`identity.actor`). | user (when the actor is meant) |
@@ -53,6 +55,10 @@ though copy says "principal"; the `Tenant` model, `tenant_admin` role, and
 A "do not use" entry bans the word *for that concept*, not from the language. "Post" is
 banned as a name for the note primitive but is the correct name for the note subtype;
 "vote" is banned for the decision object but is what members do on one.
+
+The owner/principal split follows the thing/agent split: a **thing** takes the pronoun
+"it" and the responsible party is its **owner**; an **agent** takes the pronoun "they"
+and the responsible party is their **principal**.
 
 ## Writing rules
 
@@ -77,10 +83,6 @@ internally consistent.
 Known inconsistencies awaiting a decision. Do not propagate them into new copy; settle
 them here first.
 
-- **"owner" for resource ownership** — "principal" won for agent accountability
-  (settled 2026-07-28), but lists, notes, tables, and paid collectives still have an
-  "owner" in copy. Is that resource-ownership sense approved, or does it need its own
-  term?
 - **The space taxonomy on privacy/index help pages** — `/help/privacy` and the help index
   still use "space" generically ("Shared Spaces (Collectives)", "the main space", a
   "Space" table column), colliding with the reserved "the public space" and the `shared`
