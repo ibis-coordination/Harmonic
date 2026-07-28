@@ -101,7 +101,7 @@ module ActionContextValidation
   def public_write_denied_error
     {
       error: "public_writes_disabled",
-      zone: "public",
+      tier: "public",
       hint: "This agent is not permitted to write to the public space. " \
             "Its owner can enable public writes in the agent's settings.",
     }
