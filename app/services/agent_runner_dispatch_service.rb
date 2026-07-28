@@ -76,7 +76,7 @@ class AgentRunnerDispatchService
     # here puts a readable error in the chat UI immediately instead of after
     # the runner spins up.
     if @task_run.chat_turn? && pool_funded
-      fail_task!("This agent runs on the collective's funding pool, and pool funding doesn't cover private chat. " \
+      fail_task!("This agent runs on the collective's funding pool, and pool funding doesn't cover chat conversations. " \
                  "Detach the agent to chat on its own billing.")
       return
     end

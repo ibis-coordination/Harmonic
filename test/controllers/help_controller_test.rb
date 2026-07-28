@@ -230,6 +230,21 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/\bzones?\b/i, response.body)
   end
 
+  test "/help/privacy presents the formal taxonomy as tiers" do
+    get "/help/privacy", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "three visibility tiers"
+    assert_not_includes response.body, "Shared Spaces"
+    assert_no_match(/\bzones?\b|\blevels\b/i, response.body)
+  end
+
+  test "collective interiors are never described with the private tier word" do
+    get "/help/collectives", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "invite-only internal space"
+    assert_not_includes response.body, "private internal collaboration space"
+  end
+
   test "help pages say subdomain, never tenant" do
     ["/help/api", "/help/rest-api", "/help/mcp", "/help/automations"].each do |path|
       get path, headers: { "Accept" => "text/markdown" }

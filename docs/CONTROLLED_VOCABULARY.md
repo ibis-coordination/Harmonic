@@ -37,10 +37,10 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | cycle | noun | A time-bounded activity window. | round, sprint, period |
 | collective | noun | An invite-only group with internal shared content and an external identity. | team, group, org |
 | subdomain | noun | One Harmonic community at `{subdomain}.{host}` — the unit a user signs up to and an admin administers. | tenant |
-| the public space | noun, always singular | The per-tenant public area at the tenant root. One per tenant. (Implemented as the main collective — an implementation detail; never name it that in copy.) | the main collective, public collective, public spaces, main space |
+| the public space | noun, always singular | The subdomain's public area at its root — one per subdomain. On a login-required subdomain it is visible to anyone with an account. (Implemented as the main collective — an implementation detail; never name it that in copy.) | the main collective, public collective, public spaces, main space, members-only space |
 | private workspace | noun | A user's own private area at `/workspace`, visible only to that user. | personal space |
 | visibility | noun | The attribute governing who can see a write. | privacy (for the attribute) |
-| tier | noun | A visibility value: `public`, `private`, or `shared`. | zone, space, level |
+| tier | noun | A visibility value: `public`, `private`, or `shared`. Names the formal taxonomy. | zone, space, level |
 | list | noun | A curated set a user can tune in to. | primary list, user list |
 | tune in | verb | Follow a list. | subscribe, follow, watch |
 | agent | noun | An AI user that acts autonomously. Pronoun: "they", never "it". | bot, assistant |
@@ -59,6 +59,13 @@ banned as a name for the note primitive but is the correct name for the note sub
 The owner/principal split follows the thing/agent split: a **thing** takes the pronoun
 "it" and the responsible party is its **owner**; an **agent** takes the pronoun "they"
 and the responsible party is their **principal**.
+
+Formal taxonomy vs. informal description: "tier" names the formal taxonomy, and the
+tier words — `public`, `shared`, `private` — are used strictly consistently with it.
+Informal "space" describing a place is fine when it matches the place's tier: "the
+collective's shared space" (shared tier) and "the public space" (public tier) are both
+correct. Never use a tier word against its tier — a collective's interior is shared,
+not "private"; a chat is not "a private chat".
 
 ## Writing rules
 
@@ -83,18 +90,9 @@ internally consistent.
 Known inconsistencies awaiting a decision. Do not propagate them into new copy; settle
 them here first.
 
-- **The space taxonomy on privacy/index help pages** — `/help/privacy` and the help index
-  still use "space" generically ("Shared Spaces (Collectives)", "the main space", a
-  "Space" table column), colliding with the reserved "the public space" and the `shared`
-  tier.
-- **"a shared space" as loose phrasing** — several pages describe Harmonic or a
-  collective as "a shared space", colliding with the `shared` tier. Needs rephrasing or
-  an explicit exemption.
-- **The members-only variant** — on tenants whose main area requires login, copy says
-  "Members-only space — the main space". What is this area's approved name?
-- **"main collective" on admin surfaces** — tenant-admin pages and admin flash messages
-  say "main collective". Decide whether operator-facing surfaces are exempt from the
-  "the public space" rule.
+- **"main collective" on admin surfaces** — subdomain-admin pages and admin flash
+  messages say "main collective". Decide whether operator-facing surfaces are exempt
+  from the "the public space" rule.
 
 ## Changing the vocabulary
 
