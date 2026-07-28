@@ -37,8 +37,8 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | type | noun | The primitive kind of an item: note, decision, or commitment (the search `type:` operator). | kind |
 | subtype | noun | The structural variant within a type: post/reminder/table, vote/executive/lottery, action/event/policy. | — |
 | comment | noun | A note attached to other content; it appears beneath it and links back. | reply (as the object's name) |
-| author | noun | The creator of a note (any subtype) or comment — attribution and edit rights. | owner (for notes and comments) |
-| creator | noun | The user who created a decision or commitment (and the search `creator:` operator, which covers all types). | — |
+| author | noun | The writer of a written note (post, reminder) or a comment — the one whose words they are. Tables are data, often collaboratively built — a table note has an owner, not an author. | — |
+| creator | noun | The user who created a resource initially — usually also its owner. (Also the search `creator:` operator, which covers all types.) | — |
 | option | noun | A proposed answer on a decision. On lotteries, options are called entries. | choice |
 | acceptance voting | noun | The default decision mechanism: accept or reject each option, then prefer among accepted. | approval voting (as its name) |
 | decision maker | noun | The user who selects options and closes an executive decision. | — |
@@ -71,7 +71,7 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | Trio | proper noun | The set of three built-in agents a collective enables together. | — |
 | harness | noun | The software environment that runs an external agent (Claude Code, goose, codex, …). | — |
 | sprite | noun | A Sprites machine hosting a self-hosted agent (vendor term). | — |
-| owner | noun | The user responsible for a thing — a list, a private workspace, or a paid collective. (Notes and comments have an author.) | principal (for things) |
+| owner | noun | The user responsible for a resource — a table note, list, private workspace, or paid collective. Usually the creator, though ownership could in principle be transferred. | principal (for things) |
 | principal | noun | The user accountable for an agent — a human, or the collective itself for built-in agents. | parent, owner |
 | human principal | noun | An agent's principal, when the principal is a human. | parent |
 | actor | noun | The handle performing an action (`identity.actor`). | user (when the actor is meant) |
