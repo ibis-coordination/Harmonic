@@ -14,7 +14,7 @@
 | Status | <%= @task_run.status %> |
 | Success | <%= @task_run.success %> |
 | Agent | <%= @task_run.ai_agent&.name %> |
-| Tenant | <%= @task_run.tenant&.subdomain %> |
+| Subdomain | <%= @task_run.tenant&.subdomain %> |
 | Model | <%= @task_run.model || "default" %> |
 | Steps | <%= @task_run.steps_count %> / <%= @task_run.max_steps %> |
 <% if @task_run.formatted_duration -%>

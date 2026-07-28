@@ -162,15 +162,34 @@ surfacing the *un*settled ones (tier/zone/space) that only show up when you tabu
 
 ## Open questions
 
-- Glossary home: `docs/CONTROLLED_VOCABULARY.md` standalone, or a section of
-  `docs/STYLE_GUIDE.md`? Standalone is easier to lint against and to hand to an agent.
 - Do we want the lint at all, or is a reviewed doc + habit enough given the small surface?
+- The doc's "Unsettled terms" section tracks the term decisions still open
+  (owner vs. principal, the privacy-page space taxonomy, "a shared space" phrasing,
+  the members-only variant's name, admin-surface "main collective").
 
 ## Suggested sequencing
 
-1. Land the visibility tier/zone/space normalization as a standalone small change — the
-   worked example above. Judge the before/after.
-2. If it pays off, write `docs/CONTROLLED_VOCABULARY.md` from the seed table and settle the
-   open term decisions.
-3. Add the writing-rules section.
-4. Only then, decide on the lint.
+1. ~~Land the visibility tier/zone/space normalization as a standalone small change — the
+   worked example above.~~ **Done 2026-07-28** on branch `vocabulary-tier-normalization`
+   (commit f34c4dd9): the four worked-example strings plus sibling occurrences in
+   `getting_started.md.erb`, with tests locking the vocabulary in. The `zone` field in the
+   `public_writes_disabled` error payload was renamed to `tier` in a follow-up commit
+   (no consumers outside the tests). Sweep findings deferred to the doc's "Unsettled
+   terms" section: the privacy/index help pages' space taxonomy, billing.md.erb
+   "The main collective of each space", admin-facing "main collective" copy, generic
+   "a shared space" phrasing that collides with the `shared` tier, and the
+   members-only-tenant naming question.
+2. ~~If it pays off, write `docs/CONTROLLED_VOCABULARY.md` from the seed table.~~
+   **Done 2026-07-28**, standalone doc (settling the glossary-home question), linked from
+   CLAUDE.md's Related Docs. Includes the writing rules (folding in step 3) and an
+   "Unsettled terms" section carrying the open term decisions.
+3. ~~Add the writing-rules section.~~ Folded into the doc.
+4. Decide on the lint.
+
+Subsequent rulings (all landed 2026-07-28 on branch `vocabulary-tier-normalization`):
+principal-not-owner for agents plus the thing/agent it-owner/they-principal split;
+subdomain-not-tenant in copy plus the `/subdomain-admin` and `/app-admin/subdomains`
+route moves (301s from old GET paths); formal-tier vs. informal-space rule applied
+across the help pages (privacy page reframed around tiers; members-only variant
+resolved as "the public space" on a login-required subdomain). The glossary's
+unsettled list is down to one item: "main collective" on admin surfaces.

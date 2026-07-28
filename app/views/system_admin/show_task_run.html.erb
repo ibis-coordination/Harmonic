@@ -45,7 +45,7 @@
   <% end %>
   <p class="pulse-muted" style="margin: 8px 0 0 0; font-size: 12px;">
     Agent: <%= @task_run.ai_agent&.name %> |
-    Tenant: <%= @task_run.tenant&.subdomain %> |
+    Subdomain: <%= @task_run.tenant&.subdomain %> |
     Model: <code><%= @task_run.model || "default" %></code> |
     Steps: <%= @task_run.steps_count %> / <%= @task_run.max_steps %>
     <% if @task_run.formatted_duration %>
