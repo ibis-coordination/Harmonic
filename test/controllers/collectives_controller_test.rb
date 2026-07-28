@@ -811,8 +811,8 @@ class CollectivesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_match(%r{\$3/month}, response.body)
-    # The plan vs. prepaid-credits distinction is stated where the two payments meet.
-    assert_match(/separate from the prepaid usage credits/i, response.body)
+    # The plan vs. prepaid-balance distinction is stated where the two payments meet.
+    assert_match(/separate from the prepaid balances/i, response.body)
     # Confirmation form must POST to /upgrade with Turbo opted out
     # (controller may redirect cross-origin to Stripe Checkout).
     assert_match %r{<form[^>]*action="[^"]*#{Regexp.escape(@collective.handle)}/upgrade"[^>]*method="post"[^>]*>}, response.body
