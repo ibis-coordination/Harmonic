@@ -230,6 +230,16 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/\bzones?\b/i, response.body)
   end
 
+  test "representation help says trustee authorization, never trustee grant" do
+    ["/help/representation", "/help/agents/representation"].each do |path|
+      get path, headers: { "Accept" => "text/markdown" }
+      assert_response :success
+      assert_includes response.body, "trustee authorization"
+      assert_no_match(/trustee grant|\bgrant is\b|\bthe grant\b|\ba grant\b/i, response.body,
+                      "#{path}: the noun is 'authorization'; 'grant' survives only as a verb")
+    end
+  end
+
   test "billing help says prepaid balance, never credits" do
     @tenant.set_feature_flag!("stripe_billing", true)
     get "/help/billing", headers: { "Accept" => "text/markdown" }

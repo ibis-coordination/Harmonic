@@ -46,7 +46,7 @@ NC='\033[0m'
 found=0
 
 # Banned patterns in rendered prose (case-insensitive).
-PROSE_PATTERN='visibility (zone|level)|levels of visibility|\bpublic spaces\b|\bmain space\b|\bmembers-only space\b|\bmain collective\b|\btenants?\b|\bprivate chats?\b|agent'"'"'?s owner|owner of this (ai_)?agent|\bprimary list\b|\buser list\b|\bpersonas?\b|\busernames?\b|spend(ing)? limits?|\bquotas?\b|direct messages?|\bDMs?\b|prepaid credits?|credit balance|\bcredits\b'
+PROSE_PATTERN='visibility (zone|level)|levels of visibility|\bpublic spaces\b|\bmain space\b|\bmembers-only space\b|\bmain collective\b|\btenants?\b|\bprivate chats?\b|agent'"'"'?s owner|owner of this (ai_)?agent|\bprimary list\b|\buser list\b|\bpersonas?\b|\busernames?\b|spend(ing)? limits?|\bquotas?\b|direct messages?|\bDMs?\b|prepaid credits?|credit balance|\bcredits\b|trustee grants?'
 
 # Strip ERB regions (<% ... %>, including <%= and <%#) while preserving line
 # numbers, so grep line numbers refer to the original file.

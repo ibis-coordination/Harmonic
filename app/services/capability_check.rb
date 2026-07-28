@@ -290,7 +290,7 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     },
     {
       name: "Trustee authorization responses",
-      description: "Accept or decline trustee grants offered to this agent.",
+      description: "Accept or decline trustee authorizations offered to this agent.",
       actions: ["accept_trustee_authorization", "decline_trustee_authorization"],
     },
     {
@@ -301,7 +301,7 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     },
     {
       name: "Representation",
-      description: "Start and end sessions where the agent acts on behalf of a user or collective via a trustee grant.",
+      description: "Start and end sessions where the agent acts on behalf of a user or collective via a trustee authorization.",
       actions: ["start_representation", "end_representation"],
     },
     {

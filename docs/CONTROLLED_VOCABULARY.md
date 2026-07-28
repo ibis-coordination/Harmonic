@@ -58,7 +58,7 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | intention | noun | The declared short imperative phrase saying what a write does and why. | reason, justification |
 | representation | noun | Acting on behalf of another user or a collective. Verb: represent. | impersonation |
 | collective identity | noun | The user through which a collective acts outward — it participates in other collectives, never its own. | — |
-| trustee grant | noun | Delegated authority letting an agent represent a user or a collective. | — |
+| trustee authorization | noun | Delegated authority letting one user (often an agent) represent another user or a collective. (The `TrusteeGrant` model keeps its name in code.) | trustee grant, grant (as the noun for this object) |
 | prepaid balance | noun | The stored funds LLM usage draws from. ("Credit" in the invoice/proration sense is a different concept and fine.) | credits, prepaid credits, credit balance |
 | cap | noun | An upper bound on an agent's own spend (e.g. the daily spend cap). | spend limit, quota |
 | ceiling | noun | A funding pool's per-member draw bound. | limit |
