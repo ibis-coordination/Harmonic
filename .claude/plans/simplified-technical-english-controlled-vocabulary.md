@@ -184,7 +184,9 @@ surfacing the *un*settled ones (tier/zone/space) that only show up when you tabu
    CLAUDE.md's Related Docs. Includes the writing rules (folding in step 3) and an
    "Unsettled terms" section carrying the open term decisions.
 3. ~~Add the writing-rules section.~~ Folded into the doc.
-4. Decide on the lint.
+4. ~~Decide on the lint.~~ **Built 2026-07-28**: `scripts/check-vocabulary.sh` (ERB-aware
+   prose scan + copy-string scan, `vocab-ok` waivers), wired into pre-commit and CI.
+   Its first full run caught 14 leftovers the manual sweeps missed.
 
 Subsequent rulings (all landed 2026-07-28 on branch `vocabulary-tier-normalization`):
 principal-not-owner for agents plus the thing/agent it-owner/they-principal split;

@@ -90,9 +90,9 @@ internally consistent.
 Known inconsistencies awaiting a decision. Do not propagate them into new copy; settle
 them here first.
 
-- **"main collective" on admin surfaces** — subdomain-admin pages and admin flash
-  messages say "main collective". Decide whether operator-facing surfaces are exempt
-  from the "the public space" rule.
+- None at the moment. (Admin surfaces settled 2026-07-28: not exempt — they say "the
+  public space" too, with a one-sentence implementation explanation allowed on the
+  subdomain-admin dashboard, marked `vocab-ok`.)
 
 ## Changing the vocabulary
 
