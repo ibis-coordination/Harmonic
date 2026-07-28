@@ -1,10 +1,10 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, '/'],
-  'Tenant Admin'
+  'Subdomain Admin'
 ] %>
 
 <h1 class="pulse-page-title">
-  <%= octicon 'tools', height: 24 %> Tenant Admin
+  <%= octicon 'tools', height: 24 %> Subdomain Admin
 </h1>
 
 <p class="pulse-body-text-muted">
@@ -31,7 +31,7 @@
   </div>
 <% end %>
 
-<%= render 'shared/pulse_accordion', title: 'Tenant Details', icon: 'info', open: true do %>
+<%= render 'shared/pulse_accordion', title: 'Subdomain Details', icon: 'info', open: true do %>
   <div class="pulse-table-wrapper">
     <table class="pulse-table">
       <tbody>

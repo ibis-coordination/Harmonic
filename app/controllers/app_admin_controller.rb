@@ -42,7 +42,7 @@ class AppAdminController < ApplicationController
 
   # GET /app-admin/tenants
   def tenants
-    @page_title = 'All Tenants'
+    @page_title = 'All Subdomains'
     @tenants = Tenant.order(:name)
     respond_to do |format|
       format.html
@@ -52,7 +52,7 @@ class AppAdminController < ApplicationController
 
   # GET /app-admin/tenants/new
   def new_tenant
-    @page_title = 'New Tenant'
+    @page_title = 'New Subdomain'
     respond_to do |format|
       format.html
       format.md
@@ -76,7 +76,7 @@ class AppAdminController < ApplicationController
   def complete_tenant_creation
     @tenant = Tenant.find_by(subdomain: params[:subdomain])
     return render(plain: "404 Not Found", status: :not_found) unless @tenant
-    @page_title = 'Tenant Created'
+    @page_title = 'Subdomain Created'
     respond_to do |format|
       format.html
       format.md
@@ -512,7 +512,7 @@ class AppAdminController < ApplicationController
   end
 
   def actions_index_new_tenant
-    @page_title = "Actions | New Tenant"
+    @page_title = "Actions | New Subdomain"
     render_actions_index(ActionsHelper.actions_for_route('/app-admin/tenants/new'))
   end
 

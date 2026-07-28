@@ -25,7 +25,7 @@ class TenantAdminController < ApplicationController
 
   # GET /tenant-admin
   def dashboard
-    @page_title = 'Tenant Admin'
+    @page_title = 'Subdomain Admin'
     @team = @current_tenant.team
     respond_to do |format|
       format.html
@@ -39,7 +39,7 @@ class TenantAdminController < ApplicationController
 
   # GET /tenant-admin/settings
   def settings
-    @page_title = 'Tenant Settings'
+    @page_title = 'Subdomain Settings'
     respond_to do |format|
       format.html
       format.md
@@ -226,12 +226,12 @@ class TenantAdminController < ApplicationController
   # ============================================================================
 
   def actions_index
-    @page_title = "Actions | Tenant Admin"
+    @page_title = "Actions | Subdomain Admin"
     render_actions_index(ActionsHelper.actions_for_route('/tenant-admin'))
   end
 
   def actions_index_settings
-    @page_title = "Actions | Tenant Settings"
+    @page_title = "Actions | Subdomain Settings"
     render_actions_index(ActionsHelper.actions_for_route('/tenant-admin/settings'))
   end
 

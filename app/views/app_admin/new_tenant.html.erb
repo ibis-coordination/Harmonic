@@ -6,12 +6,12 @@
 ] %>
 
 <h1 class="pulse-page-title">
-  <%= octicon 'plus', height: 24 %> Create New Tenant
+  <%= octicon 'plus', height: 24 %> Create New Subdomain
 </h1>
 
 <%= form_tag '/app-admin/tenants', method: :post do %>
   <div class="pulse-form-group">
-    <label for="name" class="pulse-form-label">Tenant Name</label>
+    <label for="name" class="pulse-form-label">Name</label>
     <input type="text" name="name" id="name" class="pulse-form-input" placeholder="My Company" required>
     <p class="pulse-form-hint">The display name for this tenant.</p>
   </div>

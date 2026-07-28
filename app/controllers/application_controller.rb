@@ -223,8 +223,8 @@ class ApplicationController < ActionController::Base
     # Internal tokens bypass API enabled checks - they are system-managed
     # and used for internal operations like agent runners
     unless current_token&.internal? || (current_collective.api_enabled? && current_tenant.api_enabled?)
-      collective_or_tenant = current_tenant.api_enabled? ? "collective" : "tenant"
-      return render json: { error: "API not enabled for this #{collective_or_tenant}" }, status: :forbidden
+      collective_or_subdomain = current_tenant.api_enabled? ? "collective" : "subdomain"
+      return render json: { error: "API not enabled for this #{collective_or_subdomain}" }, status: :forbidden
     end
     return render json: { error: "API only supports JSON or Markdown formats" }, status: :forbidden unless json_or_markdown_request?
 

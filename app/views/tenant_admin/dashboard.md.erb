@@ -1,4 +1,4 @@
-# Tenant Admin
+# Subdomain Admin
 
 Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>`)
 
@@ -10,7 +10,7 @@ Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= E
 
 [Manage All Users](/tenant-admin/users)
 
-## Tenant Details
+## Subdomain Details
 
 | Property | Value |
 |----------|-------|
@@ -19,7 +19,7 @@ Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= E
 | Created | <%= time_ago_in_words(@current_tenant.created_at) %> ago |
 | Updated | <%= time_ago_in_words(@current_tenant.updated_at) %> ago |
 
-### Tenant Settings
+### Subdomain Settings
 
 [Edit Settings](/tenant-admin/settings)
 

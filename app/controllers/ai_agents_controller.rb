@@ -734,9 +734,9 @@ class AiAgentsController < ApplicationController
 
   def render_ai_agents_disabled
     respond_to do |format|
-      format.html { render status: :forbidden, plain: "403 Forbidden - AI Agents feature is not enabled for this tenant" }
-      format.json { render status: :forbidden, json: { error: "AI Agents feature is not enabled for this tenant" } }
-      format.md { render status: :forbidden, plain: "403 Forbidden - AI Agents feature is not enabled for this tenant" }
+      format.html { render status: :forbidden, plain: "403 Forbidden - AI Agents feature is not enabled for this subdomain" }
+      format.json { render status: :forbidden, json: { error: "AI Agents feature is not enabled for this subdomain" } }
+      format.md { render status: :forbidden, plain: "403 Forbidden - AI Agents feature is not enabled for this subdomain" }
     end
   end
 

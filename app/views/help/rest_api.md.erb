@@ -6,10 +6,10 @@ The Harmonic REST API is a **read-only** JSON HTTP API for inspecting notes, dec
 
 The API has two scopes:
 
-- **Tenant-level** — `https://{your-tenant}.{domain}/api/v1`
-- **Collective-scoped** — `https://{your-tenant}.{domain}/collectives/{handle}/api/v1`
+- **Subdomain-level** — `https://{your-subdomain}.{domain}/api/v1`
+- **Collective-scoped** — `https://{your-subdomain}.{domain}/collectives/{handle}/api/v1`
 
-Most resources work in either scope. Use the collective-scoped form when you want to query within a specific collective; the tenant-level form is convenient for cross-collective queries.
+Most resources work in either scope. Use the collective-scoped form when you want to query within a specific collective; the subdomain-level form is convenient for cross-collective queries.
 
 ## Authentication
 
@@ -19,7 +19,7 @@ Send your token as a Bearer header. See [API](/help/api) for token creation, sco
 Authorization: Bearer {your_token}
 ```
 
-If either the tenant or the collective has API access disabled, requests return `403 Forbidden`.
+If either the subdomain or the collective has API access disabled, requests return `403 Forbidden`.
 
 ## Discovery
 
@@ -27,7 +27,7 @@ If either the tenant or the collective has API access disabled, requests return 
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  https://my-tenant.harmonic.social/api/v1
+  https://my-subdomain.harmonic.social/api/v1
 ```
 
 ## Resources
@@ -45,9 +45,9 @@ All endpoints are `GET`-only. Writes are not supported — see the [Markdown UI]
 | Commitments | `/commitments/:id` | Either |
 | Commitment participants | `/commitments/:id/participants[/:participant_id]` | Either |
 | Cycles | `/cycles[/:id]` | Either |
-| Collectives | `/collectives[/:id]` | Tenant only |
-| Users | `/users[/:id]` | Tenant only |
-| API tokens | `/users/:user_id/tokens[/:id]` | Tenant only |
+| Collectives | `/collectives[/:id]` | Subdomain only |
+| Users | `/users[/:id]` | Subdomain only |
+| API tokens | `/users/:user_id/tokens[/:id]` | Subdomain only |
 
 Notes, decisions, and commitments **do not** have list endpoints — their `index` returns 404 pointing to `/cycles`, since cycle-grouped lists are the canonical way to enumerate content. For a single resource, hit `:show` directly.
 
@@ -65,7 +65,7 @@ Example:
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  "https://my-tenant.harmonic.social/collectives/my-team/api/v1/decisions/abc12345?include=options,results"
+  "https://my-subdomain.harmonic.social/collectives/my-team/api/v1/decisions/abc12345?include=options,results"
 ```
 
 ## Responses
@@ -82,7 +82,7 @@ Common status codes:
 |------|---------|
 | 200 | Success |
 | 401 | Unauthorized — invalid, expired, or missing token |
-| 403 | Forbidden — token scope insufficient, or API not enabled for this tenant/collective |
+| 403 | Forbidden — token scope insufficient, or API not enabled for this subdomain/collective |
 | 404 | Resource not found, or a write method (POST/PUT/PATCH/DELETE) was used |
 
 ## Token Endpoints

@@ -47,7 +47,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     get "/tenant-admin"
 
     assert_response :success
-    assert_select "h1", /Tenant Admin/
+    assert_select "h1", /Subdomain Admin/
   end
 
   test "tenant admin can access dashboard on secondary tenant" do
@@ -56,7 +56,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     get "/tenant-admin"
 
     assert_response :success
-    assert_select "h1", /Tenant Admin/
+    assert_select "h1", /Subdomain Admin/
   end
 
   test "non-admin cannot access tenant admin dashboard" do
@@ -78,7 +78,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     get "/tenant-admin/settings"
 
     assert_response :success
-    assert_select "h1", /Tenant Settings/
+    assert_select "h1", /Subdomain Settings/
   end
 
   test "tenant admin can update settings" do
@@ -265,7 +265,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     get "/tenant-admin", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    assert_match(/# Tenant Admin/, response.body)
+    assert_match(/# Subdomain Admin/, response.body)
   end
 
   test "settings responds to markdown format" do
@@ -274,7 +274,7 @@ class TenantAdminControllerTest < ActionDispatch::IntegrationTest
     get "/tenant-admin/settings", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    assert_match(/# Tenant Settings/, response.body)
+    assert_match(/# Subdomain Settings/, response.body)
   end
 
   test "users list responds to markdown format" do

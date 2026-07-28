@@ -96,7 +96,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     get "/app-admin/tenants/new"
 
     assert_response :success
-    assert_select "h1", /New Tenant/
+    assert_select "h1", /New Subdomain/
   end
 
   test "app admin can create a new tenant" do
@@ -382,7 +382,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     get "/app-admin/tenants", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
-    assert_match(/# All Tenants/, response.body)
+    assert_match(/# All Subdomains/, response.body)
   end
 
   test "users list responds to markdown format" do

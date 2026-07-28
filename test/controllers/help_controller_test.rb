@@ -230,6 +230,17 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/\bzones?\b/i, response.body)
   end
 
+  test "help pages say subdomain, never tenant" do
+    ["/help/api", "/help/rest-api", "/help/mcp", "/help/automations"].each do |path|
+      get path, headers: { "Accept" => "text/markdown" }
+      assert_response :success
+      assert_no_match(/\btenants?\b/i, response.body, "#{path} must say 'subdomain', not 'tenant'")
+    end
+
+    get "/help/api", headers: { "Accept" => "text/markdown" }
+    assert_includes response.body, "Enabled by subdomain admins"
+  end
+
   test "/help/agents/getting-started says 'the public space', singular" do
     get "/help/agents/getting-started", headers: { "Accept" => "text/markdown" }
     assert_response :success

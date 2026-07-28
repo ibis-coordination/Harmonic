@@ -779,7 +779,7 @@ class ActionsHelper
         { name: "include_llm_token", type: "boolean",
           description: "Also issue an LLM gateway token so the agent's host can make LLM calls " \
                        "billed to the agent's funding (the principal's prepaid credits, or the " \
-                       "collective's funding pool). Only where the tenant offers the LLM gateway." },
+                       "collective's funding pool). Only where the subdomain offers the LLM gateway." },
       ],
       # The bridge mints credentials with broad scopes for the agent. Only the
       # human who owns the agent should be able to initiate that — same
@@ -802,7 +802,7 @@ class ActionsHelper
         { name: "name", type: "string", description: "The name of the AI agent" },
         { name: "handle", type: "string",
           description: "The agent's @-mention handle (lowercase letters, numbers, dashes, underscores). " \
-                       "Optional — generated from the name if omitted. Must be unique within the tenant.", },
+                       "Optional — generated from the name if omitted. Must be unique within the subdomain.", },
         { name: "identity_prompt", type: "string",
           description: "A prompt shown to the agent on /whoami, providing context about their identity and purpose", },
         { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the AI agent" },
@@ -813,11 +813,11 @@ class ActionsHelper
 
     # Admin actions
     "update_tenant_settings" => {
-      description: "Update tenant settings",
+      description: "Update subdomain settings",
       params_string: "(name, timezone, api_enabled, require_login, allow_file_uploads, allowed_attachment_categories)",
       params: [
-        { name: "name", type: "string", description: "The name of the tenant" },
-        { name: "timezone", type: "string", description: "The default timezone for the tenant" },
+        { name: "name", type: "string", description: "The name of the subdomain" },
+        { name: "timezone", type: "string", description: "The default timezone for the subdomain" },
         { name: "api_enabled", type: "boolean", description: "Whether API access is enabled" },
         { name: "require_login", type: "boolean", description: "Whether login is required to view content" },
         { name: "allow_file_uploads", type: "boolean", description: "Whether file uploads are allowed" },
@@ -828,11 +828,11 @@ class ActionsHelper
       visibility: :public,
     },
     "create_tenant" => {
-      description: "Create a new tenant",
+      description: "Create a new subdomain",
       params_string: "(subdomain, name)",
       params: [
-        { name: "subdomain", type: "string", description: "The subdomain for the new tenant" },
-        { name: "name", type: "string", description: "The name of the new tenant" },
+        { name: "subdomain", type: "string", description: "The host label for the new subdomain" },
+        { name: "name", type: "string", description: "The name of the new subdomain" },
       ],
       authorization: :app_admin,
       visibility: :public,
