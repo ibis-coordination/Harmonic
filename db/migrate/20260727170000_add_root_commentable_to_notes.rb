@@ -16,29 +16,24 @@ class AddRootCommentableToNotes < ActiveRecord::Migration[7.2]
     add_index :notes, [:root_commentable_type, :root_commentable_id],
               name: "index_notes_on_root_commentable"
 
-    # Backfill downward from the roots: comments hanging off a non-Note
-    # resource take it directly, then each generation inherits from its
-    # parent. Iterating (rather than a recursive CTE) is what makes this
-    # terminate on a hypothetical `commentable` cycle — a cycle never gets a
-    # root, so it produces no updates and the loop exits.
+    # Backfill downward from the roots. Seed rule: a comment whose parent is
+    # not itself a comment sits directly on its root, so root = commentable.
+    # That covers both non-Note commentables (Decision, Commitment, ... —
+    # those can never be comments) and comments on standalone Notes. Then
+    # each generation inherits from its parent. Iterating (rather than a
+    # recursive CTE) is what makes this terminate on a hypothetical
+    # `commentable` cycle — a cycle never gets a root, so it produces no
+    # updates and the loop exits.
     execute <<~SQL.squish
       UPDATE notes
-      SET root_commentable_type = commentable_type,
-          root_commentable_id = commentable_id
-      WHERE subtype = 'comment'
-        AND commentable_type IS NOT NULL
-        AND commentable_type <> 'Note'
-    SQL
-
-    execute <<~SQL.squish
-      UPDATE notes
-      SET root_commentable_type = parent.commentable_type,
-          root_commentable_id = parent.commentable_id
-      FROM notes parent
-      WHERE notes.commentable_type = 'Note'
-        AND notes.commentable_id = parent.id
-        AND notes.subtype = 'comment'
-        AND parent.subtype <> 'comment'
+      SET root_commentable_type = notes.commentable_type,
+          root_commentable_id = notes.commentable_id
+      WHERE notes.subtype = 'comment'
+        AND notes.commentable_id IS NOT NULL
+        AND (notes.commentable_type <> 'Note'
+             OR EXISTS (SELECT 1 FROM notes parent
+                        WHERE parent.id = notes.commentable_id
+                          AND parent.subtype <> 'comment'))
     SQL
 
     # Each pass resolves one more level of nesting, so this runs as many
