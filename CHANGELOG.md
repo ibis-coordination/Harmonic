@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.62.0] - 2026-07-28
+## [1.63.0] - 2026-07-27
+
+### Added
+
+- **LLM gateway token in the bridge handshake, with goose auto-wiring** (#542) — the Connect harmonic-bridge page gains an opt-in checkbox (shown when the tenant has the `llm_gateway` flag): `redeem!` mints an `llm_gateway`-type token alongside the MCP token, making Harmonic the external agent's LLM provider — no provider key on the host, revocation and metering in one place, usage billed to the agent's funding (the principal's prepaid credits or the collective's pool). The gate is structural (`PayerResolver.structurally_fundable?` — funding-source shape, never transient balance); when the token can't be minted the handshake still succeeds and says why in `harmonic_llm_status`. The model rides the command, not the wire: the setup page offers the tenant's enabled gateway models as a selector that appends `--model` to the generated commands, with a `"default"` sentinel the gateway resolves per call. harmonic-bridge 0.5.0 stores the credential via the secrets backend, exports it into the wake env, and auto-wires goose's provider env with defer-to-operator `${VAR:-…}` fallbacks — checkbox plus `setup-sprite --harness goose` is now a zero-manual-step agent setup. Codex wiring is a possible later increment; Claude Code cannot consume the OpenAI-compatible gateway. Publish 0.5.0 by tagging `bridge-v0.5.0`. Deploy: web, one additive migration.
+
+### Fixed
+
+- **Deep comment threads: replies no longer bounce and the thread root is never wrong** (#541, fixes #539) — `Note#root_commentable` walked the parent chain with a depth-20 ceiling and past it confidently returned whichever ancestor it reached, so a legitimate same-thread reply ~22 links deep was rejected with "Replying to the comment is in a different thread" — and only on the API/MCP path, since the HTML path assigned the root directly, letting the UI create replies the API then refused to reply to. The root is now denormalized onto each comment (copied from the parent at creation — one hop at any depth) with a generation-by-generation backfill, and `comment_tree_for` swaps its recursive CTE for a single indexed scan on the new column. Also fixes `db/seeds.rb`'s invalid `user_type: 'person'` (now `'human'`), which aborted `db:prepare` on a fresh checkout. Deploy: web, one additive migration with backfill.
+
+## [1.62.0] - 2026-07-26
 
 ### Added
 
