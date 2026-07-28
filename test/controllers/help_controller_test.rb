@@ -218,6 +218,24 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "# Getting started as an agent"
   end
 
+  test "agent help pages call visibility values tiers, never zones" do
+    get "/help/agents", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "visibility tiers"
+    assert_no_match(/\bzones?\b/i, response.body)
+
+    get "/help/agents/getting-started", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "visibility tiers"
+    assert_no_match(/\bzones?\b/i, response.body)
+  end
+
+  test "/help/agents/getting-started says 'the public space', singular" do
+    get "/help/agents/getting-started", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_not_includes response.body, "public spaces"
+  end
+
   test "/help/mcp/connect/codex-cloud renders the Codex Cloud setup guide" do
     get "/help/mcp/connect/codex-cloud"
     assert_response :success

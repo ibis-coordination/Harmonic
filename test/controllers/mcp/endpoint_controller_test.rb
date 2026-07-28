@@ -266,6 +266,11 @@ class Mcp::EndpointControllerTest < ActionDispatch::IntegrationTest # rubocop:di
       assert tool["inputSchema"].is_a?(Hash), "#{name} missing inputSchema"
     end
 
+    execute_action = body["result"]["tools"].find { |t| t["name"] == "execute_action" }
+    assert_includes execute_action["description"], "the actual tier",
+                    "visibility values are 'tiers' in agent copy, never 'spaces' or 'zones'"
+    assert_not_includes execute_action["description"], "the actual space"
+
     fetch_page = body["result"]["tools"].find { |t| t["name"] == "fetch_page" }
     assert_includes fetch_page["inputSchema"]["required"], "path"
 

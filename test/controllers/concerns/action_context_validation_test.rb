@@ -165,6 +165,9 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     parsed = mcp_inner_error(response)
     assert_equal "public_writes_disabled", parsed["error"]
     assert_equal "public", parsed["zone"]
+    assert_includes parsed["hint"], "the public space"
+    assert_not_includes parsed["hint"], "main collective",
+                        "hint must say 'the public space', not expose the main-collective implementation detail"
   end
 
   test "AI agent with public writes enabled may act in the public space" do

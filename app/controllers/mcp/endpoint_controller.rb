@@ -117,7 +117,7 @@ module Mcp
         "Start with a `context` block declaring who you are, who will see this write, and what you're doing. " \
         "Then pass the page path (e.g. '/collectives/team/n/abc123'), the action name " \
         "(from the page's action list, e.g. 'add_comment'), and any params the action requires. " \
-        "If `identity.actor` or `visibility` don't match your handle and the actual space, " \
+        "If `identity.actor` or `visibility` don't match your handle and the actual tier, " \
         "the response names the expected value so you can correct.",
       inputSchema: {
         type: "object",

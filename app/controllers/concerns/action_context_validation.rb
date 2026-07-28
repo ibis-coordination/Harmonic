@@ -102,7 +102,7 @@ module ActionContextValidation
     {
       error: "public_writes_disabled",
       zone: "public",
-      hint: "This agent is not permitted to write to the public space (the main collective). " \
+      hint: "This agent is not permitted to write to the public space. " \
             "Its owner can enable public writes in the agent's settings.",
     }
   end

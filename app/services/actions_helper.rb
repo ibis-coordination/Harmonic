@@ -174,7 +174,7 @@ class ActionsHelper
       ],
       authorization: :authenticated,
       # Always shared — joining is only meaningful for invite-only collectives;
-      # the public main space is joined automatically, not manually.
+      # the public space is joined automatically, not manually.
       visibility: :shared,
     },
     "update_collective_settings" => {
