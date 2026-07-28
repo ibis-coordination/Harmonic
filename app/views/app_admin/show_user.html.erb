@@ -80,7 +80,7 @@
       <% @user_tenants.each do |tenant| %>
         <% tu = @showing_user.tenant_users.find { |t| t.tenant_id == tenant.id } %>
         <div class="pulse-home-list-item">
-          <a href="/app-admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
+          <a href="/app-admin/subdomains/<%= tenant.subdomain %>" class="pulse-home-list-link">
             <div class="pulse-default-icon pulse-home-list-icon">
               <%= octicon 'organization', height: 14 %>
             </div>

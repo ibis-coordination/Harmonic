@@ -43,7 +43,7 @@ module AiAgentsHelper
   end
 
   # The gateway models offered for internal agents, configured per tenant on
-  # the tenant-admin settings page (Tenant#enabled_gateway_models) — the rate
+  # the subdomain-admin settings page (Tenant#enabled_gateway_models) — the rate
   # card differs across environments, so this can't be hardcoded. Until an admin
   # configures a set, fall back to the litellm_config list; the rate-card
   # intersection in offered_priced_models drops anything the gateway doesn't

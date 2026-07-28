@@ -8,7 +8,7 @@
 
     <% other_admin_access = [] %>
     <% other_admin_access << { path: '/system-admin', label: 'System Admin', icon: 'server' } if @current_user&.sys_admin? %>
-    <% other_admin_access << { path: '/tenant-admin', label: 'Subdomain Admin', icon: 'gear' } if @current_tenant&.is_admin?(@current_user) %>
+    <% other_admin_access << { path: '/subdomain-admin', label: 'Subdomain Admin', icon: 'gear' } if @current_tenant&.is_admin?(@current_user) %>
 
     <% if other_admin_access.any? %>
       <p class="pulse-auth-subtitle" style="margin-top: 24px;">

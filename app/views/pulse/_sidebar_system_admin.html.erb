@@ -33,7 +33,7 @@
         </a>
       <% end %>
       <% if @current_tenant&.is_admin?(@current_user) %>
-        <a href="/tenant-admin" class="pulse-nav-item">
+        <a href="/subdomain-admin" class="pulse-nav-item">
           <%= octicon 'gear', height: 16 %> Subdomain Admin
         </a>
       <% end %>

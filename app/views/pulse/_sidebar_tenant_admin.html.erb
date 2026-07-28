@@ -11,13 +11,13 @@
     <div class="pulse-section-label">
       <%= octicon 'gear', height: 14 %> Subdomain Admin
     </div>
-    <a href="/tenant-admin" class="pulse-nav-item<%= ' active' if request.path == '/tenant-admin' %>">
+    <a href="/subdomain-admin" class="pulse-nav-item<%= ' active' if request.path == '/subdomain-admin' %>">
       <%= octicon 'meter', height: 16 %> Dashboard
     </a>
-    <a href="/tenant-admin/settings" class="pulse-nav-item<%= ' active' if request.path.start_with?('/tenant-admin/settings') %>">
+    <a href="/subdomain-admin/settings" class="pulse-nav-item<%= ' active' if request.path.start_with?('/subdomain-admin/settings') %>">
       <%= octicon 'gear', height: 16 %> Settings
     </a>
-    <a href="/tenant-admin/users" class="pulse-nav-item<%= ' active' if request.path.start_with?('/tenant-admin/users') %>">
+    <a href="/subdomain-admin/users" class="pulse-nav-item<%= ' active' if request.path.start_with?('/subdomain-admin/users') %>">
       <%= octicon 'people', height: 16 %> Users
     </a>
   </div>

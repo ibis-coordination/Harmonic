@@ -1,7 +1,7 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, '/'],
   ['App Admin', '/app-admin'],
-  ['Tenants', '/app-admin/tenants'],
+  ['Tenants', '/app-admin/subdomains'],
   'Created'
 ] %>
 
@@ -25,10 +25,10 @@
     </div>
 
     <div class="pulse-form-actions">
-      <a href="/app-admin/tenants/<%= @tenant.subdomain %>" class="pulse-action-btn">
+      <a href="/app-admin/subdomains/<%= @tenant.subdomain %>" class="pulse-action-btn">
         <%= octicon 'organization', height: 14 %> View Subdomain
       </a>
-      <a href="/app-admin/tenants" class="pulse-action-btn-secondary">
+      <a href="/app-admin/subdomains" class="pulse-action-btn-secondary">
         Back to Subdomains
       </a>
     </div>

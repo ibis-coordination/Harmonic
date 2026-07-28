@@ -40,7 +40,7 @@ class AppAdminController < ApplicationController
   # Tenant Management
   # ============================================================================
 
-  # GET /app-admin/tenants
+  # GET /app-admin/subdomains
   def tenants
     @page_title = 'All Subdomains'
     @tenants = Tenant.order(:name)
@@ -50,7 +50,7 @@ class AppAdminController < ApplicationController
     end
   end
 
-  # GET /app-admin/tenants/new
+  # GET /app-admin/subdomains/new
   def new_tenant
     @page_title = 'New Subdomain'
     respond_to do |format|
@@ -59,7 +59,7 @@ class AppAdminController < ApplicationController
     end
   end
 
-  # POST /app-admin/tenants
+  # POST /app-admin/subdomains
   def create_tenant
     tenant_params = params[:tenant] || params
     t = Tenant.new
@@ -69,10 +69,10 @@ class AppAdminController < ApplicationController
     t.create_main_collective!(created_by: @current_user)
     tu = t.add_user!(@current_user)
     tu.add_role!('admin')
-    redirect_to "/app-admin/tenants/#{t.subdomain}/complete"
+    redirect_to "/app-admin/subdomains/#{t.subdomain}/complete"
   end
 
-  # GET /app-admin/tenants/:subdomain/complete
+  # GET /app-admin/subdomains/:subdomain/complete
   def complete_tenant_creation
     @tenant = Tenant.find_by(subdomain: params[:subdomain])
     return render(plain: "404 Not Found", status: :not_found) unless @tenant
@@ -83,7 +83,7 @@ class AppAdminController < ApplicationController
     end
   end
 
-  # GET /app-admin/tenants/:subdomain
+  # GET /app-admin/subdomains/:subdomain
   def show_tenant
     @showing_tenant = Tenant.find_by(subdomain: params[:subdomain])
     return render(plain: "404 Not Found", status: :not_found) unless @showing_tenant
@@ -513,7 +513,7 @@ class AppAdminController < ApplicationController
 
   def actions_index_new_tenant
     @page_title = "Actions | New Subdomain"
-    render_actions_index(ActionsHelper.actions_for_route('/app-admin/tenants/new'))
+    render_actions_index(ActionsHelper.actions_for_route('/app-admin/subdomains/new'))
   end
 
   def describe_create_tenant
@@ -535,7 +535,7 @@ class AppAdminController < ApplicationController
         @current_user_is_admin_of_showing_tenant = true
         render 'show_tenant'
       end
-      format.html { redirect_to "/app-admin/tenants/#{t.subdomain}/complete" }
+      format.html { redirect_to "/app-admin/subdomains/#{t.subdomain}/complete" }
     end
   end
 

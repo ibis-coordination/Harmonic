@@ -5,10 +5,10 @@ Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= E
 ## Admin Users
 
 <% @current_tenant.admin_users.each do |tu| %>
-* [<%= tu.display_name %>](/tenant-admin/users/<%= tu.handle %>) (`@<%= tu.handle %>`)
+* [<%= tu.display_name %>](/subdomain-admin/users/<%= tu.handle %>) (`@<%= tu.handle %>`)
 <% end %>
 
-[Manage All Users](/tenant-admin/users)
+[Manage All Users](/subdomain-admin/users)
 
 ## Subdomain Details
 
@@ -21,7 +21,7 @@ Tenant: **<%= @current_tenant.name %>** (`<%= @current_tenant.subdomain %>.<%= E
 
 ### Subdomain Settings
 
-[Edit Settings](/tenant-admin/settings)
+[Edit Settings](/subdomain-admin/settings)
 
 ```json
 <%= JSON.pretty_generate(@current_tenant.settings) %>

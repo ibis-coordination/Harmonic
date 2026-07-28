@@ -1,6 +1,6 @@
 # User: <%= @showing_user.display_name || @showing_user.name %>
 
-[Back to All Users](/tenant-admin/users)
+[Back to All Users](/subdomain-admin/users)
 
 <% if @showing_user.suspended? %>
 **SUSPENDED**
@@ -19,7 +19,7 @@
 | User Type | <%= @showing_user.user_type %> |
 <% if @showing_user.ai_agent? && @showing_user.parent -%>
 <% parent_tenant_user = @showing_user.parent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id } -%>
-| Parent | [<%= @showing_user.parent.display_name || @showing_user.parent.name %>](/tenant-admin/users/<%= parent_tenant_user&.handle %>) |
+| Parent | [<%= @showing_user.parent.display_name || @showing_user.parent.name %>](/subdomain-admin/users/<%= parent_tenant_user&.handle %>) |
 <% end -%>
 | Admin | <%= @is_admin ? 'Yes' : 'No' %> |
 | Status | <%= @showing_user.suspended? ? 'Suspended' : 'Active' %> |

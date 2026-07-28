@@ -7,9 +7,9 @@
 | Name | Subdomain | Status |
 |------|-----------|--------|
 <% @tenants.each do |tenant| -%>
-| [<%= tenant.name %>](/app-admin/tenants/<%= tenant.subdomain %>) | `<%= tenant.subdomain %>` | <%= tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] ? 'primary' : '' %> |
+| [<%= tenant.name %>](/app-admin/subdomains/<%= tenant.subdomain %>) | `<%= tenant.subdomain %>` | <%= tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] ? 'primary' : '' %> |
 <% end -%>
 
 ## Actions
 
-* [Create New Subdomain](/app-admin/tenants/new)
+* [Create New Subdomain](/app-admin/subdomains/new)

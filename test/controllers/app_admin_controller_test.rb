@@ -85,7 +85,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   test "app admin can view tenants list" do
     sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
-    get "/app-admin/tenants"
+    get "/app-admin/subdomains"
 
     assert_response :success
   end
@@ -93,21 +93,31 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   test "app admin can view new tenant form" do
     sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
-    get "/app-admin/tenants/new"
+    get "/app-admin/subdomains/new"
 
     assert_response :success
     assert_select "h1", /New Subdomain/
+  end
+
+  test "old /app-admin/tenants paths redirect to /app-admin/subdomains" do
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/tenants"
+    assert_redirected_to "/app-admin/subdomains"
+
+    get "/app-admin/tenants/new"
+    assert_redirected_to "/app-admin/subdomains/new"
   end
 
   test "app admin can create a new tenant" do
     sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
     assert_difference "Tenant.count", 1 do
-      post "/app-admin/tenants", params: { tenant: { name: "Test Tenant", subdomain: "testtenant" } }
+      post "/app-admin/subdomains", params: { tenant: { name: "Test Tenant", subdomain: "testtenant" } }
     end
 
     assert_response :redirect
-    assert_redirected_to "/app-admin/tenants/testtenant/complete"
+    assert_redirected_to "/app-admin/subdomains/testtenant/complete"
   end
 
   test "creating a new tenant does not auto-seed a persona system agent" do
@@ -115,7 +125,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     # agents until a collective admin enables their flags in settings.
     sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
-    post "/app-admin/tenants", params: { tenant: { name: "No Trio Tenant", subdomain: "notrio" } }
+    post "/app-admin/subdomains", params: { tenant: { name: "No Trio Tenant", subdomain: "notrio" } }
 
     new_tenant = T.must(Tenant.find_by(subdomain: "notrio"))
     trio = User.joins(:tenant_users)
@@ -128,7 +138,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   test "app admin can view tenant details" do
     sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
-    get "/app-admin/tenants/#{@secondary_tenant.subdomain}"
+    get "/app-admin/subdomains/#{@secondary_tenant.subdomain}"
 
     assert_response :success
     assert_select "h1", /#{@secondary_tenant.name}/
@@ -379,7 +389,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   test "tenants list responds to markdown format" do
     sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
-    get "/app-admin/tenants", headers: { "Accept" => "text/markdown" }
+    get "/app-admin/subdomains", headers: { "Accept" => "text/markdown" }
 
     assert_response :success
     assert_match(/# All Subdomains/, response.body)
@@ -799,7 +809,7 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
     collective = create_extra_collective(tenant: @primary_tenant, created_by: @non_admin_user)
     sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
 
-    get "/app-admin/tenants/#{@primary_tenant.subdomain}"
+    get "/app-admin/subdomains/#{@primary_tenant.subdomain}"
 
     assert_response :success
     assert_includes response.body, collective.name

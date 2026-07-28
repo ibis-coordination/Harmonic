@@ -13,7 +13,7 @@
 </p>
 
 <div class="pulse-form-actions" style="margin-bottom: 24px;">
-  <a href="/app-admin/tenants/new" class="pulse-action-btn">
+  <a href="/app-admin/subdomains/new" class="pulse-action-btn">
     <%= octicon 'plus', height: 14 %> Create Subdomain
   </a>
 </div>
@@ -21,7 +21,7 @@
 <div class="pulse-home-list">
   <% @tenants.each do |tenant| %>
     <div class="pulse-home-list-item">
-      <a href="/app-admin/tenants/<%= tenant.subdomain %>" class="pulse-home-list-link">
+      <a href="/app-admin/subdomains/<%= tenant.subdomain %>" class="pulse-home-list-link">
         <div class="pulse-default-icon pulse-home-list-icon">
           <%= octicon 'organization', height: 14 %>
         </div>

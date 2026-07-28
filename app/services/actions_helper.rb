@@ -1802,18 +1802,18 @@ class ActionsHelper
           description: ACTION_DEFINITIONS["cancel_harmonic_bridge_setup"][:description], },
       ],
     },
-    "/admin" => {
+    "/subdomain-admin" => {
       controller_actions: ["admin#index", "tenant_admin#index"],
       actions: [],
     },
-    "/admin/settings" => {
+    "/subdomain-admin/settings" => {
       controller_actions: ["admin#settings", "tenant_admin#settings"],
       actions: [
         { name: "update_tenant_settings", params_string: ACTION_DEFINITIONS["update_tenant_settings"][:params_string],
           description: ACTION_DEFINITIONS["update_tenant_settings"][:description], },
       ],
     },
-    "/admin/tenants/new" => {
+    "/app-admin/subdomains/new" => {
       controller_actions: ["app_admin#new_tenant"],
       actions: [
         { name: "create_tenant", params_string: ACTION_DEFINITIONS["create_tenant"][:params_string],

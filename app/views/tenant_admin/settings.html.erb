@@ -1,6 +1,6 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, '/'],
-  ['Subdomain Admin', '/tenant-admin'],
+  ['Subdomain Admin', '/subdomain-admin'],
   'Settings'
 ] %>
 
@@ -8,7 +8,7 @@
   <%= octicon 'gear', height: 24 %> Subdomain Settings
 </h1>
 
-<%= form_with(url: "/tenant-admin/settings", class: "pulse-form", style: "max-width:600px;") do |form| %>
+<%= form_with(url: "/subdomain-admin/settings", class: "pulse-form", style: "max-width:600px;") do |form| %>
   <%= render 'shared/pulse_accordion', title: 'General', icon: 'info', open: true do %>
     <div class="pulse-form-section" style="border-top:none;margin-top:0;padding-top:0;">
       <label class="pulse-form-label" for="name">Name</label>
@@ -119,6 +119,6 @@
 
   <div class="pulse-form-actions">
     <%= form.submit 'Save Settings', class: 'pulse-action-btn' %>
-    <a href="/tenant-admin" class="pulse-action-btn-secondary">Cancel</a>
+    <a href="/subdomain-admin" class="pulse-action-btn-secondary">Cancel</a>
   </div>
 <% end %>

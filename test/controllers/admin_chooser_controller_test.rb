@@ -44,13 +44,13 @@ class AdminChooserControllerTest < ActionDispatch::IntegrationTest
     @primary_collective.add_user!(@non_admin)
   end
 
-  test "user with only tenant admin is redirected to /tenant-admin" do
+  test "user with only tenant admin is redirected to /subdomain-admin" do
     sign_in_as(@tenant_admin, tenant: @primary_tenant)
 
     get "/admin"
 
     assert_response :redirect
-    assert_redirected_to "/tenant-admin"
+    assert_redirected_to "/subdomain-admin"
   end
 
   test "user with only app_admin is redirected to /app-admin" do
@@ -80,7 +80,7 @@ class AdminChooserControllerTest < ActionDispatch::IntegrationTest
     assert_select "h1", /Admin Access/
     assert_select "a[href='/system-admin']"
     assert_select "a[href='/app-admin']"
-    assert_select "a[href='/tenant-admin']"
+    assert_select "a[href='/subdomain-admin']"
   end
 
   test "non-admin user sees 403 page" do
@@ -101,6 +101,6 @@ class AdminChooserControllerTest < ActionDispatch::IntegrationTest
     assert_match(/# Admin Access/, response.body)
     assert_match(%r{/system-admin}, response.body)
     assert_match(%r{/app-admin}, response.body)
-    assert_match(%r{/tenant-admin}, response.body)
+    assert_match(%r{/subdomain-admin}, response.body)
   end
 end

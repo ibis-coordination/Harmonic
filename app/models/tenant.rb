@@ -236,7 +236,7 @@ class Tenant < ApplicationRecord
   end
 
   # Gateway models (provider/model names) this tenant offers when a user picks
-  # a model for an internal AI agent. Configured per tenant on the tenant-admin
+  # a model for an internal AI agent. Configured per tenant on the subdomain-admin
   # settings page. Empty by default; the selector falls back to a sensible
   # default until an admin enables a set.
   sig { returns(T::Array[String]) }

@@ -1751,7 +1751,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     get "/admin", headers: @headers
     # /admin is now a chooser that redirects based on user's admin roles
     assert_equal 302, response.status, "Admin chooser should redirect"
-    assert_match(/tenant-admin|app-admin|system-admin/, response.headers['Location'], "Should redirect to an admin section")
+    assert_match(/subdomain-admin|app-admin|system-admin/, response.headers['Location'], "Should redirect to an admin section")
   ensure
     tu&.remove_role!('admin')
   end
@@ -1761,11 +1761,11 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal 403, response.status
   end
 
-  test "GET /tenant-admin/settings returns 200 markdown with actions for admin user" do
+  test "GET /subdomain-admin/settings returns 200 markdown with actions for admin user" do
     tu = @tenant.tenant_users.find_by(user: @user)
     tu.add_role!('admin')
 
-    get "/tenant-admin/settings", headers: @headers
+    get "/subdomain-admin/settings", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
     assert_match(/Settings/, response.body, "Should show Settings heading")
@@ -1779,7 +1779,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     tu.add_role!('admin')
     original_name = @tenant.name
 
-    post "/tenant-admin/settings/actions/update_tenant_settings",
+    post "/subdomain-admin/settings/actions/update_tenant_settings",
       params: { name: "Updated Tenant Name" }.to_json,
       headers: @headers
     assert_equal 200, response.status
@@ -1822,7 +1822,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     }
 
     # Should be able to access admin page
-    get "/tenant-admin", headers: ai_agent_headers
+    get "/subdomain-admin", headers: ai_agent_headers
     assert_equal 200, response.status
     assert is_markdown?
   ensure
@@ -1857,7 +1857,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     }
 
     # Should NOT be able to access admin page because parent is not admin
-    get "/tenant-admin", headers: ai_agent_headers
+    get "/subdomain-admin", headers: ai_agent_headers
     assert_equal 403, response.status
     assert_match(/AI agent admin access requires both AI agent and parent to be admins/, response.body)
   ensure
@@ -1893,7 +1893,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     }
 
     # Should NOT be able to access admin page because ai_agent is not admin
-    get "/tenant-admin", headers: ai_agent_headers
+    get "/subdomain-admin", headers: ai_agent_headers
     assert_equal 403, response.status
   ensure
     parent_tu&.remove_role!('admin')
@@ -1932,7 +1932,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     }
 
     # AiAgent admins cannot perform admin write operations - blocked by capability check
-    post "/tenant-admin/settings/actions/update_tenant_settings",
+    post "/subdomain-admin/settings/actions/update_tenant_settings",
       params: { name: "AiAgent Updated Name" }.to_json,
       headers: ai_agent_headers
     assert_equal 403, response.status
@@ -1973,7 +1973,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     # AiAgents cannot perform admin write operations - blocked by capability check
     # (The production restriction is now redundant since capability check blocks first)
-    post "/tenant-admin/settings/actions/update_tenant_settings",
+    post "/subdomain-admin/settings/actions/update_tenant_settings",
       params: { name: "Should Not Update" }.to_json,
       headers: ai_agent_headers
     assert_equal 403, response.status
@@ -2015,7 +2015,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     Thread.current[:simulate_production] = true
     begin
       # Should be able to READ admin pages in production
-      get "/tenant-admin", headers: ai_agent_headers
+      get "/subdomain-admin", headers: ai_agent_headers
       assert_equal 200, response.status
       assert is_markdown?
     ensure
@@ -2037,7 +2037,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     Thread.current[:simulate_production] = true
     begin
       # Person admin should still be able to write in production
-      post "/tenant-admin/settings/actions/update_tenant_settings",
+      post "/subdomain-admin/settings/actions/update_tenant_settings",
         params: { name: "Person Updated Name" }.to_json,
         headers: @headers
       assert_equal 200, response.status
@@ -2083,7 +2083,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     # Simulate production environment
     Thread.current[:simulate_production] = true
     begin
-      get "/tenant-admin/settings", headers: ai_agent_headers
+      get "/subdomain-admin/settings", headers: ai_agent_headers
       assert_equal 200, response.status
       assert is_markdown?
       # Actions are hidden for ai_agents in production - no actions in frontmatter

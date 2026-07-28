@@ -1,7 +1,7 @@
 <%= render 'shared/pulse_breadcrumb', items: [
   [@current_tenant.subdomain, '/'],
-  ['Subdomain Admin', '/tenant-admin'],
-  ['Users', '/tenant-admin/users'],
+  ['Subdomain Admin', '/subdomain-admin'],
+  ['Users', '/subdomain-admin/users'],
   @showing_user.display_name || @showing_user.name
 ] %>
 
@@ -48,7 +48,7 @@
       <% parent_tenant_user = @showing_user.parent.tenant_users.find { |tu| tu.tenant_id == @current_tenant.id } %>
       <tr>
         <th>Parent</th>
-        <td><a href="/tenant-admin/users/<%= parent_tenant_user&.handle %>" class="pulse-link"><%= @showing_user.parent.display_name || @showing_user.parent.name %></a></td>
+        <td><a href="/subdomain-admin/users/<%= parent_tenant_user&.handle %>" class="pulse-link"><%= @showing_user.parent.display_name || @showing_user.parent.name %></a></td>
       </tr>
     <% end %>
     <tr>

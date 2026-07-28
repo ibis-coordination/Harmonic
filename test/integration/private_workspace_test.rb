@@ -332,7 +332,7 @@ class PrivateWorkspaceTest < ActionDispatch::IntegrationTest
       scopes: ApiToken.valid_scopes,
     )
 
-    get "/tenant-admin", headers: {
+    get "/subdomain-admin", headers: {
       "Accept" => "text/markdown",
       "Authorization" => "Bearer #{api_token.plaintext_token}",
     }

@@ -1,6 +1,6 @@
 # <%= @showing_tenant.name %>
 
-[Back to Tenants](/app-admin/tenants)
+[Back to Tenants](/app-admin/subdomains)
 
 **Subdomain:** `<%= @showing_tenant.subdomain %>.<%= ENV['HOSTNAME'] %>`
 <% if @showing_tenant.subdomain == ENV['PRIMARY_SUBDOMAIN'] -%>
