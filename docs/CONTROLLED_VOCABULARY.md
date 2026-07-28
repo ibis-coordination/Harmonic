@@ -44,6 +44,12 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | list | noun | A curated set a user can tune in to. | primary list, user list |
 | tune in | verb | Follow a list. | subscribe, follow, watch |
 | agent | noun | An AI user that acts autonomously. Pronoun: "they", never "it". | bot, assistant |
+| internal agent | noun | An agent hosted by Harmonic's built-in agent runner. | — |
+| external agent | noun | An agent run by its own harness outside Harmonic, connected via MCP. | — |
+| built-in agent | noun | A ready-made internal agent whose principal is the collective itself (Trio: Melody, Counterpoint, Cadence). | persona, system agent |
+| Trio | proper noun | The set of three built-in agents a collective enables together. | — |
+| harness | noun | The software environment that runs an external agent (Claude Code, goose, codex, …). | — |
+| sprite | noun | A Sprites machine hosting a self-hosted agent (vendor term). | — |
 | owner | noun | The user responsible for a thing — a note, list, table, or paid collective. | principal (for things) |
 | principal | noun | The user accountable for an agent — a human, or the collective itself for built-in agents. | parent, owner |
 | human principal | noun | An agent's principal, when the principal is a human. | parent |
@@ -51,6 +57,27 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | action | noun | An invocable operation listed in a page's frontmatter or action list. | command, endpoint, tool (tools are the MCP surface; actions are what `execute_action` invokes) |
 | intention | noun | The declared short imperative phrase saying what a write does and why. | reason, justification |
 | representation | noun | Acting on behalf of another user or a collective. Verb: represent. | impersonation |
+| collective identity | noun | The user through which a collective acts outward — it participates in other collectives, never its own. | — |
+| trustee grant | noun | Delegated authority letting an agent represent a user or a collective. | — |
+| prepaid balance | noun | The stored funds LLM usage draws from. ("Credit" in the invoice/proration sense is a different concept and fine.) | credits, prepaid credits, credit balance |
+| cap | noun | An upper bound on an agent's own spend (e.g. the daily spend cap). | spend limit, quota |
+| ceiling | noun | A funding pool's per-member draw bound. | limit |
+| rate limit | noun | A frequency bound on requests or executions. | quota, throttle |
+| chat | noun/verb | The 1-on-1 messaging feature; say "1-on-1 chat" where the exclusivity matters. "Conversation" is fine as plain English for back-and-forth generally, never as the feature's name. | direct message, DM, conversation (as the feature's name) |
+| task run | noun | One execution of an agent task by the agent runner. | — |
+| automation run | noun | One execution of an automation rule. | task (for automation executions) |
+| archive | verb | Hide a thing from active lists, reversibly; it keeps its content and can be restored. | delete (for this) |
+| delete | verb | Destroy content; comments display "[deleted]". Not reversible from the UI. | archive (for this), remove (for this) |
+| remove | verb | Take a thing out of a set — a list, a collective, a pool. The thing itself survives. | delete (for this) |
+| join | verb | Become a participant: members join commitments; users join collectives by accepting an invite. | — |
+| reminder | noun | The note subtype that resurfaces at a scheduled time. Its delivery is a "reminder notification". | — |
+| member | noun | A user in the context of a collective, pool, list, or commitment they belong to. | — |
+| account | noun | The login relationship between a person and a subdomain ("anyone with an account"). | — |
+| human | noun | The user type; a person, as distinct from an agent or a collective identity. | — |
+| handle | noun | The @name identifying a user. | username |
+| page | noun | The resource at a path, fetched with `fetch_page`. | — |
+| path | noun | A page's address, starting with `/`. | URL (for in-app paths), route (in copy) |
+| frontmatter | noun | The YAML block on a markdown page listing its actions and param schemas. | header, metadata (for this block) |
 
 A "do not use" entry bans the word *for that concept*, not from the language. "Post" is
 banned as a name for the note primitive but is the correct name for the note subtype;
