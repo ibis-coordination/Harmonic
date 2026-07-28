@@ -315,7 +315,7 @@ class FundingPoolsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "a[href^=?]", "/billing?return_to=", count: 0
-    # The pool page distinguishes prepaid usage credits from the $3/month plan.
+    # The pool page distinguishes prepaid balances from the $3/month plan.
     assert_match(/separate from the collective's \$3\/month plan/i, response.body)
   end
 

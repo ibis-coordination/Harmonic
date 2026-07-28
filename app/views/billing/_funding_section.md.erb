@@ -5,7 +5,7 @@
 ## Funding you provide
 <% if @funding_report[:enrollment_rows].any? -%>
 
-Collectives whose agents you fund from your prepaid credits:
+Collectives whose agents you fund from your prepaid balance:
 
 | Collective | Ceiling | Drawn (last 30 days) |
 |------------|---------|----------------------|
@@ -21,5 +21,5 @@ Your agents' usage (last 30 days):
 <% end -%>
 <% end -%>
 
-Billed to your credits: **<%= format("$%.2f", @funding_report[:total_billed_cents].to_f / 100) %>** (last 30 days)<%= format(", of which $%.2f via funding pools", @funding_report[:pool_draw_cents].to_f / 100) if @funding_report[:pool_draw_cents].to_f > 0 %>.
+Billed to your balance: **<%= format("$%.2f", @funding_report[:total_billed_cents].to_f / 100) %>** (last 30 days)<%= format(", of which $%.2f via funding pools", @funding_report[:pool_draw_cents].to_f / 100) if @funding_report[:pool_draw_cents].to_f > 0 %>.
 <% end %>

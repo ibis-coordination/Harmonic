@@ -4,7 +4,7 @@
 **Billing inactive** — This agent's billing is not active. [Set up billing](/billing) to run tasks.
 
 <% elsif @credit_balance_cents == 0 %>
-**No credit balance** — [Add funds](/billing) before running tasks.
+**No prepaid balance** — [Add funds](/billing) before running tasks.
 
 <% end %>
 Agent: `<%= @ai_agent.handle %>`

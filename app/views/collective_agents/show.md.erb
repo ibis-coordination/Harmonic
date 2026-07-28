@@ -10,7 +10,7 @@ This collective is on the free plan. The paid plan unlocks <%= paid_feature_labe
 ## Trio
 
 <% if @trio_enabled && @trio_cannot_run -%>
-Trio's personas have joined<% if @personas.any? %> — <%= @personas.map { |agent| "[#{agent.name}](#{agent.path})" }.join(" · ") %><% end %>, but Trio isn't running yet.
+Trio's agents have joined<% if @personas.any? %> — <%= @personas.map { |agent| "[#{agent.name}](#{agent.path})" }.join(" · ") %><% end %>, but Trio isn't running yet.
 
 **One step left: Trio needs an open funding pool before it can run.** A collective admin can open one on the [pool page](<%= @current_collective.path %>/pool) to finish enabling it.
 <% elsif @trio_enabled -%>

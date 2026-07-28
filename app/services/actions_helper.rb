@@ -210,7 +210,7 @@ class ActionsHelper
     "enroll_in_funding_pool" => {
       description: "Enroll yourself in this collective's funding pool. Enrolling is consenting to fund the collective's agents from your own " \
                    "prepaid balance — each of their LLM calls is billed to one enrolled member, drawn at random, and the pool stops " \
-                   "drawing from you once its draws reach your ceiling. Requires active billing with prepaid credits. " \
+                   "drawing from you once its draws reach your ceiling. Requires active billing with a prepaid balance. " \
                    "Enrolling again while already enrolled updates your ceiling.",
       params_string: "(daily_draw_cap, draw_cap_period)",
       params: [
@@ -252,7 +252,7 @@ class ActionsHelper
       visibility: :by_collective,
     },
     "set_trio_enabled" => {
-      description: "Enable or disable Trio, the collective's built-in persona ensemble. Enabling adds its personas as collective members; " \
+      description: "Enable or disable Trio, the collective's built-in agent ensemble. Enabling adds its agents as collective members; " \
                    "disabling deactivates them (their history stays, and re-enabling brings them back). On billing accounts Trio " \
                    "requires the paid plan and needs an open funding pool to actually run.",
       params_string: "(enabled)",
@@ -778,7 +778,7 @@ class ActionsHelper
       params: [
         { name: "include_llm_token", type: "boolean",
           description: "Also issue an LLM gateway token so the agent's host can make LLM calls " \
-                       "billed to the agent's funding (the principal's prepaid credits, or the " \
+                       "billed to the agent's funding (the principal's prepaid balance, or the " \
                        "collective's funding pool). Only where the subdomain offers the LLM gateway." },
       ],
       # The bridge mints credentials with broad scopes for the agent. Only the

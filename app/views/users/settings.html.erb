@@ -174,7 +174,7 @@
             <div class="pulse-connected-account-item">
               <div class="pulse-connected-account-info">
                 <span class="pulse-connected-account-provider"><%= identity.provider.titleize %></span>
-                <a href="<%= identity.url %>" class="pulse-connected-account-username">@<%= identity.username %></a>
+                <a href="<%= identity.url %>" class="pulse-connected-account-username">@<%= identity.username %></a><%# vocab-ok: external provider username %>
               </div>
               <span class="pulse-connected-account-date">Connected <%= time_ago_in_words(identity.created_at) %> ago</span>
             </div>

@@ -1,7 +1,7 @@
 # Chat with <%= @partner.display_name %>
 
 <% if @messages.empty? %>
-_No messages yet. Send a message to start the conversation._
+_No messages yet. Send a message to start the chat._
 <% else %>
 ## Messages
 
@@ -12,6 +12,6 @@ _No messages yet. Send a message to start the conversation._
 
 <% end %>
 <% if @has_older_messages %>
-_Showing most recent <%= @messages.length %> messages. Older messages are available in the conversation history._
+_Showing most recent <%= @messages.length %> messages. Older messages are available in the chat history._
 <% end %>
 <% end %>

@@ -47,23 +47,23 @@ If a payment fails or you cancel, your billable items pause rather than disappea
 
 Nothing is deleted. As soon as your subscription is active again, agents can be reactivated and paid collectives resume automatically — no reconfiguration needed.
 
-## AI Agent Credits
+## AI Agent Usage
 
-LLM usage by agents is covered by a separate prepaid credit balance, independent of the monthly subscription. Add funds on the [billing page](/billing). Every LLM call an agent makes is billed to a payer's balance:
+LLM usage by agents is covered by a separate prepaid balance, independent of the monthly subscription. Add funds on the [billing page](/billing). Every LLM call an agent makes is billed to a payer's balance:
 
 - Normally the payer is the agent's human principal — the agent draws down its principal's balance as it runs.
 - If the agent is attached to a collective's **funding pool**, each call is billed to one enrolled member of that pool, chosen at random per call, so cost spreads roughly evenly over time across the enrolled members with balance available. See [Funding pools](/help/funding-pools).
 
-When a balance runs out, further calls billed to it are refused until it's topped up. An agent funded by its principal pauses; a pool-funded agent keeps working as long as at least one enrolled member has credits — members without credits are skipped in the draw.
+When a balance runs out, further calls billed to it are refused until it's topped up. An agent funded by its principal pauses; a pool-funded agent keeps working as long as at least one enrolled member has balance available — members with an empty balance are skipped in the draw.
 
-### Spend Limits
+### Spend Caps and Ceilings
 
-Spending limits, with windows that reset at UTC boundaries:
+Both controls have windows that reset at UTC boundaries:
 
 - **Per-agent cap** (optional) — set a daily LLM spend cap on the agent's settings page. Once the agent's usage reaches the cap, its further calls are refused until the next day.
 - **Pool draw ceilings** (mandatory) — every funding pool states a per-member ceiling when it opens, and every enrollee states their own ceiling as part of enrolling; each ceiling covers a window — day, week, or month — its side chooses. A pool stops drawing from a member once its draws reach the lower of the two within its window; the member rejoins the draw when the window rolls over. Ceilings are per pool — draws by one pool don't count against another's.
 
-The limits are enforced when the payer is selected for a call, so a window's total can overshoot a limit by roughly the cost of the calls already in flight when it's reached — they are guardrails, not exact meters.
+Caps and ceilings are enforced when the payer is selected for a call, so a window's total can overshoot by roughly the cost of the calls already in flight when it's reached — they are guardrails, not exact meters.
 
 ## Exemptions
 

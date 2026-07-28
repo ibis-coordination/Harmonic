@@ -83,7 +83,7 @@
       <% enabled_models = @current_tenant.enabled_gateway_models %>
       <%= render 'shared/pulse_accordion', title: 'AI Agent Models', icon: 'cpu', count: gateway_catalog.size, open: false do %>
         <p class="pulse-form-hint" style="margin-bottom:16px;">
-          Which models users can choose for internal AI agents. Prices are per 1M tokens (input / output), billed to your credit balance as agents run. Unchecked models are hidden from users; if none are enabled, a default set is offered.
+          Which models users can choose for internal AI agents. Prices are per 1M tokens (input / output), billed to your prepaid balance as agents run. Unchecked models are hidden from users; if none are enabled, a default set is offered.
         </p>
 
         <%# Hidden empty value ensures the param key is present even when no boxes are checked. %>

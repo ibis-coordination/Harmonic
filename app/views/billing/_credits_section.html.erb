@@ -3,8 +3,8 @@
     free accounts (all resources billing-exempt), which still need credits to
     power internal agents. See BillingController#topup / #load_credit_balance. %>
 <section class="pulse-section" style="margin-bottom: 24px;">
-  <h2 class="pulse-section-title">AI Agent Credits</h2>
-  <p class="pulse-muted" style="margin-bottom: 12px;">Prepaid credits for AI agent LLM usage. Agents draw down from this balance as they run. Separate from the $3/month collective plan — the plan turns paid features on; these credits pay for usage.</p>
+  <h2 class="pulse-section-title">AI Agent Usage</h2>
+  <p class="pulse-muted" style="margin-bottom: 12px;">A prepaid balance for AI agent LLM usage. Agents draw it down as they run. Separate from the $3/month collective plan — the plan turns paid features on; the balance pays for usage.</p>
 
   <div style="margin-bottom: 16px;">
     <% if @credit_balance_cents.nil? %>

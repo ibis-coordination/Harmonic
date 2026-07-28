@@ -77,10 +77,10 @@ class CollectiveAgentsController < ApplicationController
                          "One step left to turn on Trio: it needs an open funding pool before it can run. " \
                            "[Open one on the pool page](#{@current_collective.path}/pool) to finish."
                        else
-                         "Trio is on — its personas have joined #{@current_collective.name}."
+                         "Trio is on — its agents have joined #{@current_collective.name}."
                        end
                      else
-                       "Trio is off — its personas have been deactivated."
+                       "Trio is off — its agents have been deactivated."
                      end
     redirect_to agents_page_path
   end
@@ -121,13 +121,13 @@ class CollectiveAgentsController < ApplicationController
                pool = @current_collective.funding_pool
                pool_open = pool.present? && !pool.archived?
                if @current_tenant.feature_enabled?("stripe_billing") && !pool_open
-                 "Trio's personas are members of #{@current_collective.name} now, but Trio can't run until an open " \
+                 "Trio's agents are members of #{@current_collective.name} now, but Trio can't run until an open " \
                    "funding pool exists. Open one at #{@current_collective.path}/pool to finish turning it on."
                else
-                 "Trio is on in #{@current_collective.name}: its personas are members now."
+                 "Trio is on in #{@current_collective.name}: its agents are members now."
                end
              else
-               "Trio is off in #{@current_collective.name}; its personas have been deactivated."
+               "Trio is off in #{@current_collective.name}; its agents have been deactivated."
              end
     render_action_success({ action_name: "set_trio_enabled", resource: @current_collective, result: result })
   end

@@ -311,7 +311,7 @@ class BillingController < ApplicationController
         amount_cents: amount_cents,
         checkout_session_id: session_obj.id,
       )
-      flash[:notice] = "Credits added: $#{format("%.2f", amount_cents / 100.0)}"
+      flash[:notice] = "Funds added: $#{format("%.2f", amount_cents / 100.0)}"
     else
       flash[:notice] = "Credit top-up completed."
     end

@@ -55,7 +55,7 @@ module Personas
     # instance of the persona across every collective.
     sig { returns(String) }
     def prompt
-      File.read(Rails.root.join("app/services/personas/prompts/#{system_role}.md"))
+      File.read(Rails.root.join("app/services/personas/prompts/#{system_role}.md")) # vocab-ok
     end
 
     # Default LLM model for newly seeded agents of this persona. Resolved

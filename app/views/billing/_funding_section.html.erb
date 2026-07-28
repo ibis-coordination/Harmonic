@@ -6,7 +6,7 @@
     <h2 class="pulse-section-title">Funding you provide</h2>
 
     <% if @funding_report[:enrollment_rows].any? %>
-      <p class="pulse-muted" style="margin-bottom: 12px;">Collectives whose agents you fund from your prepaid credits.</p>
+      <p class="pulse-muted" style="margin-bottom: 12px;">Collectives whose agents you fund from your prepaid balance.</p>
       <table class="pulse-table" style="max-width: 640px; margin-bottom: 16px;">
         <tbody>
           <% @funding_report[:enrollment_rows].each do |row| %>
@@ -32,7 +32,7 @@
     <% end %>
 
     <p>
-      Billed to your credits: <strong><%= number_to_currency(@funding_report[:total_billed_cents].to_f / 100) %></strong> (last 30 days)<% if @funding_report[:pool_draw_cents].to_f > 0 %>, of which <%= number_to_currency(@funding_report[:pool_draw_cents].to_f / 100) %> via funding pools<% end %>.
+      Billed to your balance: <strong><%= number_to_currency(@funding_report[:total_billed_cents].to_f / 100) %></strong> (last 30 days)<% if @funding_report[:pool_draw_cents].to_f > 0 %>, of which <%= number_to_currency(@funding_report[:pool_draw_cents].to_f / 100) %> via funding pools<% end %>.
     </p>
   </section>
 <% end %>

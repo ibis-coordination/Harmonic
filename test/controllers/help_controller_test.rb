@@ -230,6 +230,26 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/\bzones?\b/i, response.body)
   end
 
+  test "billing help says prepaid balance, never credits" do
+    @tenant.set_feature_flag!("stripe_billing", true)
+    get "/help/billing", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "prepaid balance"
+    assert_includes response.body, "AI Agent Usage"
+    assert_no_match(/prepaid credits?|credit balance|\bcredits\b/i, response.body)
+  end
+
+  test "chat copy says 1-on-1 chat, never direct message or DM" do
+    @tenant.set_feature_flag!("trio", true)
+    @tenant.set_feature_flag!("stripe_billing", true)
+    ["/help/trio", "/help/funding-pools"].each do |path|
+      get path, headers: { "Accept" => "text/markdown" }
+      assert_response :success
+      assert_no_match(/direct messages?|\bDMs?\b/i, response.body, "#{path} must say '1-on-1 chat'")
+    end
+    assert_includes response.body, "1-on-1 chat"
+  end
+
   test "/help/privacy presents the formal taxonomy as tiers" do
     get "/help/privacy", headers: { "Accept" => "text/markdown" }
     assert_response :success

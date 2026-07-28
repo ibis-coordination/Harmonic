@@ -289,7 +289,7 @@ module LLMGateway
         raise ResolutionError.new(
           "not_funded",
           :payment_required,
-          "AI usage billing is not set up. Add credits at /billing."
+          "AI usage billing is not set up. Add funds at /billing."
         )
       end
 
@@ -297,7 +297,7 @@ module LLMGateway
         raise ResolutionError.new(
           "balance_exhausted",
           :payment_required,
-          "The prepaid balance is empty. Add credits at /billing."
+          "The prepaid balance is empty. Add funds at /billing."
         )
       end
 

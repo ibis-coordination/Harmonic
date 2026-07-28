@@ -57,7 +57,7 @@ End-to-end verification that prepaid LLM credits flow correctly: top-up → agen
 
 ### Checklist
 
-- [ ] Task fails at dispatch with "Insufficient credit balance. Add funds at /billing before running agents."
+- [ ] Task fails at dispatch with "Insufficient prepaid balance. Add funds at /billing before running agents."
 - [ ] No `llm_request` line with `stripe_gateway` appears for the failed task (it never reached the gateway)
 - [ ] The failure is visible to the user (task run page / chat error)
 

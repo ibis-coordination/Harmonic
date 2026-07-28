@@ -76,7 +76,7 @@ class AgentRunnerDispatchService
     # here puts a readable error in the chat UI immediately instead of after
     # the runner spins up.
     if @task_run.chat_turn? && pool_funded
-      fail_task!("This agent runs on the collective's funding pool, and pool funding doesn't cover chat conversations. " \
+      fail_task!("This agent runs on the collective's funding pool, and pool funding doesn't cover 1-on-1 chat. " \
                  "Detach the agent to chat on its own billing.")
       return
     end
@@ -128,14 +128,14 @@ class AgentRunnerDispatchService
         # free-account or paying alike. Topping up at /billing creates the
         # subscription; without it, gateway usage would meter but never bill.
         if billing_customer.nil? || billing_customer.pricing_plan_subscription_id.blank?
-          fail_task!("AI usage billing is not set up. Add credits at /billing before running AI agents.")
+          fail_task!("AI usage billing is not set up. Add funds at /billing before running AI agents.")
           return
         end
 
         # Pre-flight credit balance check
         credit_balance = StripeService.get_credit_balance(T.must(billing_customer))
         if credit_balance.nil? || credit_balance <= 0
-          fail_task!("Insufficient credit balance. Add funds at /billing before running agents.")
+          fail_task!("Insufficient prepaid balance. Add funds at /billing before running agents.")
           return
         end
       end
