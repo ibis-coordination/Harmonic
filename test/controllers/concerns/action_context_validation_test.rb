@@ -168,6 +168,8 @@ class ActionContextValidationTest < ActionDispatch::IntegrationTest
     assert_includes parsed["hint"], "the public space"
     assert_not_includes parsed["hint"], "main collective",
                         "hint must say 'the public space', not expose the main-collective implementation detail"
+    assert_includes parsed["hint"], "Its principal can enable"
+    assert_not_includes parsed["hint"], "owner", "the accountable user is the 'principal', never the 'owner'"
   end
 
   test "AI agent with public writes enabled may act in the public space" do

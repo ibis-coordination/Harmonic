@@ -130,7 +130,7 @@ is_trustee = @grant.trustee_user == @target_user
           <%= safe_join(missing_caps.map { |c| content_tag(:code, c) }, ", ") %>.
         </p>
         <p>
-          The agent's owner can enable these at
+          The agent's principal can enable these at
           <%= link_to "/ai-agents/#{@grant.trustee_user.handle}/settings",
                       "/ai-agents/#{@grant.trustee_user.handle}/settings",
                       class: "pulse-link" %>.
