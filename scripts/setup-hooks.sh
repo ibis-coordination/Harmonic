@@ -41,6 +41,7 @@ echo "  - Block commits with direct Vote/Option mutations outside DecisionAction
 echo "  - Block commits that toggle the audit-immutability trigger outside db/migrate/"
 echo "  - Block commits with incorrect job base class inheritance"
 echo "  - Block commits with style guide violations in Pulse CSS"
+echo "  - Block commits with controlled-vocabulary violations in user-facing copy"
 echo "  - Run Sorbet type checking"
 echo "  - Run TypeScript type checking"
 echo ""
