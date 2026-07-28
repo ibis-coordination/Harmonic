@@ -463,48 +463,25 @@ class Note < ApplicationRecord
   end
 
   # Every comment on `commentable` — top-level and replies of any depth —
-  # fetched chronologically in a single recursive CTE (instead of one query per
-  # top-level comment). Returns the WHOLE tree, soft-deleted comments included,
-  # so a surviving reply can still resolve its deleted parent for
-  # "Replying to @handle [deleted]" context. Callers hide the deleted rows
-  # themselves (see Commentable#all_comments_chronological).
-  # IMPORTANT: find_by_sql bypasses default_scope, so filter tenant/collective.
+  # fetched chronologically in a single indexed scan on the denormalized
+  # `root_commentable` column (see migration 20260727170000). Returns the
+  # WHOLE tree, soft-deleted comments included, so a surviving reply can
+  # still resolve its deleted parent for "Replying to @handle [deleted]"
+  # context. Callers hide the deleted rows themselves (see
+  # Commentable#all_comments_chronological).
   sig { params(commentable: T.untyped).returns(T::Array[Note]) }
   def self.comment_tree_for(commentable)
     return [] unless commentable.persisted?
 
-    sql = <<~SQL.squish
-      WITH RECURSIVE comment_tree AS (
-        SELECT notes.*
-        FROM notes
-        WHERE notes.commentable_id = :root_id
-          AND notes.commentable_type = :root_type
-          AND notes.tenant_id = :tenant_id
-          AND notes.collective_id = :collective_id
-
-        UNION ALL
-
-        SELECT n.*
-        FROM notes n
-        INNER JOIN comment_tree t ON n.commentable_id = t.id
-          AND n.commentable_type = 'Note'
-        WHERE n.tenant_id = :tenant_id
-          AND n.collective_id = :collective_id
-      )
-      SELECT * FROM comment_tree
-      ORDER BY created_at ASC
-    SQL
-
-    sanitized_sql = Note.sanitize_sql_array([
-      sql,
-      {
-        root_id: commentable.id,
-        root_type: commentable.class.name,
-        tenant_id: commentable.tenant_id,
-        collective_id: commentable.collective_id,
-      },
-    ])
-    Note.find_by_sql(sanitized_sql)
+    Note.with_deleted
+        .where(
+          root_commentable_type: commentable.class.name,
+          root_commentable_id: commentable.id,
+          tenant_id: commentable.tenant_id,
+          collective_id: commentable.collective_id,
+        )
+        .order(created_at: :asc)
+        .to_a
   end
 
   # Broadcast a lightweight "comments changed" signal to the root resource's
