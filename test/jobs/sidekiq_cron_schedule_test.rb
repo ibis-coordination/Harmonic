@@ -20,6 +20,12 @@ class SidekiqCronScheduleTest < ActiveSupport::TestCase
     assert_equal "CleanupExpiredInternalTokensJob", entry["class"]
   end
 
+  test "schedule includes expired-refresh-token cleanup" do
+    entry = SIDEKIQ_CRON_SCHEDULE["cleanup_expired_refresh_tokens"]
+    assert entry, "cleanup_expired_refresh_tokens is missing from the sidekiq-cron schedule"
+    assert_equal "CleanupExpiredRefreshTokensJob", entry["class"]
+  end
+
   test "every scheduled class is a real job" do
     SIDEKIQ_CRON_SCHEDULE.each do |name, entry|
       klass = entry["class"].safe_constantize

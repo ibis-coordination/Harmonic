@@ -70,6 +70,11 @@ SIDEKIQ_CRON_SCHEDULE = {
     "class" => "CleanupExpiredInternalTokensJob",
     "description" => "Delete expired internal tokens orphaned by crashed task runs",
   },
+  "cleanup_expired_refresh_tokens" => {
+    "cron" => "40 3 * * *", # Daily at 3:40 AM
+    "class" => "CleanupExpiredRefreshTokensJob",
+    "description" => "Delete refresh tokens expired for 30+ days",
+  },
   "cleanup_abandoned_bridge_setups" => {
     "cron" => "15 * * * *", # Hourly at :15
     "class" => "CleanupAbandonedBridgeSetupsJob",
