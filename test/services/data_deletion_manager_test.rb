@@ -398,6 +398,39 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     assert @collective.reload.archived_at.present?, "a collective left with no members must be archived"
   end
 
+  test "delete_user! cancels the subscription and deletes the Stripe customer" do
+    sc = StripeCustomer.create!(
+      billable: @user, stripe_id: "cus_scrub_test", active: true,
+      stripe_subscription_id: "sub_scrub_test",
+    )
+    cancel_stub = stub_request(:delete, %r{https://api\.stripe\.com/v1/subscriptions/sub_scrub_test})
+      .to_return(status: 200, body: { id: "sub_scrub_test", status: "canceled" }.to_json)
+    delete_stub = stub_request(:delete, %r{https://api\.stripe\.com/v1/customers/cus_scrub_test})
+      .to_return(status: 200, body: { id: "cus_scrub_test", deleted: true }.to_json)
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    assert_requested cancel_stub
+    assert_requested delete_stub
+    assert_not sc.reload.active, "the local StripeCustomer row must be marked inactive"
+    assert StripeCustomer.exists?(sc.id), "the local row must survive for ledger references"
+  end
+
+  test "delete_user! aborts before scrubbing anything when Stripe cleanup fails" do
+    StripeCustomer.create!(
+      billable: @user, stripe_id: "cus_fail_test", active: true,
+      stripe_subscription_id: "sub_fail_test",
+    )
+    stub_request(:delete, %r{https://api\.stripe\.com/v1/subscriptions/sub_fail_test})
+      .to_return(status: 500, body: { error: { message: "boom" } }.to_json)
+
+    assert_raises(Stripe::StripeError) do
+      @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+    end
+    assert_no_match(/@deleted\.user/, @user.reload.email)
+    assert_nil @user.sessions_revoked_at, "nothing may be scrubbed when billing cleanup fails"
+  end
+
   test "delete_user! archives child AI agents and stops their automations" do
     agent = create_ai_agent(parent: @user)
     @tenant.add_user!(agent) unless TenantUser.for_user_across_tenants(agent).exists?

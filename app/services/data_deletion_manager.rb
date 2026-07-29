@@ -85,6 +85,11 @@ class DataDeletionManager
       raise "Cannot delete user: they are the sole admin of collectives with other members: " \
             "#{blocking_handles.join(', ')}. Transfer the admin role first (update_member_roles)."
     end
+    # Billing cleanup happens before any local mutation: if the Stripe call
+    # fails, deletion aborts with nothing scrubbed. Remaining prepaid balance
+    # is forfeited with the vendor-side customer object.
+    stripe_customer = StripeCustomer.find_by(billable: user)
+    StripeService.close_customer!(stripe_customer) if stripe_customer
     ActiveRecord::Base.transaction do
       # OauthIdentities and OmniAuthIdentity can be completely deleted (no tenant scope)
       OauthIdentity.where(user_id: user.id).delete_all
