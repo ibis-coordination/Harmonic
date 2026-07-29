@@ -317,4 +317,48 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
 
     assert_not DataExport.unscoped.exists?(export.id), "the user's exports must be destroyed"
   end
+
+  test "delete_user! scrubs the user's identity from decision audit entries" do
+    option = create_option(decision: @decision, created_by: @user, title: "Scrub Option")
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: option, actor: @user, action: "option_added",
+    )
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    entry.reload
+    assert_nil entry.actor_id, "actor_id must be scrubbed"
+    assert_nil entry.actor_handle, "actor_handle must be scrubbed"
+    assert_nil entry.actor_token_salt, "actor_token_salt must be scrubbed"
+
+    result = DecisionAuditVerifier.verify_chain(@decision)
+    assert result[:valid], "the chain must stay verifiable after the scrub"
+    assert_equal :unattributable, result[:binding_statuses][entry.sequence_number],
+                 "the scrubbed entry must verify as unattributable, not tampered"
+  end
+
+  test "delete_user! scrubs the user's identity as representative from audit entries" do
+    other = create_user(email: "rep-actor-#{SecureRandom.hex(4)}@example.com", name: "Rep Actor")
+    @tenant.add_user!(other)
+    @collective.add_user!(other)
+    grant = create_trustee_authorization(
+      tenant: @tenant, granting_user: other, trustee_user: @user,
+      permissions: { "vote" => true }, accepted: true,
+    )
+    session = create_trustee_authorization_representation_session(tenant: @tenant, trustee_grant: grant)
+    option = create_option(decision: @decision, created_by: other, title: "Rep Option")
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: option, actor: other, action: "option_added",
+      representation_session: session,
+    )
+    assert_equal @user.id, entry.representative_id
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    entry.reload
+    assert_nil entry.representative_id, "representative_id must be scrubbed"
+    assert_nil entry.representative_handle, "representative_handle must be scrubbed"
+    assert_nil entry.representative_token_salt, "representative_token_salt must be scrubbed"
+    assert_equal other.id, entry.actor_id, "the other user's actor identity must survive"
+  end
 end

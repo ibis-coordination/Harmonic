@@ -95,6 +95,9 @@ class DataDeletionManager
         export.file.purge if export.file.attached?
         export.destroy!
       end
+      # Decision audit chains: null the identity columns (the chain hashes are
+      # untouched, so entries verify as scrubbed rather than tampered).
+      DecisionAuditEntry.scrub_identity_for!(user)
       CollectiveMember.for_user_across_tenants(user).each do |collective_member|
         collective_member_is_sole_admin = collective_member.is_admin? && collective_member.collective.admins.count == 1
         if collective_member_is_sole_admin
