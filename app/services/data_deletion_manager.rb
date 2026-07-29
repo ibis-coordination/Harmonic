@@ -76,11 +76,24 @@ class DataDeletionManager
       user.name = "Deleted User"
       user.image.purge if user.image.attached?
       user.save!
-      # API tokens are marked as deleted but not destroyed
-      ApiToken.for_user_across_tenants(user).update_all(deleted_at: Time.current)
-      User.where(parent_id: user.id).each do |ai_agent| # User has no tenant scope
-        # AI agent users are not modified, but their API tokens are marked as deleted
-        ApiToken.for_user_across_tenants(ai_agent).update_all(deleted_at: Time.current)
+      # Terminate all access: sessions, refresh tokens, push subscriptions, and
+      # API tokens (the user's and their AI agents' — soft-deleted, not destroyed).
+      user.revoke_all_sessions!
+      # Trustee authorizations in both directions — nobody may act for this user
+      # again, and this user's trustee relationships must not survive them.
+      TrusteeGrant.for_user_across_tenants(user)
+        .where(revoked_at: nil, declined_at: nil)
+        .update_all(revoked_at: Time.current)
+      # User-owned automation rules (including the notification forwarder) must
+      # stop firing — a forwarder would keep sending the user's notification
+      # content to an external URL.
+      AutomationRule.for_user_across_tenants(user).where(deleted_at: nil).find_each do |rule|
+        rule.soft_delete!(by: user)
+      end
+      # The user's data exports contain exactly the data being scrubbed.
+      DataExport.for_user_across_tenants(user).find_each do |export|
+        export.file.purge if export.file.attached?
+        export.destroy!
       end
       CollectiveMember.for_user_across_tenants(user).each do |collective_member|
         collective_member_is_sole_admin = collective_member.is_admin? && collective_member.collective.admins.count == 1
@@ -103,8 +116,11 @@ class DataDeletionManager
         tenant_user.update!(
           display_name: "Deleted User",
           handle: "#{SecureRandom.hex(10)}-deleted",
+          bio: nil,
+          location: nil,
+          website: nil,
           settings: tenant_user.settings.merge(
-            pinned: {},
+            "pinned" => {},
           ),
           archived_at: Time.current,
         )

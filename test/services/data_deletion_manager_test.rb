@@ -245,4 +245,76 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     end
   end
 
+  test "delete_user! revokes sessions, refresh tokens, and push subscriptions" do
+    RefreshToken.issue!(user: @user)
+    subscription = WebPushSubscription.upsert_for!(
+      user: @user,
+      endpoint: "https://push.example.com/send/ddm-#{SecureRandom.hex(4)}",
+      p256dh_key: "p256dh-key",
+      auth_key: "auth-key",
+    )
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    assert @user.reload.sessions_revoked_at.present?, "sessions_revoked_at must be set"
+    assert RefreshToken.where(user_id: @user.id).all? { |t| t.revoked_at.present? },
+           "refresh tokens must be revoked"
+    assert subscription.reload.revoked_at.present?, "push subscriptions must be revoked"
+  end
+
+  test "delete_user! revokes trustee authorizations in both directions" do
+    other = create_user(email: "trustee-#{SecureRandom.hex(4)}@example.com", name: "Trustee Other")
+    @tenant.add_user!(other)
+    granted = TrusteeGrant.create!(tenant: @tenant, granting_user: @user, trustee_user: other)
+    received = TrusteeGrant.create!(tenant: @tenant, granting_user: other, trustee_user: @user)
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    assert granted.reload.revoked_at.present?, "authorization granted by the user must be revoked"
+    assert received.reload.revoked_at.present?, "authorization held by the user must be revoked"
+  end
+
+  test "delete_user! soft-deletes user-owned automation rules" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "User notification webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" },
+      enabled: true,
+    )
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    assert rule.reload.deleted_at.present?, "user-owned rules must be soft-deleted"
+  end
+
+  test "delete_user! clears free-text profile fields on tenant users" do
+    tenant_user = TenantUser.for_user_across_tenants(@user).first
+    tenant_user.update!(bio: "A bio", location: "Seattle", website: "https://example.com")
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    tenant_user.reload
+    assert_nil tenant_user.bio, "bio must be cleared"
+    assert_nil tenant_user.location, "location must be cleared"
+    assert_nil tenant_user.website, "website must be cleared"
+  end
+
+  test "delete_user! destroys the user's data exports" do
+    export = DataExport.create!(
+      tenant: @tenant,
+      collective: @collective,
+      user: @user,
+      status: "completed",
+      export_type: "user",
+      expires_at: 7.days.from_now,
+    )
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    assert_not DataExport.unscoped.exists?(export.id), "the user's exports must be destroyed"
+  end
 end
