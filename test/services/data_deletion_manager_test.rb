@@ -361,4 +361,27 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     assert_nil entry.representative_token_salt, "representative_token_salt must be scrubbed"
     assert_equal other.id, entry.actor_id, "the other user's actor identity must survive"
   end
+
+  test "delete_user! archives child AI agents and stops their automations" do
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent) unless TenantUser.for_user_across_tenants(agent).exists?
+    agent_rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: agent,
+      created_by: @user,
+      name: "Agent task rule",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "task" => "Summarize the day" },
+      enabled: true,
+    )
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    assert TenantUser.for_user_across_tenants(agent).all? { |tu| tu.archived_at.present? },
+           "the agent's tenant users must be archived"
+    assert agent_rule.reload.deleted_at.present?, "agent-owned rules must be soft-deleted"
+    assert TrusteeGrant.for_user_across_tenants(agent).all? { |g| g.revoked_at.present? || g.declined_at.present? },
+           "the agent's trustee authorizations must be revoked"
+  end
 end

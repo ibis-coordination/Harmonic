@@ -98,6 +98,20 @@ class DataDeletionManager
       # Decision audit chains: null the identity columns (the chain hashes are
       # untouched, so entries verify as scrubbed rather than tampered).
       DecisionAuditEntry.scrub_identity_for!(user)
+      # Child AI agents cannot act without a principal: archive them, revoke
+      # their trustee authorizations, and stop their automation rules. Their
+      # content survives, like the principal's.
+      User.where(parent_id: user.id).find_each do |ai_agent| # User has no tenant scope
+        TrusteeGrant.for_user_across_tenants(ai_agent)
+          .where(revoked_at: nil, declined_at: nil)
+          .update_all(revoked_at: Time.current)
+        AutomationRule.for_user_across_tenants(ai_agent).where(deleted_at: nil).find_each do |rule|
+          rule.soft_delete!(by: user)
+        end
+        TenantUser.for_user_across_tenants(ai_agent)
+          .where(archived_at: nil)
+          .update_all(archived_at: Time.current)
+      end
       CollectiveMember.for_user_across_tenants(user).each do |collective_member|
         collective_member_is_sole_admin = collective_member.is_admin? && collective_member.collective.admins.count == 1
         if collective_member_is_sole_admin

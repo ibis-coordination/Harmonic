@@ -51,6 +51,15 @@ class AutomationRule < ApplicationRecord
   }
   scope :for_ai_agent, ->(ai_agent) { where(ai_agent_id: ai_agent.id) }
   scope :scheduled, -> { where(trigger_type: "schedule") }
+
+  # Overrides ApplicationRecord.for_user_across_tenants: a rule is owned via
+  # user_id (user-owned) or ai_agent_id (agent-owned), so cover both.
+  sig { params(user: User).returns(T.untyped) }
+  def self.for_user_across_tenants(user)
+    unscoped.where(user_id: user.id).or( # unscoped-allowed - user's own data across tenants
+      unscoped.where(ai_agent_id: user.id), # unscoped-allowed - user's own data across tenants
+    )
+  end
   # Excludes notification-webhook rules (managed in their own UI) from
   # general automation listings.
   scope :excluding_notification_webhooks, lambda {
