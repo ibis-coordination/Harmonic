@@ -68,6 +68,23 @@ class DataDeletionManager
     if force_delete
       raise NotImplementedError, "full deletion of users is not implemented yet"
     end
+    # Deletion is blocked while the user is the only admin of a collective that
+    # still has other members — the admin role must be transferred first (the
+    # members page, update_member_roles). Collectives where the user is the
+    # only member are archived during deletion instead.
+    blocking_handles = CollectiveMember.for_user_across_tenants(user).where(archived_at: nil).filter_map do |cm|
+      next unless cm.is_admin?
+
+      collective = cm.collective
+      next unless collective.archived_at.nil? && collective.admins.count == 1
+      next unless collective.collective_members.where.not(user_id: user.id).where(archived_at: nil).exists?
+
+      collective.handle
+    end
+    if blocking_handles.any?
+      raise "Cannot delete user: they are the sole admin of collectives with other members: " \
+            "#{blocking_handles.join(', ')}. Transfer the admin role first (update_member_roles)."
+    end
     ActiveRecord::Base.transaction do
       # OauthIdentities and OmniAuthIdentity can be completely deleted (no tenant scope)
       OauthIdentity.where(user_id: user.id).delete_all
@@ -113,18 +130,12 @@ class DataDeletionManager
           .update_all(archived_at: Time.current)
       end
       CollectiveMember.for_user_across_tenants(user).each do |collective_member|
-        collective_member_is_sole_admin = collective_member.is_admin? && collective_member.collective.admins.count == 1
-        if collective_member_is_sole_admin
-          # If the user is the only admin of the collective, we need to assign a new admin
-          other_collective_members = collective_member.collective.collective_members.where.not(user_id: user.id).where(archived_at: nil)
-          representatives =  other_collective_members.where_has_role('representative')
-          new_admin = representatives.first || other_collective_members.first
-          if new_admin
-            new_admin.add_role!('admin')
-          else
-            # If there are no other users, ??? Need to handle this case
-            # TODO
-          end
+        collective = collective_member.collective
+        if collective_member.is_admin? && collective.archived_at.nil? && collective.admins.count == 1
+          # The precheck above guarantees no other members remain — archive the
+          # empty collective and stop its automations.
+          collective.update!(archived_at: Time.current, archived_by_id: user.id)
+          collective.automation_rules.where(enabled: true).update_all(enabled: false)
         end
         collective_member.archived_at = Time.current
         collective_member.save!

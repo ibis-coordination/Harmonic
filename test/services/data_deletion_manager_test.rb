@@ -341,6 +341,7 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     other = create_user(email: "rep-actor-#{SecureRandom.hex(4)}@example.com", name: "Rep Actor")
     @tenant.add_user!(other)
     @collective.add_user!(other)
+    T.must(@collective.collective_members.find_by(user_id: other.id)).add_role!("admin")
     grant = create_trustee_authorization(
       tenant: @tenant, granting_user: other, trustee_user: @user,
       permissions: { "vote" => true }, accepted: true,
@@ -360,6 +361,41 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     assert_nil entry.representative_handle, "representative_handle must be scrubbed"
     assert_nil entry.representative_token_salt, "representative_token_salt must be scrubbed"
     assert_equal other.id, entry.actor_id, "the other user's actor identity must survive"
+  end
+
+  test "delete_user! is blocked while the user is the sole admin of a collective with other members" do
+    T.must(@collective.collective_members.find_by(user_id: @user.id)).add_role!("admin")
+    other = create_user(email: "member-#{SecureRandom.hex(4)}@example.com", name: "Other Member")
+    @tenant.add_user!(other)
+    @collective.add_user!(other)
+
+    error = assert_raises(RuntimeError) do
+      @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+    end
+    assert_match @collective.handle, error.message
+    assert_match(/admin/i, error.message)
+    assert_no_match(/@deleted\.user/, @user.reload.email)
+  end
+
+  test "delete_user! proceeds after the admin role is transferred" do
+    T.must(@collective.collective_members.find_by(user_id: @user.id)).add_role!("admin")
+    other = create_user(email: "successor-#{SecureRandom.hex(4)}@example.com", name: "Successor")
+    @tenant.add_user!(other)
+    @collective.add_user!(other)
+    T.must(@collective.collective_members.find_by(user_id: other.id)).add_role!("admin")
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    assert_match(/@deleted\.user$/, @user.reload.email)
+    assert_nil @collective.reload.archived_at, "a collective with a remaining admin must not be archived"
+  end
+
+  test "delete_user! archives collectives where the user was the only member" do
+    T.must(@collective.collective_members.find_by(user_id: @user.id)).add_role!("admin")
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    assert @collective.reload.archived_at.present?, "a collective left with no members must be archived"
   end
 
   test "delete_user! archives child AI agents and stops their automations" do
