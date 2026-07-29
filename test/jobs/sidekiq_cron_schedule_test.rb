@@ -8,6 +8,18 @@ class SidekiqCronScheduleTest < ActiveSupport::TestCase
     assert_match(/\A\S+ \S+ \S+ \S+ \S+\z/, entry["cron"], "cron expression should have 5 fields")
   end
 
+  test "schedule includes expired-token cleanup" do
+    entry = SIDEKIQ_CRON_SCHEDULE["cleanup_expired_tokens"]
+    assert entry, "cleanup_expired_tokens is missing from the sidekiq-cron schedule"
+    assert_equal "CleanupExpiredTokensJob", entry["class"]
+  end
+
+  test "schedule includes expired-internal-token cleanup" do
+    entry = SIDEKIQ_CRON_SCHEDULE["cleanup_expired_internal_tokens"]
+    assert entry, "cleanup_expired_internal_tokens is missing from the sidekiq-cron schedule"
+    assert_equal "CleanupExpiredInternalTokensJob", entry["class"]
+  end
+
   test "every scheduled class is a real job" do
     SIDEKIQ_CRON_SCHEDULE.each do |name, entry|
       klass = entry["class"].safe_constantize
