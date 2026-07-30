@@ -392,10 +392,21 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
 
   test "delete_user! archives collectives where the user was the only member" do
     T.must(@collective.collective_members.find_by(user_id: @user.id)).add_role!("admin")
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      collective: @collective,
+      created_by: @user,
+      name: "Collective rule",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: [{ "type" => "internal_action", "action" => "create_note", "params" => { "text" => "hi" } }],
+      enabled: true,
+    )
 
     @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
 
     assert @collective.reload.archived_at.present?, "a collective left with no members must be archived"
+    assert_not rule.reload.enabled, "the archived collective's automations must be disabled"
   end
 
   test "delete_user! blocks when the only other admin already left the collective" do
