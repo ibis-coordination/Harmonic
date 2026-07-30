@@ -459,6 +459,10 @@ Rails.application.routes.draw do
   #
   # (Two-factor already lives here at /settings/two-factor; see the auth block.)
   get 'settings' => 'users#settings', as: 'settings'
+  # Closure status/restore screen — the only pages a closed account's session
+  # can reach during the grace window.
+  get 'account/closure' => 'account_closures#show', as: 'account_closure'
+  post 'account/closure/restore' => 'account_closures#restore', as: 'account_closure_restore'
   post 'settings/profile' => 'users#update_profile'
   post 'settings/workspace_trio' => 'users#update_workspace_trio'
   patch 'settings/email' => 'users#update_email'

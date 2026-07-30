@@ -1,0 +1,21 @@
+<div class="pulse-auth-page">
+  <div class="pulse-auth-success">
+    <h1 class="pulse-auth-title">Your account is closed</h1>
+    <p class="pulse-auth-subtitle">
+      It is scheduled for permanent deletion on <strong><%= @scrub_date.to_date.to_fs(:long) %></strong>.
+      Until then, you can restore it.
+    </p>
+    <ul style="text-align:left; margin: 16px 0; line-height: 1.6;">
+      <li>On the deletion date, your profile is anonymized and your access is permanently removed. Content you shared stays, attributed to "Deleted User".</li>
+      <li>If you have a prepaid balance, it is forfeited on the deletion date — not before.</li>
+      <li>Your API tokens were revoked when the account was closed. After restoring, issue new tokens.</li>
+      <li>Restoring re-enables your automations and your agents.</li>
+    </ul>
+    <div class="pulse-form-actions" style="justify-content:center;">
+      <%= button_to "Restore my account", account_closure_restore_path, method: :post, class: "pulse-action-btn" %>
+    </div>
+    <div class="pulse-form-actions" style="justify-content:center; margin-top: 8px;">
+      <%= button_to "Log out", "/logout", method: :delete, class: "pulse-action-btn-subtle" %>
+    </div>
+  </div>
+</div>

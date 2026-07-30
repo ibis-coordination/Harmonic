@@ -34,6 +34,7 @@ class ApplicationController < ActionController::Base
   before_action :enforce_refresh_token_revocation
   before_action :touch_current_device_activity
   before_action :check_user_suspension
+  before_action :check_account_closure
   before_action :check_activation_gate
   before_action :check_stripe_billing_gate
   before_action :check_collective_archived
@@ -907,7 +908,7 @@ class ApplicationController < ActionController::Base
 
   CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help",
                                         "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations", "direct_uploads",
-                                        "ai_agent_connect", "application", "devices", "collective_agents",].freeze
+                                        "ai_agent_connect", "application", "devices", "collective_agents", "account_closures",].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
@@ -1795,6 +1796,20 @@ class ApplicationController < ActionController::Base
     logout_user!
     flash[:alert] = "Your account has been suspended."
     redirect_to "/login"
+  end
+
+  # While an account is closed (grace window running), the only pages its
+  # sessions may reach are the closure status/restore screen and logout —
+  # logging in lands there instead of in the app.
+  def check_account_closure
+    return if is_auth_controller?
+    return if session[:user_id].blank?
+    return if request.path.start_with?("/account/closure") || request.path == "/logout"
+
+    user = User.find_by(id: session[:user_id])
+    return unless user&.closing?
+
+    redirect_to "/account/closure"
   end
 
   # Activation gate: before a human can use the app, they must (1) be a member
