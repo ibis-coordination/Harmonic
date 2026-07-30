@@ -75,6 +75,11 @@ SIDEKIQ_CRON_SCHEDULE = {
     "class" => "CleanupExpiredRefreshTokensJob",
     "description" => "Delete refresh tokens expired for 30+ days",
   },
+  "account_closure_scrub" => {
+    "cron" => "10 4 * * *", # Daily at 4:10 AM
+    "class" => "AccountClosureScrubJob",
+    "description" => "Scrub closed accounts whose grace window has expired",
+  },
   "cleanup_abandoned_bridge_setups" => {
     "cron" => "15 * * * *", # Hourly at :15
     "class" => "CleanupAbandonedBridgeSetupsJob",
