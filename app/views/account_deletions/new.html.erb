@@ -1,0 +1,74 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  [@current_tenant.subdomain, '/'],
+  ['Settings', '/settings'],
+  'Delete Account'
+] %>
+
+<article class="pulse-user-profile">
+  <h1 class="pulse-auth-title">Delete your account</h1>
+
+  <p class="pulse-form-hint" style="margin: 12px 0;">
+    Deleting your account starts a <%= @grace_days %>-day grace period. Nothing is
+    destroyed until it ends — you can log back in and restore your account any time
+    before <strong><%= @scrub_date.to_fs(:long) %></strong>. After that, deletion is permanent.
+  </p>
+
+  <h2 style="font-size: 1rem; margin-top: 20px;">What happens when you submit this request</h2>
+  <ul class="pulse-form-hint" style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
+    <li>You are signed out, and your API tokens are revoked. Your agents and automations stop.</li>
+    <li>If you have a plan subscription, it is cancelled. Your prepaid balance is untouched until the deletion date.</li>
+    <li>Restoring undoes all of this — you'll just need to issue new tokens and restart the subscription.</li>
+  </ul>
+
+  <h2 style="font-size: 1rem; margin-top: 20px;">What happens on the deletion date</h2>
+  <ul class="pulse-form-hint" style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
+    <li>Your profile is anonymized and your access is permanently removed.</li>
+    <li>Content you shared — notes, comments, votes — stays, attributed to "Deleted User". Group records other members rely on are not destroyed.</li>
+    <li>Any prepaid balance is forfeited.</li>
+  </ul>
+
+  <div class="pulse-form-hint" style="margin: 16px 0; padding: 12px; border: 1px solid var(--pulse-border, #ccc); border-radius: 6px;">
+    <strong>Delete unwanted content first.</strong> Account deletion removes your identity
+    and access — it does not delete what you wrote into your content. If you want
+    specific notes or comments gone, delete them <em>before</em> deleting your account:
+    after the deletion date you can no longer log in to do it yourself.
+    You may also want to <a href="/settings/data-export">download your data</a> first.
+  </div>
+
+  <% if @blocking_handles.any? %>
+    <div class="pulse-form-hint" style="margin: 16px 0; padding: 12px; border: 1px solid var(--pulse-border, #ccc); border-radius: 6px;">
+      <strong>Action needed:</strong> you are the sole admin of
+      <%= @blocking_handles.map { |h| "@#{h}" }.join(", ") %>, which still has other members.
+      Transfer the admin role on the members page before deleting your account.
+    </div>
+  <% end %>
+
+  <%= form_with url: account_deletion_path, method: :post, local: true do %>
+    <% if @active_subdomain_count > 1 %>
+      <fieldset style="border: none; padding: 0; margin: 16px 0;">
+        <legend class="pulse-form-hint" style="margin-bottom: 8px;">
+          You have accounts on <%= @active_subdomain_count %> subdomains. Choose what to delete:
+        </legend>
+        <label style="display: block; margin-bottom: 8px;">
+          <input type="radio" name="scope" value="subdomain" checked>
+          Delete my account on <strong><%= @current_subdomain %></strong> only —
+          my login and my accounts on other subdomains keep working.
+        </label>
+        <label style="display: block;">
+          <input type="radio" name="scope" value="everywhere">
+          Delete my account everywhere — all subdomains, my login, and (on the deletion date) my prepaid balance.
+        </label>
+      </fieldset>
+    <% else %>
+      <input type="hidden" name="scope" value="everywhere">
+    <% end %>
+
+    <div class="pulse-form-actions" style="margin-top: 16px;">
+      <button type="submit" class="pulse-action-btn pulse-action-btn-danger"
+              data-turbo-confirm="Request account deletion? You will be signed out. You can restore your account until <%= @scrub_date.to_fs(:long) %>.">
+        Delete my account
+      </button>
+      <a href="/settings" class="pulse-action-btn-subtle">Cancel</a>
+    </div>
+  <% end %>
+</article>

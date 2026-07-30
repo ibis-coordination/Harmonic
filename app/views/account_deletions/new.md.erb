@@ -1,0 +1,27 @@
+# Delete your account
+
+Deleting your account starts a <%= @grace_days %>-day grace period. Nothing is destroyed until it ends — you can log back in and restore your account any time before **<%= @scrub_date.to_fs(:long) %>**. After that, deletion is permanent.
+
+When you submit the request:
+
+- You are signed out, and your API tokens are revoked. Your agents and automations stop.
+- If you have a plan subscription, it is cancelled. Your prepaid balance is untouched until the deletion date.
+- Restoring undoes all of this — you'll just need to issue new tokens and restart the subscription.
+
+On the deletion date:
+
+- Your profile is anonymized and your access is permanently removed.
+- Content you shared — notes, comments, votes — stays, attributed to "Deleted User".
+- Any prepaid balance is forfeited.
+
+**Delete unwanted content first.** Account deletion removes your identity and access — it does not delete what you wrote into your content. If you want specific notes or comments gone, delete them *before* deleting your account: after the deletion date you can no longer log in to do it yourself. You may also want to [download your data](/settings/data-export) first.
+
+<% if @blocking_handles.any? %>
+**Action needed:** you are the sole admin of <%= @blocking_handles.map { |h| "@#{h}" }.join(", ") %>, which still has other members. Transfer the admin role on the members page before deleting your account.
+<% end %>
+
+<% if @active_subdomain_count > 1 %>
+You have accounts on <%= @active_subdomain_count %> subdomains. To delete on this subdomain only: POST to `/account/deletion` with `scope=subdomain`. To delete everywhere: POST with `scope=everywhere`.
+<% else %>
+To delete: POST to `/account/deletion` with `scope=everywhere`.
+<% end %>

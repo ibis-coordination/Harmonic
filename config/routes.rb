@@ -460,8 +460,11 @@ Rails.application.routes.draw do
   # (Two-factor already lives here at /settings/two-factor; see the auth block.)
   get 'settings' => 'users#settings', as: 'settings'
   # Deletion status/restore screen — the only pages a pending-deletion
-  # account's session can reach during the grace window.
+  # account's session can reach during the grace window — plus the
+  # reverification-gated request flow (confirm page + submit).
   get 'account/deletion' => 'account_deletions#show', as: 'account_deletion'
+  get 'account/deletion/new' => 'account_deletions#new', as: 'new_account_deletion'
+  post 'account/deletion' => 'account_deletions#create'
   post 'account/deletion/restore' => 'account_deletions#restore', as: 'account_deletion_restore'
   post 'settings/profile' => 'users#update_profile'
   post 'settings/workspace_trio' => 'users#update_workspace_trio'
