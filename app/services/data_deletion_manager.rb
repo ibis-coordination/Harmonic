@@ -68,16 +68,22 @@ class DataDeletionManager
     if force_delete
       raise NotImplementedError, "full deletion of users is not implemented yet"
     end
-    # Deletion is blocked while the user is the only admin of a collective that
-    # still has other members — the admin role must be transferred first (the
-    # members page, update_member_roles). Collectives where the user is the
-    # only member are archived during deletion instead.
+    # Deletion is blocked while the user is the only active admin of a
+    # collective that still has other active members — the admin role must be
+    # transferred first (the members page, update_member_roles). Collectives
+    # where the user is the only remaining member are archived during deletion
+    # instead. Lookups are pinned to each membership's tenant, so the check is
+    # correct regardless of the calling thread's tenant scope.
     blocking_handles = CollectiveMember.for_user_across_tenants(user).where(archived_at: nil).filter_map do |cm|
       next unless cm.is_admin?
 
-      collective = cm.collective
-      next unless collective.archived_at.nil? && collective.admins.count == 1
-      next unless collective.collective_members.where.not(user_id: user.id).where(archived_at: nil).exists?
+      collective = Collective.tenant_scoped_only(cm.tenant_id).find_by(id: cm.collective_id)
+      next if collective.nil? || collective.archived_at.present?
+
+      active_members = CollectiveMember.tenant_scoped_only(cm.tenant_id)
+        .where(collective_id: collective.id, archived_at: nil)
+      next unless T.unsafe(active_members).where_has_role("admin").count == 1
+      next unless active_members.where.not(user_id: user.id).exists?
 
       collective.handle
     end
@@ -135,12 +141,21 @@ class DataDeletionManager
           .update_all(archived_at: Time.current)
       end
       CollectiveMember.for_user_across_tenants(user).each do |collective_member|
-        collective = collective_member.collective
-        if collective_member.is_admin? && collective.archived_at.nil? && collective.admins.count == 1
-          # The precheck above guarantees no other members remain — archive the
-          # empty collective and stop its automations.
-          collective.update!(archived_at: Time.current, archived_by_id: user.id)
-          collective.automation_rules.where(enabled: true).update_all(enabled: false)
+        if collective_member.archived_at.nil? && collective_member.is_admin?
+          collective = Collective.tenant_scoped_only(collective_member.tenant_id)
+            .find_by(id: collective_member.collective_id)
+          if collective && collective.archived_at.nil?
+            active_admins = CollectiveMember.tenant_scoped_only(collective_member.tenant_id)
+              .where(collective_id: collective.id, archived_at: nil)
+            if T.unsafe(active_admins).where_has_role("admin").count == 1
+              # The precheck above guarantees no other active members remain —
+              # archive the empty collective and stop its automations.
+              collective.update!(archived_at: Time.current, archived_by_id: user.id)
+              AutomationRule.tenant_scoped_only(collective.tenant_id)
+                .where(collective_id: collective.id, enabled: true)
+                .update_all(enabled: false)
+            end
+          end
         end
         collective_member.archived_at = Time.current
         collective_member.save!

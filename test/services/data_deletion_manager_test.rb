@@ -398,6 +398,91 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     assert @collective.reload.archived_at.present?, "a collective left with no members must be archived"
   end
 
+  test "delete_user! blocks when the only other admin already left the collective" do
+    T.must(@collective.collective_members.find_by(user_id: @user.id)).add_role!("admin")
+    former_admin = create_user(email: "former-#{SecureRandom.hex(4)}@example.com", name: "Former Admin")
+    @tenant.add_user!(former_admin)
+    @collective.add_user!(former_admin)
+    former_membership = T.must(@collective.collective_members.find_by(user_id: former_admin.id))
+    former_membership.add_role!("admin")
+    former_membership.update!(archived_at: Time.current)
+    remaining = create_user(email: "remaining-#{SecureRandom.hex(4)}@example.com", name: "Remaining Member")
+    @tenant.add_user!(remaining)
+    @collective.add_user!(remaining)
+
+    error = assert_raises(RuntimeError) do
+      @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+    end
+    assert_match @collective.handle, error.message
+  end
+
+  test "delete_user! blocks for sole-admin collectives in other tenants" do
+    tenant2, collective2, user2 = create_tenant_collective_user
+    tenant2.add_user!(@user)
+    collective2.add_user!(@user)
+    CollectiveMember.tenant_scoped_only(tenant2.id)
+      .find_by!(collective_id: collective2.id, user_id: @user.id).add_role!("admin")
+    CollectiveMember.tenant_scoped_only(tenant2.id)
+      .find_by!(collective_id: collective2.id, user_id: user2.id).remove_role!("admin")
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    error = assert_raises(RuntimeError) do
+      @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+    end
+    assert_match collective2.handle, error.message
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  test "delete_user! archives solo collectives in other tenants but not shared ones" do
+    tenant2, collective2, user2 = create_tenant_collective_user
+    tenant2.add_user!(@user)
+    # Shared collective in tenant2: user2 stays admin, @user is a plain member.
+    collective2.add_user!(@user)
+    # Solo collective in tenant2: @user is the only member and sole admin.
+    solo = create_collective(tenant: tenant2, created_by: @user, name: "Solo T2", handle: "solo-t2-#{SecureRandom.hex(4)}")
+    solo.add_user!(@user)
+    CollectiveMember.tenant_scoped_only(tenant2.id)
+      .find_by!(collective_id: solo.id, user_id: @user.id).add_role!("admin")
+
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+    Tenant.clear_thread_scope
+
+    assert Collective.tenant_scoped_only(tenant2.id).find(solo.id).archived_at.present?,
+           "the solo collective in the other tenant must be archived"
+    assert_nil Collective.tenant_scoped_only(tenant2.id).find(collective2.id).archived_at,
+               "the shared collective in the other tenant must not be archived"
+    assert CollectiveMember.tenant_scoped_only(tenant2.id)
+      .where(user_id: @user.id).all? { |cm| cm.archived_at.present? },
+           "memberships in the other tenant must be archived"
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  test "delete_user! can be re-run after a partial vendor-side failure" do
+    sc = StripeCustomer.create!(
+      billable: @user, stripe_id: "cus_rerun_test", active: true,
+      stripe_subscription_id: "sub_rerun_test",
+    )
+    stripe_missing = lambda do |kind, id|
+      { status: 404, body: { error: { type: "invalid_request_error", code: "resource_missing",
+                                      message: "No such #{kind}: '#{id}'" } }.to_json }
+    end
+    stub_request(:delete, %r{https://api\.stripe\.com/v1/subscriptions/sub_rerun_test})
+      .to_return(stripe_missing.call("subscription", "sub_rerun_test"))
+    stub_request(:delete, %r{https://api\.stripe\.com/v1/customers/cus_rerun_test})
+      .to_return(stripe_missing.call("customer", "cus_rerun_test"))
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+    assert_not sc.reload.active
+
+    # Second run must be a no-op, not a crash.
+    ddm2 = DataDeletionManager.new(user: @user)
+    ddm2.delete_user!(user: @user, confirmation_token: ddm2.confirmation_token)
+    assert_match(/@deleted\.user$/, @user.reload.email)
+  end
+
   test "delete_user! cancels the subscription and deletes the Stripe customer" do
     sc = StripeCustomer.create!(
       billable: @user, stripe_id: "cus_scrub_test", active: true,
