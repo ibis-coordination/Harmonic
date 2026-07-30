@@ -42,7 +42,10 @@ class AgentRunnerDispatchService
     # Agent status checks
     agent_tenant_user = ai_agent.tenant_users.find_by(tenant_id: tenant.id)
     agent_archived = agent_tenant_user&.archived? || false
-    if ai_agent.suspended? || agent_archived || ai_agent.pending_billing_setup?
+    # A closing agent (their principal's account is in its closure grace
+    # window) is deactivated exactly like an archived one.
+    agent_closing = agent_tenant_user&.close_requested_at.present? || false
+    if ai_agent.suspended? || agent_archived || agent_closing || ai_agent.pending_billing_setup?
       status_msg = if ai_agent.pending_billing_setup?
                      "pending billing setup. Set up billing at /billing to activate this agent"
                    elsif ai_agent.suspended?
