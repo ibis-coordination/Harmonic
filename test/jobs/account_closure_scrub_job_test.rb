@@ -56,6 +56,18 @@ class AccountClosureScrubJobTest < ActiveSupport::TestCase
     assert_match(/@deleted\.user$/, healthy.reload.email, "other accounts still get scrubbed")
   end
 
+  test "an account restored after batch selection is not scrubbed" do
+    # Simulates a restore landing between the job's query and this user's
+    # turn in the batch: scrub_one must re-check state, not trust the batch.
+    restored = closing_user(days_ago: 31)
+    restored.update!(close_requested_at: nil)
+
+    AccountClosureScrubJob.new.scrub_one(restored)
+
+    assert_no_match(/@deleted\.user/, restored.reload.email)
+    assert_nil restored.scrubbed_at
+  end
+
   test "already-scrubbed accounts are not re-selected" do
     done = closing_user(days_ago: 40)
     done.update!(scrubbed_at: 9.days.ago, email: "#{SecureRandom.hex(10)}@deleted.user")

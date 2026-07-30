@@ -13,12 +13,20 @@ class AccountClosureScrubJob < SystemJob
 
   sig { void }
   def perform
-    AccountClosureService.scrub_due.find_each do |user|
-      ddm = DataDeletionManager.new(user: user)
-      ddm.delete_user!(user: user, confirmation_token: ddm.confirmation_token)
-      Rails.logger.info("AccountClosureScrubJob: scrubbed user #{user.id} (grace window expired)")
-    rescue StandardError => e
-      Rails.logger.error("AccountClosureScrubJob: could not scrub user #{user.id}: #{e.message}")
-    end
+    AccountClosureService.scrub_due.find_each { |user| scrub_one(user) }
+  end
+
+  sig { params(user: User).void }
+  def scrub_one(user)
+    # Re-check per account: a restore! landing between the batch query and
+    # this user's turn must win.
+    user.reload
+    return if user.close_requested_at.nil? || user.scrubbed_at.present?
+
+    ddm = DataDeletionManager.new(user: user)
+    ddm.delete_user!(user: user, confirmation_token: ddm.confirmation_token)
+    Rails.logger.info("AccountClosureScrubJob: scrubbed user #{user.id} (grace window expired)")
+  rescue StandardError => e
+    Rails.logger.error("AccountClosureScrubJob: could not scrub user #{user.id}: #{e.message}")
   end
 end

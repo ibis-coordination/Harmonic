@@ -110,6 +110,17 @@ class AccountClosureServiceTest < ActiveSupport::TestCase
     assert_raises(RuntimeError) { AccountClosureService.close!(user: @user) }
   end
 
+  test "close! refuses scrubbed accounts" do
+    @user.update!(scrubbed_at: Time.current)
+    assert_raises(RuntimeError) { AccountClosureService.close!(user: @user) }
+    assert_not @user.reload.closing?
+  end
+
+  test "close! refuses non-human users" do
+    agent = create_ai_agent(parent: @user)
+    assert_raises(RuntimeError) { AccountClosureService.close!(user: agent) }
+  end
+
   # === restore! ===
 
   test "restore! clears closing state and re-enables what close! disabled" do
@@ -143,6 +154,14 @@ class AccountClosureServiceTest < ActiveSupport::TestCase
 
   test "restore! raises when the account is not closing" do
     assert_raises(RuntimeError) { AccountClosureService.restore!(user: @user) }
+  end
+
+  test "restore! refuses scrubbed accounts" do
+    AccountClosureService.close!(user: @user)
+    @user.update!(scrubbed_at: Time.current)
+
+    assert_raises(RuntimeError) { AccountClosureService.restore!(user: @user) }
+    assert @user.reload.closing?, "a scrubbed account's closure state must not be cleared"
   end
 
   # === scrub_due ===

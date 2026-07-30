@@ -35,6 +35,8 @@ class AccountClosureService
 
   sig { params(user: User).void }
   def self.close!(user:)
+    raise "Only human accounts can be closed" unless user.human?
+    raise "Account has already been permanently deleted" if user.scrubbed_at.present?
     raise "Account is already closing" if user.closing?
 
     blocking = sole_admin_blocking_handles(user)
@@ -68,6 +70,7 @@ class AccountClosureService
 
   sig { params(user: User).void }
   def self.restore!(user:)
+    raise "Account has already been permanently deleted" if user.scrubbed_at.present?
     raise "Account is not closing" unless user.closing?
 
     close_time = T.must(user.close_requested_at)
