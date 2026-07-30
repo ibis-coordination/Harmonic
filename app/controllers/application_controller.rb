@@ -1807,7 +1807,15 @@ class ApplicationController < ActionController::Base
     return if request.path.start_with?("/account/deletion") || request.path == "/logout"
 
     user = User.find_by(id: session[:user_id])
-    return unless user&.pending_deletion?
+    return if user.nil?
+    return redirect_to "/account/deletion" if user.pending_deletion?
+
+    # Per-subdomain deletion: the shared session survives, so lockout on the
+    # deleted subdomain happens here, keyed off this tenant's TenantUser.
+    return if Tenant.current_id.blank?
+
+    tenant_user = TenantUser.tenant_scoped_only(Tenant.current_id).find_by(user_id: user.id)
+    return unless tenant_user&.pending_deletion?
 
     redirect_to "/account/deletion"
   end

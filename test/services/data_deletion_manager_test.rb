@@ -557,4 +557,144 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     assert TrusteeGrant.for_user_across_tenants(agent).all? { |g| g.revoked_at.present? || g.declined_at.present? },
            "the agent's trustee authorizations must be revoked"
   end
+
+  test "delete_user! stamps scrubbed_at on every tenant user" do
+    tenant_b = create_tenant
+    tenant_b.add_user!(@user)
+
+    @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+
+    tenant_users = TenantUser.for_user_across_tenants(@user).to_a
+    assert_equal 2, tenant_users.size
+    assert tenant_users.all? { |tu| tu.scrubbed_at.present? },
+           "every tenant slice must be marked scrubbed"
+  end
+
+  # === delete_tenant_user! (per-subdomain slice) ===
+
+  def setup_second_tenant_with_membership!
+    tenant_b = create_tenant
+    tenant_b.add_user!(@user)
+    collective_b = create_collective(tenant: tenant_b, created_by: @user)
+    collective_b.add_user!(@user)
+    [tenant_b, collective_b]
+  end
+
+  test "delete_tenant_user! scrubs only that tenant's slice and leaves the account usable elsewhere" do
+    tenant_b, collective_b = setup_second_tenant_with_membership!
+    identity = @user.find_or_create_omni_auth_identity!
+    original_email = @user.email
+
+    tu_a = TenantUser.tenant_scoped_only(@tenant.id).find_by(user_id: @user.id)
+    tu_a.update!(bio: "A bio", location: "Seattle", website: "https://example.com")
+    tu_b = TenantUser.tenant_scoped_only(tenant_b.id).find_by(user_id: @user.id)
+    original_handle_b = tu_b.handle
+
+    rule_a = AutomationRule.create!(
+      tenant: @tenant, user: @user, created_by: @user,
+      name: "Webhook A", trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" }, enabled: true,
+    )
+    export_a = DataExport.create!(
+      tenant: @tenant, collective: @collective, user: @user,
+      status: "completed", export_type: "user", expires_at: 7.days.from_now,
+    )
+    other = create_user(email: "slice-#{SecureRandom.hex(4)}@example.com", name: "Slice Other")
+    @tenant.add_user!(other)
+    grant_a = TrusteeGrant.create!(tenant: @tenant, granting_user: @user, trustee_user: other)
+
+    option = create_option(decision: @decision, created_by: @user, title: "Slice Option")
+    entry = DecisionAuditService.record_option!(
+      decision: @decision, option: option, actor: @user, action: "option_added",
+    )
+
+    @ddm.delete_tenant_user!(user: @user, tenant: @tenant, confirmation_token: @ddm.confirmation_token)
+
+    tu_a.reload
+    assert_equal "Deleted User", tu_a.display_name
+    assert_match(/-deleted\z/, tu_a.handle)
+    assert_nil tu_a.bio
+    assert tu_a.archived_at.present?
+    assert tu_a.scrubbed_at.present?
+
+    tu_b.reload
+    assert_equal original_handle_b, tu_b.handle, "the other subdomain's profile must be untouched"
+    assert_nil tu_b.scrubbed_at
+
+    assert_equal original_email, @user.reload.email, "login identity survives a per-subdomain scrub"
+    assert_nil @user.scrubbed_at
+    assert_nil @user.sessions_revoked_at, "the shared session survives"
+    assert OmniAuthIdentity.exists?(identity.id)
+
+    assert rule_a.reload.deleted_at.present?, "rules in the scrubbed tenant are soft-deleted"
+    assert_not DataExport.unscoped.exists?(export_a.id), "exports in the scrubbed tenant are destroyed"
+    assert grant_a.reload.revoked_at.present?, "trustee authorizations in the scrubbed tenant are revoked"
+
+    entry.reload
+    assert_nil entry.actor_id, "audit entries in the scrubbed tenant lose the actor identity"
+
+    membership_a = CollectiveMember.tenant_scoped_only(@tenant.id)
+      .find_by(collective_id: @collective.id, user_id: @user.id)
+    assert membership_a.archived_at.present?, "memberships in the scrubbed tenant are archived"
+    membership_b = CollectiveMember.tenant_scoped_only(tenant_b.id)
+      .find_by(collective_id: collective_b.id, user_id: @user.id)
+    assert_nil membership_b.archived_at, "memberships elsewhere survive"
+  end
+
+  test "delete_tenant_user! leaves audit entries in other tenants attributed" do
+    tenant_b, collective_b = setup_second_tenant_with_membership!
+    decision_b = create_decision(tenant: tenant_b, collective: collective_b, created_by: @user)
+    option_b = create_option(tenant: tenant_b, collective: collective_b, decision: decision_b, created_by: @user, title: "B Option")
+    entry_b = DecisionAuditService.record_option!(
+      decision: decision_b, option: option_b, actor: @user, action: "option_added",
+    )
+
+    @ddm.delete_tenant_user!(user: @user, tenant: @tenant, confirmation_token: @ddm.confirmation_token)
+
+    assert_equal @user.id, entry_b.reload.actor_id,
+                 "audit entries in other tenants keep their attribution"
+  end
+
+  test "delete_tenant_user! archives the user's agents in that tenant only" do
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    tenant_b, _collective_b = setup_second_tenant_with_membership!
+    tenant_b.add_user!(agent)
+
+    @ddm.delete_tenant_user!(user: @user, tenant: @tenant, confirmation_token: @ddm.confirmation_token)
+
+    agent_tu_a = TenantUser.tenant_scoped_only(@tenant.id).find_by(user_id: agent.id)
+    agent_tu_b = TenantUser.tenant_scoped_only(tenant_b.id).find_by(user_id: agent.id)
+    assert agent_tu_a.archived_at.present?, "the agent's presence in the scrubbed tenant is archived"
+    assert_nil agent_tu_b.archived_at, "the agent's presence elsewhere survives"
+  end
+
+  test "delete_tenant_user! is blocked by sole-admin collectives in that tenant only" do
+    tenant_b, collective_b = setup_second_tenant_with_membership!
+    T.must(collective_b.collective_members.find_by(user_id: @user.id)).add_role!("admin")
+    other = create_user(email: "slice-blk-#{SecureRandom.hex(4)}@example.com", name: "Slice Blk")
+    tenant_b.add_user!(other)
+    collective_b.add_user!(other)
+
+    # Sole admin of a shared collective in B does not block scrubbing A...
+    @ddm.delete_tenant_user!(user: @user, tenant: @tenant, confirmation_token: @ddm.confirmation_token)
+
+    # ...but blocks scrubbing B.
+    error = assert_raises(RuntimeError) do
+      @ddm.delete_tenant_user!(user: @user, tenant: tenant_b, confirmation_token: @ddm.confirmation_token)
+    end
+    assert_match collective_b.handle, error.message
+  end
+
+  test "delete_tenant_user! archives collectives where the user was the only member, within that tenant" do
+    setup_second_tenant_with_membership!
+    solo = create_collective(tenant: @tenant, created_by: @user, name: "Solo A", handle: "solo-a-#{SecureRandom.hex(3)}")
+    solo.add_user!(@user)
+    T.must(solo.collective_members.find_by(user_id: @user.id)).add_role!("admin")
+
+    @ddm.delete_tenant_user!(user: @user, tenant: @tenant, confirmation_token: @ddm.confirmation_token)
+
+    assert solo.reload.archived_at.present?, "solo collectives in the scrubbed tenant are archived"
+  end
 end

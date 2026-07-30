@@ -1844,7 +1844,8 @@ CREATE TABLE public.tenant_users (
     bio text,
     location character varying,
     website character varying,
-    deletion_requested_at timestamp(6) without time zone
+    deletion_requested_at timestamp(6) without time zone,
+    scrubbed_at timestamp(6) without time zone
 );
 
 
@@ -5160,6 +5161,13 @@ CREATE UNIQUE INDEX index_stripe_customers_on_billable_type_and_billable_id ON p
 --
 
 CREATE UNIQUE INDEX index_stripe_customers_on_stripe_id ON public.stripe_customers USING btree (stripe_id);
+
+
+--
+-- Name: index_tenant_users_on_pending_deletion; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_tenant_users_on_pending_deletion ON public.tenant_users USING btree (deletion_requested_at) WHERE ((deletion_requested_at IS NOT NULL) AND (scrubbed_at IS NULL));
 
 
 --
@@ -10667,6 +10675,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260730120000'),
 ('20260730051743'),
 ('20260727170000'),
 ('20260727120000'),

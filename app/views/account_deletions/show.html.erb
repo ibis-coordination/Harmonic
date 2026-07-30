@@ -1,16 +1,31 @@
 <div class="pulse-auth-page">
   <div class="pulse-auth-success">
-    <h1 class="pulse-auth-title">Your account is scheduled for deletion</h1>
-    <p class="pulse-auth-subtitle">
-      It will be permanently deleted on <strong><%= @scrub_date.to_date.to_fs(:long) %></strong>.
-      Until then, you can restore it.
-    </p>
-    <ul style="text-align:left; margin: 16px 0; line-height: 1.6;">
-      <li>On the deletion date, your profile is anonymized and your access is permanently removed. Content you shared stays, attributed to "Deleted User".</li>
-      <li>If you have a prepaid balance, it is forfeited on the deletion date — not before.</li>
-      <li>Your API tokens were revoked and your plan subscription was cancelled when you requested deletion. After restoring, issue new tokens and restart the subscription if you want paid features.</li>
-      <li>Restoring re-enables your automations and your agents.</li>
-    </ul>
+    <% if @scope == :subdomain %>
+      <h1 class="pulse-auth-title">Your account on this subdomain is scheduled for deletion</h1>
+      <p class="pulse-auth-subtitle">
+        Your account on <strong><%= @subdomain %></strong> will be permanently deleted on
+        <strong><%= @scrub_date.to_date.to_fs(:long) %></strong>.
+        Until then, you can restore it. Your accounts on other subdomains are not affected.
+      </p>
+      <ul style="text-align:left; margin: 16px 0; line-height: 1.6;">
+        <li>On the deletion date, your profile on this subdomain is anonymized and your access here is permanently removed. Content you shared stays, attributed to "Deleted User".</li>
+        <li>Your API tokens on this subdomain were revoked when you requested deletion. After restoring, issue new tokens if you need them.</li>
+        <li>Restoring re-enables your automations and your agents on this subdomain.</li>
+        <li>Your login, prepaid balance, and other subdomains are untouched.</li>
+      </ul>
+    <% else %>
+      <h1 class="pulse-auth-title">Your account is scheduled for deletion</h1>
+      <p class="pulse-auth-subtitle">
+        It will be permanently deleted on <strong><%= @scrub_date.to_date.to_fs(:long) %></strong>.
+        Until then, you can restore it.
+      </p>
+      <ul style="text-align:left; margin: 16px 0; line-height: 1.6;">
+        <li>On the deletion date, your profile is anonymized and your access is permanently removed. Content you shared stays, attributed to "Deleted User".</li>
+        <li>If you have a prepaid balance, it is forfeited on the deletion date — not before.</li>
+        <li>Your API tokens were revoked and your plan subscription was cancelled when you requested deletion. After restoring, issue new tokens and restart the subscription if you want paid features.</li>
+        <li>Restoring re-enables your automations and your agents.</li>
+      </ul>
+    <% end %>
     <div class="pulse-form-actions" style="justify-content:center;">
       <%= button_to "Restore my account", account_deletion_restore_path, method: :post, class: "pulse-action-btn" %>
     </div>

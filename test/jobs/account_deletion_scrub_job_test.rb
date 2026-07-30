@@ -76,4 +76,80 @@ class AccountDeletionScrubJobTest < ActiveSupport::TestCase
 
     assert_equal 9.days.ago.to_date, done.reload.scrubbed_at.to_date, "scrubbed_at must not be restamped"
   end
+
+  # === per-subdomain slices ===
+
+  def pending_tenant_deletion_user(days_ago:)
+    user = create_user(email: "slice-#{SecureRandom.hex(4)}@example.com", name: "Slice Target")
+    @tenant.add_user!(user)
+    tenant_b = create_tenant
+    tenant_b.add_user!(user)
+    tu = TenantUser.tenant_scoped_only(@tenant.id).find_by(user_id: user.id)
+    tu.update!(deletion_requested_at: days_ago.days.ago)
+    [user, tu, tenant_b]
+  end
+
+  test "scrubs tenant slices past the grace window without touching the rest of the account" do
+    user, tu, tenant_b = pending_tenant_deletion_user(days_ago: 31)
+    original_email = user.email
+
+    AccountDeletionScrubJob.perform_now
+
+    tu.reload
+    assert_equal "Deleted User", tu.display_name
+    assert tu.scrubbed_at.present?
+    assert_equal original_email, user.reload.email, "the account survives elsewhere"
+    assert_nil user.scrubbed_at
+    tu_b = TenantUser.tenant_scoped_only(tenant_b.id).find_by(user_id: user.id)
+    assert_nil tu_b.scrubbed_at, "the other subdomain's slice is untouched"
+  end
+
+  test "leaves tenant slices inside the grace window untouched" do
+    _user, tu, = pending_tenant_deletion_user(days_ago: 5)
+
+    AccountDeletionScrubJob.perform_now
+
+    assert_nil tu.reload.scrubbed_at
+    assert_not_equal "Deleted User", tu.display_name
+  end
+
+  test "tenant_scrub_due matches only human tenant slices past the grace period" do
+    user = create_user(email: "due-#{SecureRandom.hex(4)}@example.com", name: "Due Target")
+    @tenant.add_user!(user)
+    agent = create_ai_agent(parent: user)
+    @tenant.add_user!(agent)
+    tenant_b = create_tenant
+    tenant_b.add_user!(user)
+    AccountDeletionService.request_tenant_deletion!(user: user, tenant: @tenant)
+    tu = TenantUser.tenant_scoped_only(@tenant.id).find_by(user_id: user.id)
+    agent_tu = TenantUser.tenant_scoped_only(@tenant.id).find_by(user_id: agent.id)
+
+    assert_not_includes AccountDeletionScrubJob.tenant_scrub_due, tu, "inside grace window"
+
+    past_grace = (AccountDeletionService::GRACE_PERIOD + 1.day).ago
+    tu.update!(deletion_requested_at: past_grace)
+    agent_tu.update!(deletion_requested_at: past_grace)
+    assert_includes AccountDeletionScrubJob.tenant_scrub_due, tu, "past grace window"
+    assert_not_includes AccountDeletionScrubJob.tenant_scrub_due, agent_tu,
+                        "agent slices are scrubbed with their principal's, never selected directly"
+
+    user.update!(deletion_requested_at: 1.day.ago)
+    assert_not_includes AccountDeletionScrubJob.tenant_scrub_due, tu,
+                        "globally pending users are handled by the global scrub"
+    user.update!(deletion_requested_at: nil)
+
+    tu.update!(scrubbed_at: Time.current)
+    assert_not_includes AccountDeletionScrubJob.tenant_scrub_due, tu, "already scrubbed"
+  end
+
+  test "a tenant slice restored after batch selection is not scrubbed" do
+    _user, tu, = pending_tenant_deletion_user(days_ago: 31)
+    original_handle = tu.handle
+    tu.update!(deletion_requested_at: nil)
+
+    AccountDeletionScrubJob.new.scrub_one_tenant_user(tu)
+
+    assert_equal original_handle, tu.reload.handle
+    assert_nil tu.scrubbed_at
+  end
 end

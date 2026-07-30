@@ -53,4 +53,47 @@ class AccountDeletionFlowTest < ActionDispatch::IntegrationTest
     post "/account/deletion/restore"
     assert_redirected_to "/"
   end
+
+  # === per-subdomain deletion ===
+
+  test "a per-subdomain pending deletion confines the session on that subdomain only" do
+    tenant_b = create_tenant
+    tenant_b.add_user!(@user)
+    tenant_b.create_main_collective!(created_by: @user)
+
+    sign_in_as(@user, tenant: @tenant)
+    AccountDeletionService.request_tenant_deletion!(user: @user, tenant: @tenant)
+
+    get "/settings"
+    assert_redirected_to "/account/deletion"
+
+    get "/account/deletion"
+    assert_response :success
+    assert_includes response.body, "on this subdomain"
+    scrub_date = (T.must(TenantUser.tenant_scoped_only(@tenant.id)
+      .find_by(user_id: @user.id).deletion_requested_at) + AccountDeletionService::GRACE_PERIOD).to_date
+    assert_includes response.body, scrub_date.to_fs(:long)
+
+    # The same account is unaffected on the other subdomain. (reset! simulates
+    # a fresh browser session — the test cookie jar can't carry a login across
+    # hosts the way the real shared-domain session cookie does.)
+    reset!
+    sign_in_as(@user, tenant: tenant_b)
+    get "/settings"
+    assert_response :success
+  end
+
+  test "restoring a per-subdomain deletion from the deletion screen" do
+    tenant_b = create_tenant
+    tenant_b.add_user!(@user)
+    sign_in_as(@user, tenant: @tenant)
+    AccountDeletionService.request_tenant_deletion!(user: @user, tenant: @tenant)
+
+    post "/account/deletion/restore"
+    assert_redirected_to "/"
+    assert_nil TenantUser.tenant_scoped_only(@tenant.id).find_by(user_id: @user.id).deletion_requested_at
+
+    get "/settings"
+    assert_response :success
+  end
 end

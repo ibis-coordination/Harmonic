@@ -26,16 +26,19 @@ class DecisionAuditEntry < ApplicationRecord
     where(decision_id: decision.id, actor_id: user.id).order(:sequence_number).last
   end
 
-  # PII scrub for account closure. Nulls the identity columns the immutability
+  # PII scrub for account deletion. Nulls the identity columns the immutability
   # trigger designates as mutable — chain hashes are untouched, so the chain
   # stays verifiable and scrubbed entries verify as :unattributable.
-  sig { params(user: User).returns(Integer) }
-  def self.scrub_identity_for!(user)
+  sig { params(user: User, tenant_id: T.nilable(String)).returns(Integer) }
+  def self.scrub_identity_for!(user, tenant_id: nil)
     as_actor = unscoped.where(actor_id: user.id) # unscoped-allowed - PII scrub of the user's own identity across tenants
-      .update_all(actor_id: nil, actor_handle: nil, actor_token_salt: nil)
     as_representative = unscoped.where(representative_id: user.id) # unscoped-allowed - PII scrub of the user's own identity across tenants
-      .update_all(representative_id: nil, representative_handle: nil, representative_token_salt: nil)
-    as_actor + as_representative
+    if tenant_id # per-subdomain deletion scrubs only that tenant's entries
+      as_actor = as_actor.where(tenant_id: tenant_id)
+      as_representative = as_representative.where(tenant_id: tenant_id)
+    end
+    as_actor.update_all(actor_id: nil, actor_handle: nil, actor_token_salt: nil) +
+      as_representative.update_all(representative_id: nil, representative_handle: nil, representative_token_salt: nil)
   end
 
   sig { params(decision: Decision, receipt_hash: String).returns(T.nilable(DecisionAuditEntry)) }
