@@ -128,10 +128,27 @@ survives until the scrub. This resolves the confirmation-email ordering problem.
   confirmation: content retained under "Deleted User", the scrub date, balance
   forfeited at scrub, agents stop, reversible until the scrub date. Encourages
   (not requires) a data export first. Reverification required.
+- **Delete-content-first guidance**: deletion removes identity and access, not
+  PII the user wrote *into* their content — and after deletion they can no
+  longer log in to delete items themselves. The confirmation copy must say
+  plainly: delete any content you want gone *before* deleting your account.
+  Post-deletion removal requests go through a stated support channel (the
+  privacy policy names it; erasure requests can arrive by email regardless).
 - **Admin-initiated**: an app-admin action for support cases, driving the same
   service — same phases, same grace, no divergent semantics.
 - **Sole-admin block** applies at request time, scoped to the request: global
   deletion checks all tenants, per-subdomain deletion checks only that tenant.
+
+### Precedent
+
+The retain-contributions/anonymize-identity model is the category standard for
+collaborative platforms (Reddit, Stack Overflow, GitHub, Discord, Wikipedia all
+work this way), as is the grace period (14–30 days across major platforms).
+Personal-broadcast platforms delete content too; collaborative ones do not,
+because contributions are interwoven with other members' records. Liability in
+this space attaches to *misdescribing* the model, not to the model — hence the
+honest verb, disclosure at the decision point, and terms that state the model
+before consent.
 
 ### Terminology
 
