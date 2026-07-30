@@ -196,6 +196,22 @@ class StripeService
     SyncResult.new(success: false, error: "Billing system error: could not cancel subscription (#{e.message}).")
   end
 
+  # Cancel a subscription with a prorated final invoice, tolerating
+  # already-cancelled or missing subscriptions ("no live billing" is the
+  # goal). Marks the local row inactive. Used at account close (customer and
+  # prepaid balance survive) and as the first step of close_customer!.
+  sig { params(stripe_customer: StripeCustomer).void }
+  def self.cancel_subscription!(stripe_customer)
+    if stripe_customer.stripe_subscription_id.present?
+      begin
+        Stripe::Subscription.cancel(T.must(stripe_customer.stripe_subscription_id), { prorate: true, invoice_now: true })
+      rescue Stripe::InvalidRequestError => e
+        raise unless e.message.match?(/canceled|No such subscription/i)
+      end
+    end
+    stripe_customer.update!(active: false)
+  end
+
   # Account deletion: cancel any active subscription, then delete the
   # vendor-side customer object (which forfeits any remaining prepaid
   # balance). The local StripeCustomer row survives, marked inactive, so
@@ -203,15 +219,7 @@ class StripeService
   # failure so the caller can abort before scrubbing anything.
   sig { params(stripe_customer: StripeCustomer).void }
   def self.close_customer!(stripe_customer)
-    if stripe_customer.stripe_subscription_id.present? && stripe_customer.active
-      begin
-        Stripe::Subscription.cancel(T.must(stripe_customer.stripe_subscription_id), { prorate: true, invoice_now: true })
-      rescue Stripe::InvalidRequestError => e
-        # An already-cancelled or missing subscription is fine — the goal is
-        # simply "no live billing". Customer deletion below cancels leftovers.
-        raise unless e.message.match?(/canceled|No such subscription/i)
-      end
-    end
+    cancel_subscription!(stripe_customer) if stripe_customer.active
     begin
       Stripe::Customer.delete(stripe_customer.stripe_id)
     rescue Stripe::InvalidRequestError => e

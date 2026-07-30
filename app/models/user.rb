@@ -724,6 +724,13 @@ class User < ApplicationRecord
     suspended_at.present?
   end
 
+  # True while the account is closed and inside the grace window (or awaiting
+  # the scrub). See AccountClosureService.
+  sig { returns(T::Boolean) }
+  def closing?
+    close_requested_at.present?
+  end
+
   sig { params(other_user: User).returns(T::Boolean) }
   def blocked?(other_user)
     T.unsafe(self).user_blocks_given.where(blocked: other_user).exists?

@@ -72,21 +72,8 @@ class DataDeletionManager
     # collective that still has other active members — the admin role must be
     # transferred first (the members page, update_member_roles). Collectives
     # where the user is the only remaining member are archived during deletion
-    # instead. Lookups are pinned to each membership's tenant, so the check is
-    # correct regardless of the calling thread's tenant scope.
-    blocking_handles = CollectiveMember.for_user_across_tenants(user).where(archived_at: nil).filter_map do |cm|
-      next unless cm.is_admin?
-
-      collective = Collective.tenant_scoped_only(cm.tenant_id).find_by(id: cm.collective_id)
-      next if collective.nil? || collective.archived_at.present?
-
-      active_members = CollectiveMember.tenant_scoped_only(cm.tenant_id)
-        .where(collective_id: collective.id, archived_at: nil)
-      next unless T.unsafe(active_members).where_has_role("admin").count == 1
-      next unless active_members.where.not(user_id: user.id).exists?
-
-      collective.handle
-    end
+    # instead.
+    blocking_handles = AccountClosureService.sole_admin_blocking_handles(user)
     if blocking_handles.any?
       raise "Cannot delete user: they are the sole admin of collectives with other members: " \
             "#{blocking_handles.join(', ')}. Transfer the admin role first (update_member_roles)."
@@ -173,6 +160,9 @@ class DataDeletionManager
           archived_at: Time.current,
         )
       end
+      # Mark the irreversible phase complete so the closure scrub job never
+      # re-selects this account.
+      user.update!(scrubbed_at: Time.current) if user.scrubbed_at.nil?
     end
     "PII for user '#{user.id}' has been removed and the user has been marked as deleted."
   end

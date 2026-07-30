@@ -1843,7 +1843,8 @@ CREATE TABLE public.tenant_users (
     archived_at timestamp(6) without time zone,
     bio text,
     location character varying,
-    website character varying
+    website character varying,
+    close_requested_at timestamp(6) without time zone
 );
 
 
@@ -2346,7 +2347,9 @@ CREATE TABLE public.users (
     sessions_revoked_at timestamp(6) without time zone,
     system_role character varying,
     llm_daily_spend_cap_cents integer,
-    funding_pool_id uuid
+    funding_pool_id uuid,
+    close_requested_at timestamp(6) without time zone,
+    scrubbed_at timestamp(6) without time zone
 );
 
 
@@ -5395,6 +5398,13 @@ CREATE INDEX index_users_on_funding_pool_id ON public.users USING btree (funding
 --
 
 CREATE INDEX index_users_on_parent_id ON public.users USING btree (parent_id);
+
+
+--
+-- Name: index_users_on_pending_closure; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_users_on_pending_closure ON public.users USING btree (close_requested_at) WHERE ((close_requested_at IS NOT NULL) AND (scrubbed_at IS NULL));
 
 
 --
@@ -10657,6 +10667,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260730051743'),
 ('20260727170000'),
 ('20260727120000'),
 ('20260724120000'),
