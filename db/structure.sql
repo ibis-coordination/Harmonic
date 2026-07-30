@@ -1844,7 +1844,7 @@ CREATE TABLE public.tenant_users (
     bio text,
     location character varying,
     website character varying,
-    close_requested_at timestamp(6) without time zone
+    deletion_requested_at timestamp(6) without time zone
 );
 
 
@@ -2348,7 +2348,7 @@ CREATE TABLE public.users (
     system_role character varying,
     llm_daily_spend_cap_cents integer,
     funding_pool_id uuid,
-    close_requested_at timestamp(6) without time zone,
+    deletion_requested_at timestamp(6) without time zone,
     scrubbed_at timestamp(6) without time zone
 );
 
@@ -5401,10 +5401,10 @@ CREATE INDEX index_users_on_parent_id ON public.users USING btree (parent_id);
 
 
 --
--- Name: index_users_on_pending_closure; Type: INDEX; Schema: public; Owner: -
+-- Name: index_users_on_pending_deletion; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_users_on_pending_closure ON public.users USING btree (close_requested_at) WHERE ((close_requested_at IS NOT NULL) AND (scrubbed_at IS NULL));
+CREATE INDEX index_users_on_pending_deletion ON public.users USING btree (deletion_requested_at) WHERE ((deletion_requested_at IS NOT NULL) AND (scrubbed_at IS NULL));
 
 
 --

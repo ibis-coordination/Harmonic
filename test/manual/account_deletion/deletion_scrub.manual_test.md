@@ -9,7 +9,7 @@ verified_by: null
 Walks the full deletion causal chain in a development environment with the Stripe
 sandbox: build a departing user with every kind of footprint, run the console
 scrub, and verify each observable consequence — access termination, "Deleted
-User" rendering, audit-chain scrubbing, billing closure, and idempotent re-run.
+User" rendering, audit-chain scrubbing, billing cleanup, and idempotent re-run.
 Run before merging changes to `DataDeletionManager#delete_user!` or building
 closure flows on top of it.
 

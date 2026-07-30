@@ -73,7 +73,7 @@ class DataDeletionManager
     # transferred first (the members page, update_member_roles). Collectives
     # where the user is the only remaining member are archived during deletion
     # instead.
-    blocking_handles = AccountClosureService.sole_admin_blocking_handles(user)
+    blocking_handles = AccountDeletionService.sole_admin_blocking_handles(user)
     if blocking_handles.any?
       raise "Cannot delete user: they are the sole admin of collectives with other members: " \
             "#{blocking_handles.join(', ')}. Transfer the admin role first (update_member_roles)."
@@ -160,7 +160,7 @@ class DataDeletionManager
           archived_at: Time.current,
         )
       end
-      # Mark the irreversible phase complete so the closure scrub job never
+      # Mark the irreversible phase complete so the deletion scrub job never
       # re-selects this account.
       user.update!(scrubbed_at: Time.current) if user.scrubbed_at.nil?
     end

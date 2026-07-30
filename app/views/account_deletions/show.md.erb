@@ -1,0 +1,10 @@
+# Your account is scheduled for deletion
+
+It will be permanently deleted on **<%= @scrub_date.to_date.to_fs(:long) %>**. Until then, you can restore it.
+
+- On the deletion date, your profile is anonymized and your access is permanently removed. Content you shared stays, attributed to "Deleted User".
+- If you have a prepaid balance, it is forfeited on the deletion date — not before.
+- Your API tokens were revoked and your plan subscription was cancelled when you requested deletion. After restoring, issue new tokens and restart the subscription if you want paid features.
+- Restoring re-enables your automations and your agents.
+
+To restore: POST to `/account/deletion/restore`.

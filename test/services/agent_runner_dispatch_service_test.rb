@@ -101,9 +101,9 @@ class AgentRunnerDispatchServiceTest < ActiveSupport::TestCase
     assert_includes @task_run.error, "deactivated"
   end
 
-  test "fails task for an agent whose account is closing" do
+  test "fails task for an agent whose principal has requested deletion" do
     tu = @ai_agent.tenant_users.find_by(tenant_id: @tenant.id)
-    tu.update!(close_requested_at: Time.current)
+    tu.update!(deletion_requested_at: Time.current)
 
     AgentRunnerDispatchService.dispatch(@task_run)
 

@@ -98,6 +98,7 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | archive | verb | Hide a thing from active lists, reversibly; it keeps its content and can be restored. | delete (for this) |
 | delete | verb | Destroy content; comments display "[deleted]". Not reversible from the UI. | archive (for this), remove (for this) |
 | remove | verb | Take a thing out of a set — a list, a collective, a pool. The thing itself survives. | delete (for this) |
+| account deletion | noun | Deleting an account starts the *grace period*; the user can *restore* the account until it ends, after which deletion is permanent — profile anonymized, access removed. Content the user shared survives, attributed to "Deleted User". The verb is "delete" — never close, cancel, or deactivate an account. ("Scrub" names the PII mechanism; it appears only in audit-verification copy.) | account closure, deactivation |
 | join | verb | Become a participant: members join commitments; users join collectives by accepting an invite. | — |
 | reminder | noun | The note subtype that resurfaces at a scheduled time. Its delivery is a "reminder notification". | — |
 | member | noun | A user in the context of a collective, pool, list, or commitment they belong to. | — |

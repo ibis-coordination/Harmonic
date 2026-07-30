@@ -461,8 +461,8 @@ Rails.application.routes.draw do
   get 'settings' => 'users#settings', as: 'settings'
   # Closure status/restore screen — the only pages a closed account's session
   # can reach during the grace window.
-  get 'account/closure' => 'account_closures#show', as: 'account_closure'
-  post 'account/closure/restore' => 'account_closures#restore', as: 'account_closure_restore'
+  get 'account/deletion' => 'account_deletions#show', as: 'account_deletion'
+  post 'account/deletion/restore' => 'account_deletions#restore', as: 'account_deletion_restore'
   post 'settings/profile' => 'users#update_profile'
   post 'settings/workspace_trio' => 'users#update_workspace_trio'
   patch 'settings/email' => 'users#update_email'

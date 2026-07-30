@@ -724,11 +724,11 @@ class User < ApplicationRecord
     suspended_at.present?
   end
 
-  # True while the account is closed and inside the grace window (or awaiting
-  # the scrub). See AccountClosureService.
+  # True while account deletion is requested and the grace period runs (or
+  # the scrub is still pending). See AccountDeletionService.
   sig { returns(T::Boolean) }
-  def closing?
-    close_requested_at.present?
+  def pending_deletion?
+    deletion_requested_at.present?
   end
 
   sig { params(other_user: User).returns(T::Boolean) }

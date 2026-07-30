@@ -1,6 +1,6 @@
 require "test_helper"
 
-class AccountClosureScrubJobTest < ActiveSupport::TestCase
+class AccountDeletionScrubJobTest < ActiveSupport::TestCase
   setup do
     @original_stripe_key = Stripe.api_key
     Stripe.api_key = "sk_test_fake"
@@ -11,17 +11,17 @@ class AccountClosureScrubJobTest < ActiveSupport::TestCase
     Stripe.api_key = @original_stripe_key
   end
 
-  def closing_user(days_ago:)
+  def pending_deletion_user(days_ago:)
     user = create_user(email: "scrub-#{SecureRandom.hex(4)}@example.com", name: "Scrub Target")
     @tenant.add_user!(user)
-    user.update!(close_requested_at: days_ago.days.ago)
+    user.update!(deletion_requested_at: days_ago.days.ago)
     user
   end
 
   test "scrubs accounts past the grace window and stamps scrubbed_at" do
-    due = closing_user(days_ago: 31)
+    due = pending_deletion_user(days_ago: 31)
 
-    AccountClosureScrubJob.perform_now
+    AccountDeletionScrubJob.perform_now
 
     due.reload
     assert_match(/@deleted\.user$/, due.email)
@@ -29,9 +29,9 @@ class AccountClosureScrubJobTest < ActiveSupport::TestCase
   end
 
   test "leaves accounts inside the grace window untouched" do
-    recent = closing_user(days_ago: 5)
+    recent = pending_deletion_user(days_ago: 5)
 
-    AccountClosureScrubJob.perform_now
+    AccountDeletionScrubJob.perform_now
 
     recent.reload
     assert_no_match(/@deleted\.user/, recent.email)
@@ -39,7 +39,7 @@ class AccountClosureScrubJobTest < ActiveSupport::TestCase
   end
 
   test "a failure on one account does not stop the others" do
-    blocked = closing_user(days_ago: 31)
+    blocked = pending_deletion_user(days_ago: 31)
     # Make the scrub fail for this account: Stripe cleanup errors out.
     StripeCustomer.create!(
       billable: blocked, stripe_id: "cus_job_fail", active: true,
@@ -47,9 +47,9 @@ class AccountClosureScrubJobTest < ActiveSupport::TestCase
     )
     stub_request(:delete, %r{https://api\.stripe\.com/v1/subscriptions/sub_job_fail})
       .to_return(status: 500, body: { error: { message: "boom" } }.to_json)
-    healthy = closing_user(days_ago: 31)
+    healthy = pending_deletion_user(days_ago: 31)
 
-    AccountClosureScrubJob.perform_now
+    AccountDeletionScrubJob.perform_now
 
     assert_no_match(/@deleted\.user/, blocked.reload.email, "the failing account is skipped, retried next run")
     assert_nil blocked.scrubbed_at
@@ -59,20 +59,20 @@ class AccountClosureScrubJobTest < ActiveSupport::TestCase
   test "an account restored after batch selection is not scrubbed" do
     # Simulates a restore landing between the job's query and this user's
     # turn in the batch: scrub_one must re-check state, not trust the batch.
-    restored = closing_user(days_ago: 31)
-    restored.update!(close_requested_at: nil)
+    restored = pending_deletion_user(days_ago: 31)
+    restored.update!(deletion_requested_at: nil)
 
-    AccountClosureScrubJob.new.scrub_one(restored)
+    AccountDeletionScrubJob.new.scrub_one(restored)
 
     assert_no_match(/@deleted\.user/, restored.reload.email)
     assert_nil restored.scrubbed_at
   end
 
   test "already-scrubbed accounts are not re-selected" do
-    done = closing_user(days_ago: 40)
+    done = pending_deletion_user(days_ago: 40)
     done.update!(scrubbed_at: 9.days.ago, email: "#{SecureRandom.hex(10)}@deleted.user")
 
-    AccountClosureScrubJob.perform_now
+    AccountDeletionScrubJob.perform_now
 
     assert_equal 9.days.ago.to_date, done.reload.scrubbed_at.to_date, "scrubbed_at must not be restamped"
   end

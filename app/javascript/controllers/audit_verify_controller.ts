@@ -76,7 +76,7 @@ export default class AuditVerifyController extends Controller {
       const represented = result.chain.representedCount
       const detail = `All ${result.chain.entryCount} entries verified — every hash is correct and links to the previous entry.` +
         (represented > 0 ? ` ${represented} ${represented === 1 ? "action was" : "actions were"} performed on someone's behalf; both identities are recorded and verified.` : "") +
-        (scrubbed > 0 ? ` ${scrubbed} ${scrubbed === 1 ? "entry has" : "entries have"} had identifying information removed (account closure); binding for ${scrubbed === 1 ? "that entry is" : "those entries are"} unattributable by design.` : "")
+        (scrubbed > 0 ? ` ${scrubbed} ${scrubbed === 1 ? "entry has" : "entries have"} had identifying information removed (account deletion); binding for ${scrubbed === 1 ? "that entry is" : "those entries are"} unattributable by design.` : "")
       lines.push(this.passLine("Chain integrity", detail))
     } else if (result.chain.errors.length > 0) {
       lines.push(this.failLine("Chain integrity", this.explainChainFailure(result.chain.errors, hasImportedEntries)))
