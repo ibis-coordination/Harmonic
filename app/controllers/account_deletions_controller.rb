@@ -52,7 +52,7 @@ class AccountDeletionsController < ApplicationController
       redirect_to account_deletion_path
     else
       scrub_date = (Time.current + AccountDeletionService::GRACE_PERIOD).to_date
-      AccountDeletionService.request_deletion!(user: user)
+      AccountDeletionService.request_deletion!(user: user, tenant: current_tenant)
       # The request revoked all sessions; end this one cleanly rather than
       # letting the next request bounce with a session-expired message.
       logout_user!

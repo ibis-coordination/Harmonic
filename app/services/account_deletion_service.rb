@@ -11,6 +11,8 @@ class AccountDeletionService
   extend T::Sig
 
   GRACE_PERIOD = 30.days
+  # How long before the scrub the reminder email goes out.
+  REMINDER_LEAD = 5.days
 
   # Collectives that block deletion: the user is their only active admin while
   # other active members remain. Lookups are pinned to each membership's
@@ -36,8 +38,10 @@ class AccountDeletionService
     end
   end
 
-  sig { params(user: User).void }
-  def self.request_deletion!(user:)
+  # tenant anchors the confirmation email's restore link (any subdomain where
+  # the user holds an account works); nil falls back to their first one.
+  sig { params(user: User, tenant: T.nilable(Tenant)).void }
+  def self.request_deletion!(user:, tenant: nil)
     raise "Only human accounts can be deleted this way" unless user.human?
     raise "Account has already been permanently deleted" if user.scrubbed_at.present?
     raise "Account deletion is already requested" if user.pending_deletion?
@@ -56,8 +60,9 @@ class AccountDeletionService
 
     now = Time.current
     ActiveRecord::Base.transaction do
-      user.update!(deletion_requested_at: now)
-      TenantUser.for_user_across_tenants(user).update_all(deletion_requested_at: now)
+      user.update!(deletion_requested_at: now, deletion_reminder_sent_at: nil)
+      TenantUser.for_user_across_tenants(user)
+        .update_all(deletion_requested_at: now, deletion_reminder_sent_at: nil)
       disable_rules!(user, at: now)
       User.where(parent_id: user.id).find_each do |ai_agent| # User has no tenant scope
         TenantUser.for_user_across_tenants(ai_agent).update_all(deletion_requested_at: now)
@@ -67,6 +72,12 @@ class AccountDeletionService
       # Token revocation is not reversible — a restored user issues new tokens.
       user.revoke_all_sessions!
     end
+    email_tenant = tenant || TenantUser.for_user_across_tenants(user).first&.tenant
+    return unless email_tenant
+
+    AccountDeletionMailer.deletion_requested(
+      user: user, tenant: email_tenant, scrub_date: (now + GRACE_PERIOD).to_date,
+    ).deliver_later
   end
 
   sig { params(user: User).void }
@@ -118,7 +129,7 @@ class AccountDeletionService
 
     now = Time.current
     ActiveRecord::Base.transaction do
-      tenant_user.update!(deletion_requested_at: now)
+      tenant_user.update!(deletion_requested_at: now, deletion_reminder_sent_at: nil)
       disable_rules!(user, at: now, tenant_id: tenant.id)
       revoke_tenant_tokens!(user, tenant_id: tenant.id)
       User.where(parent_id: user.id).find_each do |ai_agent| # User has no tenant scope
@@ -128,6 +139,9 @@ class AccountDeletionService
         revoke_tenant_tokens!(ai_agent, tenant_id: tenant.id)
       end
     end
+    AccountDeletionMailer.deletion_requested(
+      user: user, tenant: tenant, scrub_date: (now + GRACE_PERIOD).to_date, subdomain_only: true,
+    ).deliver_later
   end
 
   sig { params(user: User, tenant: Tenant).void }

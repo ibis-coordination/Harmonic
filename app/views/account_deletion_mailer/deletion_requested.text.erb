@@ -1,0 +1,17 @@
+<% if @subdomain_only %>
+Your account on <%= @subdomain %> is scheduled for deletion.
+
+You asked us to delete your account on <%= @subdomain %>. It will be permanently deleted on <%= @scrub_date.to_fs(:long) %>. Your accounts on other subdomains are not affected.
+<% else %>
+Your account is scheduled for deletion.
+
+You asked us to delete your account. It will be permanently deleted on <%= @scrub_date.to_fs(:long) %>.
+<% end %>
+
+Until then, nothing is destroyed and you can change your mind: log in and restore your account here:
+
+<%= @restore_url %>
+
+On the deletion date, your profile is anonymized and your access is permanently removed. Content you shared stays, attributed to "Deleted User".
+
+You requested this account deletion. If you didn't, restore your account and change your password now.

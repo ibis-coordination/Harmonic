@@ -1,6 +1,8 @@
 require "test_helper"
 
 class AccountDeletionScrubJobTest < ActiveSupport::TestCase
+  include ActionMailer::TestHelper
+
   setup do
     @original_stripe_key = Stripe.api_key
     Stripe.api_key = "sk_test_fake"
@@ -151,5 +153,32 @@ class AccountDeletionScrubJobTest < ActiveSupport::TestCase
 
     assert_equal original_handle, tu.reload.handle
     assert_nil tu.scrubbed_at
+  end
+
+  # === pre-scrub reminder emails ===
+
+  test "sends the reminder once when the deletion date is near" do
+    near = pending_deletion_user(days_ago: 26)
+    fresh = pending_deletion_user(days_ago: 2)
+
+    assert_enqueued_emails 1 do
+      AccountDeletionScrubJob.perform_now
+    end
+    assert near.reload.deletion_reminder_sent_at.present?
+    assert_nil fresh.reload.deletion_reminder_sent_at
+
+    # A second run does not re-send.
+    assert_enqueued_emails 0 do
+      AccountDeletionScrubJob.perform_now
+    end
+  end
+
+  test "sends the reminder for tenant slices near their deletion date" do
+    _user, tu, = pending_tenant_deletion_user(days_ago: 26)
+
+    assert_enqueued_emails 1 do
+      AccountDeletionScrubJob.perform_now
+    end
+    assert tu.reload.deletion_reminder_sent_at.present?
   end
 end

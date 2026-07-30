@@ -15,6 +15,9 @@ class AccountDeletionScrubJob < SystemJob
   def perform
     AccountDeletionService.scrub_due.find_each { |user| scrub_one(user) }
     self.class.tenant_scrub_due.find_each { |tenant_user| scrub_one_tenant_user(tenant_user) }
+    # Reminders go out AFTER the scrub passes so a just-scrubbed account never
+    # gets a reminder for a deletion that already happened.
+    send_reminders
   end
 
   # Per-subdomain slices whose grace window has expired. Only the principal's
@@ -41,6 +44,43 @@ class AccountDeletionScrubJob < SystemJob
     Rails.logger.info("AccountDeletionScrubJob: scrubbed user #{user.id} (grace window expired)")
   rescue StandardError => e
     Rails.logger.error("AccountDeletionScrubJob: could not scrub user #{user.id}: #{e.message}")
+  end
+
+  # One reminder per deletion request, REMINDER_LEAD before the scrub. The
+  # sent-at stamp (cleared on each new request) makes this idempotent across
+  # runs, including runs delayed past the intended reminder day.
+  sig { void }
+  def send_reminders
+    cutoff = (AccountDeletionService::GRACE_PERIOD - AccountDeletionService::REMINDER_LEAD).ago
+
+    User.where(deletion_requested_at: ..cutoff, scrubbed_at: nil, deletion_reminder_sent_at: nil)
+      .find_each do |user|
+      tenant = TenantUser.for_user_across_tenants(user).first&.tenant
+      next if tenant.nil?
+
+      AccountDeletionMailer.deletion_reminder(
+        user: user, tenant: tenant,
+        scrub_date: (T.must(user.deletion_requested_at) + AccountDeletionService::GRACE_PERIOD).to_date,
+      ).deliver_later
+      user.update!(deletion_reminder_sent_at: Time.current)
+    rescue StandardError => e
+      Rails.logger.error("AccountDeletionScrubJob: could not send reminder for user #{user.id}: #{e.message}")
+    end
+
+    TenantUser.unscoped_for_system_job
+      .where(deletion_requested_at: ..cutoff, scrubbed_at: nil, deletion_reminder_sent_at: nil)
+      .joins(:user)
+      .where(users: { user_type: "human", deletion_requested_at: nil, scrubbed_at: nil })
+      .find_each do |tenant_user|
+      AccountDeletionMailer.deletion_reminder(
+        user: User.find(tenant_user.user_id), tenant: Tenant.find(tenant_user.tenant_id),
+        scrub_date: (T.must(tenant_user.deletion_requested_at) + AccountDeletionService::GRACE_PERIOD).to_date,
+        subdomain_only: true,
+      ).deliver_later
+      tenant_user.update!(deletion_reminder_sent_at: Time.current)
+    rescue StandardError => e
+      Rails.logger.error("AccountDeletionScrubJob: could not send reminder for tenant slice #{tenant_user.id}: #{e.message}")
+    end
   end
 
   sig { params(tenant_user: TenantUser).void }

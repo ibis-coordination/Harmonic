@@ -1,6 +1,8 @@
 require "test_helper"
 
 class AccountDeletionServiceTest < ActiveSupport::TestCase
+  include ActionMailer::TestHelper
+
   def setup
     @tenant = @global_tenant
     @collective = @global_collective
@@ -105,6 +107,26 @@ class AccountDeletionServiceTest < ActiveSupport::TestCase
     error = assert_raises(RuntimeError) { AccountDeletionService.request_deletion!(user: @user) }
     assert_match @collective.handle, error.message
     assert_not @user.reload.pending_deletion?
+  end
+
+  test "request_deletion! sends a confirmation email and resets the reminder stamp" do
+    @user.update!(deletion_reminder_sent_at: 40.days.ago)
+
+    assert_enqueued_emails 1 do
+      AccountDeletionService.request_deletion!(user: @user)
+    end
+    assert_nil @user.reload.deletion_reminder_sent_at, "a new request starts a fresh reminder cycle"
+  end
+
+  test "request_tenant_deletion! sends a confirmation email and resets the reminder stamp" do
+    add_second_tenant!(@user)
+    tu = tenant_user_for(@user, @tenant)
+    tu.update!(deletion_reminder_sent_at: 40.days.ago)
+
+    assert_enqueued_emails 1 do
+      AccountDeletionService.request_tenant_deletion!(user: @user, tenant: @tenant)
+    end
+    assert_nil tu.reload.deletion_reminder_sent_at
   end
 
   test "request_deletion! raises when deletion is already requested" do

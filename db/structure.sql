@@ -1845,7 +1845,8 @@ CREATE TABLE public.tenant_users (
     location character varying,
     website character varying,
     deletion_requested_at timestamp(6) without time zone,
-    scrubbed_at timestamp(6) without time zone
+    scrubbed_at timestamp(6) without time zone,
+    deletion_reminder_sent_at timestamp(6) without time zone
 );
 
 
@@ -2350,7 +2351,8 @@ CREATE TABLE public.users (
     llm_daily_spend_cap_cents integer,
     funding_pool_id uuid,
     deletion_requested_at timestamp(6) without time zone,
-    scrubbed_at timestamp(6) without time zone
+    scrubbed_at timestamp(6) without time zone,
+    deletion_reminder_sent_at timestamp(6) without time zone
 );
 
 
@@ -10675,6 +10677,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260730150000'),
 ('20260730120000'),
 ('20260730051743'),
 ('20260727170000'),
