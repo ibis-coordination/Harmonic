@@ -72,31 +72,84 @@ state):
 
 Built only after Part 1, so the flow never ships ahead of its semantics.
 
+Two rulings shape the design (settled 2026-07-29). **Grace period**: closure is
+two-phase — *close* (immediate, reversible lock) then *scrub* (the Part 1
+`delete_user!`, irreversible) after the grace window. **Scope**: users with
+multiple subdomain accounts choose between closing one subdomain account or
+closing everywhere; users with one see only the global option. Governing
+principle for the whole flow: **no surprises, no dead ends** — every state the
+user can reach states what happens next and has an exit.
+
+### The two phases
+
+**Close (immediate, reversible).** Locks the account without destroying anything:
+sessions and tokens revoked, agents paused, user-owned automation rules disabled,
+push subscriptions revoked, Stripe subscription cancelled (prepaid balance
+untouched), memberships hidden as archived. Login identities and PII survive —
+that is what makes restore possible. Logging in during the grace window lands on
+a single restore screen: "This account is scheduled for deletion on {date} —
+restore it?" Restore undoes the lock; nothing was lost.
+
+**Scrub (after the grace window, irreversible).** The Part 1 scrub, run by a
+scheduled job that scans for accounts whose grace expired (natural home: alongside
+the existing daily hard-delete job). Stripe customer deletion — and with it
+balance forfeiture — happens here, not at close, so a restored account keeps its
+balance.
+
+Grace length: 30 days (constant, not user-configurable). Email: a confirmation at
+close time stating the scrub date and the restore path, and a reminder a few days
+before the scrub — both possible precisely because the address survives until the
+scrub. This resolves the confirmation-email ordering problem.
+
+### Scope
+
+- Detect active subdomain accounts (`TenantUser` rows, unarchived). One → the
+  settings section offers only "Close your account" (global). Two or more → two
+  options, clearly distinguished: "Close your account on {this subdomain} only"
+  and "Close your account on all subdomains".
+- **Per-subdomain closure** scrubs only that tenant's slice after its grace
+  window: TenantUser anonymized + archived, memberships archived (sole-admin
+  rules applied within that tenant only), that tenant's audit entries scrubbed,
+  that tenant's agents/rules/trustee authorizations ended. Global concerns —
+  login identities, Stripe, refresh tokens, the User row — are untouched, and
+  sessions on other subdomains survive. Requires factoring the Part 1 scrub into
+  a per-tenant slice plus a global remainder.
+- **Last-account rule**: closing the only remaining subdomain account is offered
+  and executed as global closure — no orphaned global User with zero subdomain
+  accounts (a dead end).
+
+### Flow surfaces
+
 - **Self-serve**: a closure section on `/settings` (HTML and markdown — both
-  interfaces, per the two-interface rule) with an explicit confirmation step that
-  states what happens: content retained under "Deleted User", prepaid balance
-  forfeited, agents archived, not reversible. Reverification required (sensitive
-  operation).
+  interfaces, per the two-interface rule). States the consequences before
+  confirmation: content retained under "Deleted User", the scrub date, balance
+  forfeited at scrub, agents stop, reversible until the scrub date. Encourages
+  (not requires) a data export first. Reverification required.
 - **Admin-initiated**: an app-admin action for support cases, driving the same
-  service. No divergent semantics between the two paths.
-- The flow ends with hard logout everywhere (Part 1, item 1 does the work).
-- Suggested data flow: encourage (not require) a data export before closure — the
-  export feature already exists and its stated purpose is exactly this.
+  service — same phases, same grace, no divergent semantics.
+- **Sole-admin block** applies at close time, scoped to the closure: global
+  closure checks all tenants, per-subdomain closure checks only that tenant.
 
-**Design decision needed — closure scope.** An account is the per-subdomain
-relationship, but the scrub operates on the global User across all subdomains.
-Options: (a) closure is global (one action ends every subdomain relationship —
-simplest, matches the current scrub), or (b) per-subdomain leave (archive TenantUser
-on one subdomain) with global closure as the final step. The audit found `archive!`
-already implements most of per-tenant deactivation, so (b) is mostly assembly — but
-(a) can ship first with (b) as a follow-up.
+### Terminology
 
-**Terminology.** Settle the verb in docs/CONTROLLED_VOCABULARY.md as part of this
-work: "close" (account) is distinct from "archive" (reversible hide), "delete"
-(destroy content), and "remove" (take out of a set). Closure retains content, so
-"delete your account" would be false advertising in both directions; "close" is the
-honest verb. UI copy renders authorship of scrubbed users as "Deleted User" (existing
-convention, kept).
+Settle the verb in docs/CONTROLLED_VOCABULARY.md as part of this work: "close"
+(account) is distinct from "archive" (reversible hide), "delete" (destroy
+content), and "remove" (take out of a set). Closure retains content, so "delete
+your account" would be false advertising in both directions; "close" is the
+honest verb. UI copy renders authorship of scrubbed users as "Deleted User"
+(existing convention, kept).
+
+### Open implementation questions (settle during build, not blockers)
+
+- State representation: a `close_requested_at`-style timestamp on User for
+  global closure; the per-subdomain equivalent on TenantUser. Suspension stays a
+  separate, admin-imposed state.
+- Exactly which lock actions are safely reversible on restore (token revocation
+  is not un-revocable — restored users re-issue tokens; state that on the
+  restore screen, no surprises).
+- Whether per-subdomain closure shows "Deleted User" in that subdomain
+  immediately at close or only after the scrub (leaning: archived-member
+  presentation during grace, "Deleted User" after scrub).
 
 ## Part 3 — Adjacent lifecycle fixes (small, independent)
 
