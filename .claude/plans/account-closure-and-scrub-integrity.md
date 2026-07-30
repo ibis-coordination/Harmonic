@@ -150,6 +150,10 @@ honest verb. UI copy renders authorship of scrubbed users as "Deleted User"
 - Whether per-subdomain closure shows "Deleted User" in that subdomain
   immediately at close or only after the scrub (leaning: archived-member
   presentation during grace, "Deleted User" after scrub).
+- A user who is suspended *and* closing cannot reach the restore screen (the
+  suspension gate fires first), so their account scrubs at grace expiry
+  unless an admin intervenes. Deliberate for now — suspension is admin
+  territory — but the admin-initiated flow should surface this.
 
 ## Part 3 — Adjacent lifecycle fixes (small, independent)
 
