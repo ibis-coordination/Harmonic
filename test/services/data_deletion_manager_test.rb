@@ -9,6 +9,14 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     @decision = create_decision(tenant: @tenant, collective: @collective, created_by: @user)
     @commitment = create_commitment(tenant: @tenant, collective: @collective, created_by: @user)
     @ddm = DataDeletionManager.new(user: @user)
+    # Stripe calls are webmock-stubbed, but the client refuses to build a
+    # request without a key (CI has none configured).
+    @original_stripe_key = Stripe.api_key
+    Stripe.api_key = "sk_test_fake"
+  end
+
+  def teardown
+    Stripe.api_key = @original_stripe_key
   end
 
   test "DataDeletionManager does not delete anything unless correct confirmation_token is provided" do
