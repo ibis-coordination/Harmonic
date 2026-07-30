@@ -233,6 +233,71 @@ class AppAdminController < ApplicationController
     end
   end
 
+  # GET /app-admin/users/:id/actions/request_account_deletion
+  def describe_request_account_deletion
+    @showing_user = User.find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless @showing_user
+    render_action_description(ActionsHelper.action_description("request_account_deletion"))
+  end
+
+  # POST /app-admin/users/:id/actions/request_account_deletion
+  # Support-case path into the same two-phase deletion as the self-serve flow:
+  # same service, same grace period, no divergent semantics.
+  def execute_request_account_deletion
+    user = User.find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless user
+
+    if user.id == @current_user.id
+      return respond_with_user_action_error(user, "Delete your own account from your settings page.")
+    end
+
+    begin
+      AccountDeletionService.request_deletion!(user: user)
+    rescue RuntimeError => e
+      return respond_with_user_action_error(user, e.message)
+    end
+
+    SecurityAuditLog.log_account_deletion_requested(
+      user: user,
+      requested_by: @current_user,
+      ip: request.remote_ip
+    )
+
+    respond_with_user_action_success(user, "Account deletion requested for #{user.display_name}. " \
+                                           "The account is locked and will be permanently deleted after the grace period.")
+  end
+
+  # GET /app-admin/users/:id/actions/restore_account
+  def describe_restore_account
+    @showing_user = User.find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless @showing_user
+    render_action_description(ActionsHelper.action_description("restore_account"))
+  end
+
+  # POST /app-admin/users/:id/actions/restore_account
+  # The admin restore matters most for suspended accounts pending deletion:
+  # the suspension gate keeps them off their own restore screen, so without
+  # this action their account would scrub at grace expiry.
+  def execute_restore_account
+    user = User.find_by(id: params[:id])
+    return render(plain: "404 Not Found", status: :not_found) unless user
+
+    begin
+      AccountDeletionService.restore!(user: user)
+    rescue RuntimeError => e
+      return respond_with_user_action_error(user, e.message)
+    end
+
+    SecurityAuditLog.log_account_deletion_restored(
+      user: user,
+      restored_by: @current_user,
+      ip: request.remote_ip
+    )
+
+    respond_with_user_action_success(user, "Account deletion cancelled for #{user.display_name}. " \
+                                           "The account is restored.")
+  end
+
   # GET /app-admin/users/:id/actions/toggle_billing_exempt
   def describe_toggle_billing_exempt
     @showing_user = User.find_by(id: params[:id])
@@ -570,6 +635,33 @@ class AppAdminController < ApplicationController
   # The user whose Stripe subscription pays for the given user. Agents are
   # billed on their parent's subscription, so exempting an agent changes
   # the PARENT's billable quantity.
+  # Shared respond_to boilerplate for user-page actions: markdown re-renders
+  # the user page, HTML flashes and redirects back to it.
+  def respond_with_user_action_success(user, message)
+    respond_to do |format|
+      format.md do
+        @showing_user = user.reload
+        @page_title = @showing_user.display_name || @showing_user.name
+        @user_tenants = @showing_user.tenant_users.includes(:tenant).map(&:tenant)
+        render 'show_user'
+      end
+      format.html do
+        flash[:notice] = message
+        redirect_to "/app-admin/users/#{user.id}"
+      end
+    end
+  end
+
+  def respond_with_user_action_error(user, message)
+    respond_to do |format|
+      format.md { render plain: message, status: 400 }
+      format.html do
+        flash[:alert] = message
+        redirect_to "/app-admin/users/#{user.id}"
+      end
+    end
+  end
+
   def billing_owner_for(user)
     return user if user.human?
     return User.find_by(id: user.parent_id) if user.ai_agent? && user.parent_id.present?

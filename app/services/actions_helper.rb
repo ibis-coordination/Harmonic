@@ -867,6 +867,20 @@ class ActionsHelper
       authorization: :app_admin,
       visibility: :shared,
     },
+    "request_account_deletion" => {
+      description: "Start account deletion for this user: the account is locked now and permanently scrubbed after the grace period",
+      params_string: "()",
+      params: [],
+      authorization: :app_admin,
+      visibility: :shared,
+    },
+    "restore_account" => {
+      description: "Restore an account that is pending deletion, ending the grace-period lock",
+      params_string: "()",
+      params: [],
+      authorization: :app_admin,
+      visibility: :shared,
+    },
 
     # Notification actions
     "dismiss" => {
