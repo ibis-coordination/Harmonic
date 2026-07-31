@@ -284,6 +284,42 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
     assert rule.enabled?
   end
 
+  # === Manual Run Tests ===
+
+  test "run_automation_rule runs an enabled manual rule" do
+    rule = create_collective_automation_rule(
+      name: "Manual Run",
+      trigger_type: "manual",
+      trigger_config: {},
+    )
+
+    assert_difference -> { AutomationRuleRun.unscoped.count }, 1 do
+      post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/run_automation_rule",
+        headers: @headers
+    end
+
+    assert_response :success
+    run = AutomationRuleRun.unscoped.order(:created_at).last
+    assert_equal "manual", run.trigger_source
+  end
+
+  test "run_automation_rule refuses a disabled rule" do
+    rule = create_collective_automation_rule(
+      name: "Manual Disabled",
+      trigger_type: "manual",
+      trigger_config: {},
+      enabled: false,
+    )
+
+    assert_no_difference -> { AutomationRuleRun.unscoped.count } do
+      post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/run_automation_rule",
+        headers: @headers
+    end
+
+    assert_response :unprocessable_entity
+    assert_includes response.body, "disabled"
+  end
+
   # === Runs Page Tests ===
 
   test "collective admin can view automation run history" do

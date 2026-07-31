@@ -360,6 +360,14 @@ class CollectiveAutomationsController < ApplicationController
                                  })
     end
 
+    unless @automation_rule.enabled?
+      return render_action_error({
+                                   action_name: "run_automation_rule",
+                                   resource: @automation_rule,
+                                   error: "This automation is disabled. Enable it before running it.",
+                                 })
+    end
+
     # Extract and validate inputs from params
     inputs, input_errors = extract_and_validate_inputs(params[:inputs])
 
