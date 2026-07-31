@@ -47,7 +47,7 @@ Five slots. Every concept in the system should belong to exactly one slot, and a
 **P1. Events are addressed: every event type declares its audience.**
 Two audiences exist today: *collective-audience* (content events — a note was posted; everyone in the room may react) and *single-recipient* (delivery events — you were notified; only your rules may react). The audience is a property of the **event type**, declared where the event is defined, not inferred inside dispatch code. New event types must declare an audience to exist — making the recent leak class unrepresentable. (Future audiences are conceivable — tenant-wide, cross-collective — and each would get its own dispatch semantics *explicitly*.)
 
-Two boundary rules from round-2 verification: (a) **audience and gating are separate axes** — today's single-recipient branch also skips the tier gate, but that exemption belongs to the *rule type* (forwarders are a delivery preference, P4), not the event's audience; if the registry declaration bundles both, F1's audience and F3's rule type will fight over the same exemption. Audience answers *who may react*; rule type answers *what gates apply*. (b) Delivery events currently store the recipient as `event.actor_id` — the "actor" of `notifications.delivered` is the person notified, which bends the cause-attribution vocabulary. F1 gives delivery events an explicit **recipient**, not an inherited actor.
+Two boundary rules from round-2 verification: (a) **audience and gating are separate axes** — today's single-recipient branch also skips the tier gate, but that exemption belongs to the *rule type* (forwarders are a delivery preference, P4), not the event's audience; if the registry declaration bundles both, F1's audience and F3's rule type will fight over the same exemption. Audience answers *who may react*; rule type answers *what gates apply*. (b) Delivery events currently store the recipient as `event.actor_id` — the "actor" of `notifications.delivered` is the person notified, which bends the cause-attribution vocabulary. Ruled 2026-07-31: events do not get a recipient concept — *notifications* have recipients, and the delivery events exist only to carry webhook transport through the automation bus. The fix is removing the transport from the bus, not enriching Event (see F1b, superseded).
 
 **P2. Ownership, acting identity, and capability are three different things.**
 - *Owner*: who configures the rule and answers for it (agent's principal, collective's admins/automators).
@@ -118,12 +118,17 @@ attribute every internal-agent MCP call to its task run, content gets
 Known limitation: external agents use their own long-lived tokens, so their
 content gets no attribution row and lineage resets there.
 
-### F1b. Explicit recipient on delivery events (P1b, remaining from F1)
-Delivery events overload `event.actor_id` as the recipient. Give events an
-explicit recipient (column or metadata — decide at implementation), set by
-`NotificationService` / `ReminderDeliveryJob`, read by the gate's matcher and
-the template renderer, with `actor_id` fallback for pre-change rows. Self-
-contained; unblocks nothing else, so schedule freely.
+### F1b. Explicit recipient on delivery events — SUPERSEDED (2026-07-31)
+Implementation surfaced the real problem: giving `events` a recipient
+conflates events (things that happen) with notifications (the thing that
+has recipients). Delivery events exist only because notification webhooks
+are shoehorned through the automation bus — the honest fix is to make
+webhooks a notification *channel* and eventually delete the delivery event
+types, the single-recipient audience axis, and every dispatcher/gate
+carve-out they require. See
+[notification-webhooks-as-delivery-channel.md](notification-webhooks-as-delivery-channel.md),
+which owns this. Until that ships, delivery events keep the documented
+actor-as-recipient behavior; do not extend it.
 
 ### F3. Explicit rule types — two dimensions — SHIPPED (branch `automation-rule-types`)
 `rule_type` column on `automation_rules` (bare `type` is Rails-STI-reserved; the prefixed form matches `event_type`, `trigger_type`, `notification_type`): `automation` vs `notification_webhook` (value follows the controlled-vocabulary term, not "forwarder"), **plus `system_managed`** (boolean; named to read as state, not as a foreign key). All shape-sniffing replaced: zero raw `actions->>'webhook_url'` predicates outside `db/migrate/` (verified by grep); the partial unique index re-keys on `rule_type`; the bridge-setup `PENDING_RULE_NAME` convention is display-only (pending-ness = a `notification_webhook` rule with no URL; conflict checks use `rule_type`).
