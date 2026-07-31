@@ -140,7 +140,11 @@ class AccountDeletionFlowTest < ActionDispatch::IntegrationTest
     sign_in_with_reverification(@user, tenant: @tenant, path: "/account/deletion/new")
 
     post "/account/deletion", params: { scope: "everywhere" }
-    assert_redirected_to "/login"
+    # Same-origin destination only: /login redirects to the auth subdomain,
+    # which a Turbo form submission cannot follow cross-origin — the page
+    # would silently do nothing while the account was already locked.
+    assert_redirected_to "/logout-success"
+    assert_match(/scheduled for deletion/, flash[:notice])
     assert @user.reload.pending_deletion?
 
     get "/settings"

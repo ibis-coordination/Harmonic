@@ -59,7 +59,11 @@ class AccountDeletionsController < ApplicationController
       logout_user!
       flash[:notice] = "Your account is scheduled for deletion on #{scrub_date.to_fs(:long)}. " \
                        "Log in before then if you want to restore it."
-      redirect_to "/login"
+      # Must be same-origin: /login redirects to the auth subdomain, which the
+      # Turbo form submission cannot follow cross-origin — the confirm page
+      # would silently sit there while the account was already locked. The
+      # flash also lives in this subdomain's session, so it only renders here.
+      redirect_to "/logout-success"
     else
       # Never guess the scope: an absent value must not fall through to the
       # more destructive global deletion.
