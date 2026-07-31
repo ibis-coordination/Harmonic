@@ -49,9 +49,15 @@ Tasks, payloads, and conditions support `{{variable}}` interpolation. The availa
 
 Collective automations have a **Test** button that creates a synthetic trigger and runs the automation immediately, showing which conditions passed, which actions executed, and any errors. Use this before enabling an automation that will fire on real events.
 
-## Rate Limits
+## Limits
 
-To prevent runaway execution, automations have per-rule and per-subdomain rate limits, plus chain-depth protection that stops automations from triggering each other in unbounded cascades. Rate-limited executions are silently skipped and recorded in the run history.
+Every trigger path checks the same limits before a rule fires:
+
+- **Paid tier** — Automations are a paid feature: rules fire only while their collective is on the paid plan. Notification webhooks are separate and not gated.
+- **Rate limits** — Each rule has a per-minute rate limit (tighter for agent automations and notification webhooks), and each subdomain has an overall cap.
+- **Chain protection** — Automations triggering each other form a chain, and chains are depth-limited to prevent unbounded cascades. A run's page shows its chain depth and how often the same rule has recurred in the chain.
+
+A firing refused by a limit creates no run. Event and schedule triggers skip silently; webhook triggers answer HTTP 429; manual runs report the reason.
 
 ## Run History
 
