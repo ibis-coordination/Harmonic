@@ -4,6 +4,9 @@ class AiAgentTaskRun < ApplicationRecord
   extend T::Sig
 
   DEFAULT_MAX_STEPS = 30
+  # Bound on the ancestry walk when computing rule_recurrence — a guard
+  # against pathological chains, far above any observed depth.
+  MAX_LINEAGE_WALK = 100
 
   belongs_to :tenant
   belongs_to :ai_agent, class_name: "User"
@@ -68,8 +71,9 @@ class AiAgentTaskRun < ApplicationRecord
     end
     def create_queued(ai_agent:, tenant:, initiated_by:, task:, max_steps: nil, automation_rule: nil, parent_task_run: nil)
       model = ai_agent.agent_configuration&.dig("model") || "default"
+      recurrence = rule_recurrence_in_chain(automation_rule, parent_task_run)
 
-      create!(
+      run = create!(
         tenant: tenant,
         ai_agent: ai_agent,
         initiated_by: initiated_by,
@@ -80,6 +84,42 @@ class AiAgentTaskRun < ApplicationRecord
         automation_rule: automation_rule,
         parent_task_run: parent_task_run,
         chain_depth: parent_task_run ? parent_task_run.chain_depth + 1 : 0,
+        rule_recurrence: recurrence,
+      )
+      emit_rule_recurrence_metric(run) if recurrence.positive?
+      run
+    end
+
+    # How many earlier runs of the same rule appear in the lineage chain.
+    # Like chain_depth: a signal, not a limit — collaborating agents can
+    # loop legitimately, so nothing dispatches or throttles on this.
+    sig do
+      params(
+        automation_rule: T.nilable(AutomationRule),
+        parent_task_run: T.nilable(AiAgentTaskRun)
+      ).returns(Integer)
+    end
+    def rule_recurrence_in_chain(automation_rule, parent_task_run)
+      return 0 if automation_rule.nil?
+
+      count = 0
+      ancestor = T.let(parent_task_run, T.nilable(AiAgentTaskRun))
+      hops = 0
+      while ancestor && hops < MAX_LINEAGE_WALK
+        count += 1 if ancestor.automation_rule_id == automation_rule.id
+        ancestor = ancestor.parent_task_run
+        hops += 1
+      end
+      count
+    end
+
+    sig { params(run: AiAgentTaskRun).void }
+    def emit_rule_recurrence_metric(run)
+      return if Rails.env.test?
+
+      Yabeda.automations.rule_recurrence_total.increment(
+        { tenant_id: run.tenant_id },
+        by: 1
       )
     end
   end

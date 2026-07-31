@@ -92,6 +92,10 @@ Yabeda.configure do
     counter :chain_blocked_total,
             comment: "Total automation executions blocked by chain limits",
             tags: [:tenant_id, :block_reason]
+
+    counter :rule_recurrence_total,
+            comment: "Task runs whose rule already ran earlier in their lineage chain (loop signal; observability only)",
+            tags: [:tenant_id]
   end
 end
 

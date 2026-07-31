@@ -397,6 +397,31 @@ class AutomationSchedulerJobTest < ActiveSupport::TestCase
 
   private
 
+  test "scheduled runs record chain metadata" do
+    create_scheduled_rule(cron: "* * * * *")
+
+    AutomationSchedulerJob.perform_now
+
+    run = AutomationRuleRun.unscoped_for_system_job.order(:created_at).last
+    assert run.chain_metadata.present?, "schedule-fired runs must carry chain metadata"
+  end
+
+  test "does not create run when the rule's rate limit is reached" do
+    rule = create_scheduled_rule(cron: "* * * * *")
+    3.times do |i|
+      AutomationRuleRun.unscoped_for_system_job.create!(
+        tenant: @tenant, automation_rule: rule, trigger_source: "schedule",
+        status: "completed", trigger_data: {},
+        created_at: (10 + i).seconds.ago,
+      )
+    end
+    rule.update!(last_executed_at: 2.minutes.ago)
+
+    assert_no_difference -> { AutomationRuleRun.unscoped_for_system_job.count } do
+      AutomationSchedulerJob.perform_now
+    end
+  end
+
   def create_scheduled_rule(cron:, timezone: "UTC", enabled: true, name: "Test Schedule")
     AutomationRule.create!(
       tenant: @tenant,

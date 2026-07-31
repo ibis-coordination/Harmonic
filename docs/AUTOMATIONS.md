@@ -313,7 +313,6 @@ actions:
     url: "https://api.example.com/notify"
     method: POST                  # Optional: GET, POST, PUT, PATCH, DELETE
     headers:                      # Optional: custom headers
-      Authorization: "Bearer {{secrets.api_token}}"
       X-Custom-Header: "value"
     payload:                      # Request body (JSON)
       event_type: "{{event.type}}"
@@ -1073,6 +1072,7 @@ Automation metrics are exposed via Prometheus for operational monitoring.
 | `automations_runs_total` | Counter | `tenant_id`, `rule_type`, `trigger_type`, `status` | Total automation runs |
 | `automations_rate_limited_total` | Counter | `tenant_id`, `limit_type`, `rule_type` | Executions blocked by rate limits |
 | `automations_chain_blocked_total` | Counter | `tenant_id`, `block_reason` | Executions blocked by chain protection |
+| `automations_rule_recurrence_total` | Counter | `tenant_id` | Task runs whose rule already ran earlier in their lineage chain (loop signal; observability only) |
 
 ### Example Queries
 

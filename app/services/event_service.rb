@@ -23,6 +23,9 @@ class EventService
     # This can happen in some test scenarios or background jobs without context
     return nil unless tenant_id && collective_id
 
+    # Raises outside production; logs in production.
+    EventTypeRegistry.verify!(event_type)
+
     event = Event.create!(
       tenant_id: tenant_id,
       collective_id: collective_id,

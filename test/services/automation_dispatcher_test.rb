@@ -84,7 +84,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     assert_difference -> { AutomationRuleRun.count }, 1 do
       assert_enqueued_with(job: AutomationRuleExecutionJob) do
-        AutomationDispatcher.queue_rule_execution(rule, event)
+        AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
       end
     end
 
@@ -111,7 +111,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Should not queue a 4th execution
     assert_no_difference -> { AutomationRuleRun.count } do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   end
 
@@ -136,7 +136,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # 4th should be rate-limited (notification-webhook rule shares the 3/min cap)
     assert_no_difference -> { AutomationRuleRun.count } do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   end
 
@@ -167,7 +167,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Should not queue an 11th execution
     assert_no_difference -> { AutomationRuleRun.count } do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   end
 
@@ -198,7 +198,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Should allow a 10th execution
     assert_difference -> { AutomationRuleRun.count }, 1 do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   end
 
@@ -233,7 +233,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Should not queue another execution - tenant limit reached
     assert_no_difference -> { AutomationRuleRun.count } do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   end
 
@@ -264,7 +264,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Should allow one more - below tenant limit and rule hasn't been used
     assert_difference -> { AutomationRuleRun.count }, 1 do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   end
 
@@ -303,7 +303,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Current tenant (@tenant) should still be allowed since it has no runs
     assert_difference -> { AutomationRuleRun.count }, 1 do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   end
 
@@ -332,7 +332,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Should not queue execution when at max depth
     assert_no_difference -> { AutomationRuleRun.count } do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   ensure
     AutomationContext.clear_chain!
@@ -347,7 +347,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Should not queue execution - would be a loop
     assert_no_difference -> { AutomationRuleRun.count } do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   ensure
     AutomationContext.clear_chain!
@@ -375,7 +375,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Should not queue execution when max rules reached
     assert_no_difference -> { AutomationRuleRun.count } do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   ensure
     AutomationContext.clear_chain!
@@ -399,7 +399,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     AutomationContext.record_rule_execution!(first_rule, event)
 
     # Now queue execution of second rule
-    AutomationDispatcher.queue_rule_execution(rule, event)
+    AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
 
     run = AutomationRuleRun.last
     assert_equal 2, run.chain_metadata["depth"]
@@ -428,7 +428,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     AutomationContext.record_rule_execution!(first_rule, event)
 
     assert_enqueued_with(job: AutomationRuleExecutionJob) do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
 
     # Verify the enqueued job has chain args
@@ -460,7 +460,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
 
     # Should allow execution at depth 1
     assert_difference -> { AutomationRuleRun.count }, 1 do
-      AutomationDispatcher.queue_rule_execution(rule, event)
+      AutomationFiringGate.fire!(rule, source: "event", event: event, trigger_data: {})
     end
   ensure
     AutomationContext.clear_chain!
@@ -505,9 +505,9 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     assert_not AutomationContext.can_execute_rule?(rule_a),
       "Rule A should be blocked - already executed in this chain"
 
-    # Verify queue_rule_execution also blocks it
+    # Verify the firing gate also blocks it
     assert_no_difference -> { AutomationRuleRun.count } do
-      AutomationDispatcher.queue_rule_execution(rule_a, event)
+      AutomationFiringGate.fire!(rule_a, source: "event", event: event, trigger_data: {})
     end
   ensure
     AutomationContext.clear_chain!
@@ -1058,6 +1058,8 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
     @tenant.set_feature_flag!("stripe_billing", false)
   end
 
+  # The tier gate lives in AutomationFiringGate, not the matcher — a rule in
+  # a free-tier collective still *matches* but is refused at firing time.
   test "non-notification event in a free-tier collective is still blocked by the tier gate" do
     @tenant.set_feature_flag!("stripe_billing", true)
     free_collective = Collective.create!(
@@ -1081,7 +1083,11 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       event_type: "note.created", actor: @user, subject: note,
     )
 
-    assert_not_includes AutomationDispatcher.find_matching_rules(event), rule
+    assert_includes AutomationDispatcher.find_matching_rules(event), rule
+
+    assert_no_difference -> { AutomationRuleRun.unscoped.count } do
+      AutomationDispatcher.dispatch(event)
+    end
   ensure
     @tenant.set_feature_flag!("stripe_billing", false)
   end

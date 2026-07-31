@@ -289,6 +289,37 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "$0.4200"
   end
 
+  test "run detail shows rule recurrence in the chain" do
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    rule = AutomationRule.create!(
+      tenant: @tenant, ai_agent: @ai_agent, created_by: @user,
+      name: "Recurring Rule", trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "React" },
+    )
+    parent_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "First pass", max_steps: 10, status: "completed",
+      automation_rule: rule,
+    )
+    child_run = AiAgentTaskRun.create!(
+      tenant: @tenant, ai_agent: @ai_agent, initiated_by: @user,
+      task: "Second pass", max_steps: 10, status: "completed",
+      automation_rule: rule, parent_task_run: parent_run,
+      chain_depth: 1, rule_recurrence: 1,
+    )
+    Tenant.clear_thread_scope
+
+    sign_in_as(@user, tenant: @tenant)
+    get "/ai-agents/#{@ai_agent_handle}/runs/#{child_run.id}"
+    assert_response :success
+    assert_includes response.body, "2nd run of its automation in this chain"
+
+    get "/ai-agents/#{@ai_agent_handle}/runs/#{child_run.id}", headers: { "Accept" => "text/markdown" }
+    assert_response :success
+    assert_includes response.body, "2nd run of its automation in this chain"
+  end
+
   test "run detail labels cost as not tracked when the ledger has no rows" do
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     task_run = AiAgentTaskRun.create!(

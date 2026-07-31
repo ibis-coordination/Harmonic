@@ -131,6 +131,9 @@
       <div>
         Triggered from: <a href="<%= ai_agent_run_path(parent_run.ai_agent.handle, parent_run.id) %>"><%= octicon 'workflow', height: 12 %> run by <%= parent_run.ai_agent.name %></a>
         <span class="pulse-muted" title="Automated causation steps since the last human action">&middot; chain depth <%= @task_run.chain_depth %></span>
+        <% if @task_run.rule_recurrence.positive? %>
+          <span class="pulse-muted" title="Earlier runs of the same automation appear in this run's chain">&middot; <%= (@task_run.rule_recurrence + 1).ordinalize %> run of its automation in this chain</span>
+        <% end %>
       </div>
     <% end %>
     <% if @task_run.mode == "chat_turn" && @task_run.chat_session_id.present? %>

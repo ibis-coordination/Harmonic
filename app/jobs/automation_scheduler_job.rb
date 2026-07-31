@@ -27,31 +27,29 @@ class AutomationSchedulerJob < SystemJob
   sig { returns(ActiveRecord::Relation) }
   def scheduled_rules
     AutomationRule.unscoped_for_system_job
-      .where(trigger_type: "schedule")
-      .where(enabled: true, deleted_at: nil)
+      .scheduled
+      .enabled
   end
 
   sig { params(rule: AutomationRule).void }
   def process_rule(rule)
     return unless should_trigger?(rule)
     return if already_ran_this_minute?(rule)
-    return unless collective_tier_allows?(rule)
 
-    create_and_queue_run(rule)
-  end
+    # Update last_executed_at immediately to prevent duplicate runs
+    # (the executor will also update it, but we need it now for duplicate detection)
+    rule.update!(last_executed_at: Time.current)
 
-  # Collective-scoped scheduled rules pause when their collective isn't on
-  # the paid tier (or main, or on a non-billing tenant). Agent-scoped rules
-  # are gated by AutomationExecutor's per-agent billing check; user-scoped
-  # rules have no separate billing gate (pre-existing — out of scope here).
-  sig { params(rule: AutomationRule).returns(T::Boolean) }
-  def collective_tier_allows?(rule)
-    return true unless rule.collective_id.present?
-
-    collective = Collective.unscoped_for_system_job.find_by(id: rule.collective_id)
-    return false if collective.nil?
-
-    collective.tier_unlocks_paid_features?
+    result = AutomationFiringGate.fire!(
+      rule,
+      source: "schedule",
+      trigger_data: { "scheduled_at" => Time.current.iso8601 }
+    )
+    if result.allowed?
+      Rails.logger.info("AutomationSchedulerJob: Queued rule #{rule.id} (#{rule.name}) for execution")
+    else
+      Rails.logger.info("AutomationSchedulerJob: Skipped rule #{rule.id} (#{result.refusal_reason})")
+    end
   end
 
   sig { params(rule: AutomationRule).returns(T::Boolean) }
@@ -87,25 +85,4 @@ class AutomationSchedulerJob < SystemJob
     last_executed >= Time.current.change(sec: 0)
   end
 
-  sig { params(rule: AutomationRule).void }
-  def create_and_queue_run(rule)
-    # Update last_executed_at immediately to prevent duplicate runs
-    # (the executor will also update it, but we need it now for duplicate detection)
-    rule.update!(last_executed_at: Time.current)
-
-    run = AutomationRuleRun.create!(
-      tenant: rule.tenant,
-      automation_rule: rule,
-      trigger_source: "schedule",
-      trigger_data: { "scheduled_at" => Time.current.iso8601 },
-      status: "pending"
-    )
-
-    AutomationRuleExecutionJob.perform_later(
-      automation_rule_run_id: run.id,
-      tenant_id: rule.tenant_id
-    )
-
-    Rails.logger.info("AutomationSchedulerJob: Queued rule #{rule.id} (#{rule.name}) for execution")
-  end
 end

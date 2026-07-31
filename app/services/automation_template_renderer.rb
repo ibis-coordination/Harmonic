@@ -27,12 +27,10 @@ class AutomationTemplateRenderer
     end
   end
 
-  NOTIFICATION_DELIVERED_EVENTS = T.let(["notifications.delivered", "reminders.delivered"].freeze, T::Array[String])
-
   # Build context hash from an event
   sig { params(event: Event).returns(T::Hash[String, T.untyped]) }
   def self.context_from_event(event)
-    return notification_delivered_context(event) if NOTIFICATION_DELIVERED_EVENTS.include?(event.event_type)
+    return notification_delivered_context(event) if EventTypeRegistry.single_recipient?(event.event_type)
 
     context = {
       "event" => build_event_context(event),

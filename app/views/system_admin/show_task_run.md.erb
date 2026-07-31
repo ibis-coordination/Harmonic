@@ -29,6 +29,9 @@
 <% if @task_run.parent_task_run_id -%>
 | Triggered from | [<%= @task_run.parent_task_run_id[0..7] %>](<%= system_admin_task_run_path(@task_run.parent_task_run_id) %>) |
 | Chain depth | <%= @task_run.chain_depth %> |
+<% if @task_run.rule_recurrence.positive? -%>
+| Rule recurrence | <%= @task_run.rule_recurrence %> |
+<% end -%>
 <% end -%>
 | Created | <%= @task_run.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") %> |
 | Initiated by | <%= @task_run.initiated_by&.name %> |
