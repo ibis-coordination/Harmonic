@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.64.0] - 2026-07-30
+
+### Added
+
+- **Self-serve account deletion, end to end** (#547) — deletion is a reversible request followed by an irreversible scrub after a 30-day grace period. The request (settings → reverification-gated confirm page; strictly self-serve — API tokens 403, representation refused) revokes sessions, refresh tokens, push subscriptions, API tokens, and automation rules for the user and their agents; restore undoes it any time in the window, with a reminder email 5 days before the scrub. A per-subdomain scope locks one subdomain's slice while login and other subdomains keep working; a later global request supersedes it. The daily scrub closes long-standing gaps in the old console path: trustee authorizations revoked both directions, data exports destroyed, the audit-chain PII scrub finally invoked (entries verify as unattributable, chains stay valid), child agents archived, profile fields cleared, the Stripe customer deleted vendor-side before any local mutation, and a sole-admin block requiring role transfer before deletion. Admins can request/restore deletion from the app-admin user page. Also schedules the existing token-cleanup jobs (built but never cronned) and adds a refresh-token purge. Verified end to end (`test/manual/account_deletion/deletion_scrub.manual_test.md`). Deploy: web + worker, three additive migrations.
+- **Controlled vocabulary for user- and agent-facing copy** (#544) — `docs/CONTROLLED_VOCABULARY.md` (one term, one meaning, one part of speech: visibility "tier", "subdomain", "principal", "prepaid balance", "built-in agent", "chat", "handle", …), copy sweeps across help pages, MCP tool/action descriptions, error strings, and admin UI, and a `scripts/check-vocabulary.sh` lint in pre-commit and CI. Routes renamed `/tenant-admin` → `/subdomain-admin` and `/app-admin/tenants` → `/app-admin/subdomains` with 301s for GETs (Admin App JSON API unchanged). Also fixes drifted ActionsHelper route keys that left the subdomain-admin actions pages rendering empty lists. Deploy: web only, no migrations.
+
+### Changed
+
+- **Dependency bumps** — oauth2 2.0.20 → 2.0.22 (#545).
+
 ## [1.63.0] - 2026-07-27
 
 ### Added
