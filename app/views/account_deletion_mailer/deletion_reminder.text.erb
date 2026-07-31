@@ -1,0 +1,11 @@
+<% if @subdomain_only %>
+Reminder: your account on <%= @subdomain %> will be permanently deleted on <%= @scrub_date.to_fs(:long) %>.
+<% else %>
+Reminder: your account will be permanently deleted on <%= @scrub_date.to_fs(:long) %>.
+<% end %>
+
+This is the last reminder. If you want to keep the account, log in and restore it before that date — afterwards, deletion is permanent:
+
+<%= @restore_url %>
+
+You requested this account deletion. If you've changed your mind, restore your account before the date above.

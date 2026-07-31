@@ -486,4 +486,22 @@
     <% end %>
 
   <% end %>
+
+  <%# Account deletion — independent of the api_enabled? block above: every
+      human can delete their own account regardless of tenant features. %>
+  <% if @settings_user.human? && is_own_settings %>
+    <%= render 'shared/pulse_accordion', title: 'Delete Account' do %>
+      <p class="pulse-form-hint" style="margin-bottom:16px;">
+        Deleting your account starts a grace period during which you can still restore it.
+        After it ends, your profile is anonymized and your access is permanently removed.
+        Content you shared stays, attributed to "Deleted User".
+      </p>
+      <div class="pulse-form-actions">
+        <a href="/account/deletion/new" class="pulse-action-btn pulse-action-btn-danger">
+          <%= octicon 'trash', height: 14 %>
+          Delete Account
+        </a>
+      </div>
+    <% end %>
+  <% end %>
 </article>

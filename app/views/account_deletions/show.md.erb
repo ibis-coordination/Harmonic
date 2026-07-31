@@ -1,0 +1,21 @@
+<% if @scope == :subdomain %>
+# Your account on this subdomain is scheduled for deletion
+
+Your account on **<%= @subdomain %>** will be permanently deleted on **<%= @scrub_date.to_date.to_fs(:long) %>**. Until then, you can restore it. Your accounts on other subdomains are not affected.
+
+- On the deletion date, your profile on this subdomain is anonymized and your access here is permanently removed. Content you shared stays, attributed to "Deleted User".
+- Your API tokens on this subdomain were revoked when you requested deletion. After restoring, issue new tokens if you need them.
+- Restoring re-enables your automations and your agents on this subdomain.
+- Your login, prepaid balance, and other subdomains are untouched.
+<% else %>
+# Your account is scheduled for deletion
+
+It will be permanently deleted on **<%= @scrub_date.to_date.to_fs(:long) %>**. Until then, you can restore it.
+
+- On the deletion date, your profile is anonymized and your access is permanently removed. Content you shared stays, attributed to "Deleted User".
+- If you have a prepaid balance, it is forfeited on the deletion date — not before.
+- Your API tokens were revoked and your plan subscription was cancelled when you requested deletion. After restoring, issue new tokens and restart the subscription if you want paid features.
+- Restoring re-enables your automations and your agents.
+<% end %>
+
+To restore: POST to `/account/deletion/restore`.

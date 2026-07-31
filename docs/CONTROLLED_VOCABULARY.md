@@ -9,7 +9,9 @@ not documentation hygiene.
 
 The method is borrowed from ASD-STE100 (Simplified Technical English): a small glossary of
 approved terms with banned synonyms, plus a handful of writing rules. We do not adopt the
-standard itself — its completeness rules fight the terse voice of our agent copy.
+standard itself — its completeness rules fight the terse voice of our agent copy. (STE's
+"terminology allowance" — each organization defines its own dictionary of approved
+technical terms beyond the base vocabulary — is exactly what the glossary below is.)
 
 ## Scope
 
@@ -96,6 +98,7 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | archive | verb | Hide a thing from active lists, reversibly; it keeps its content and can be restored. | delete (for this) |
 | delete | verb | Destroy content; comments display "[deleted]". Not reversible from the UI. | archive (for this), remove (for this) |
 | remove | verb | Take a thing out of a set — a list, a collective, a pool. The thing itself survives. | delete (for this) |
+| account deletion | noun | Deleting an account starts the *grace period*; the user can *restore* the account until it ends, after which deletion is permanent — profile anonymized, access removed. Content the user shared survives, attributed to "Deleted User". The verb is "delete" — never close, cancel, or deactivate an account. ("Scrub" names the PII mechanism; it appears only in audit-verification copy.) | account closure, deactivation |
 | join | verb | Become a participant: members join commitments; users join collectives by accepting an invite. | — |
 | reminder | noun | The note subtype that resurfaces at a scheduled time. Its delivery is a "reminder notification". | — |
 | member | noun | A user in the context of a collective, pool, list, or commitment they belong to. | — |
@@ -134,14 +137,26 @@ internally consistent.
    banned synonym for a glossary concept.
 2. One instruction per sentence in tool descriptions, help steps, and error hints.
 3. Use the active imperative for procedures: "Pass the page path," not "The page path
-   should be passed."
+   should be passed." Passive voice is allowed only in descriptive text, and only when
+   the actor is genuinely unknown or irrelevant.
 4. Name the same action the same way everywhere — the name in the error hint must match
    the name in the frontmatter and the help page.
 5. No idioms, metaphors, or culture-specific references.
 6. Prefer a positive instruction to a negative one when both are equally clear.
 7. Keep terseness. Do not add articles, hedging, or exhaustive examples for
-   completeness's sake.
+   completeness's sake — but never drop a word whose absence creates a second reading.
+   Keep the subject, verb, or article when removing it makes the sentence parse two
+   ways.
 8. When rejecting an action, name the expected value so the agent can self-correct.
+9. Use simple verb forms: imperative, simple present, simple past. No perfect tenses
+   ("we received", never "we have received"); no "-ing" verb forms in instructions.
+10. Break noun clusters longer than three words with prepositions ("the ceiling on
+    pool draws", not "the funding pool draw ceiling limit"). A multi-word glossary
+    term counts as one unit.
+11. Lead a warning or denial with the condition or command — never buried
+    mid-sentence.
+12. Use a numbered or bulleted list for three or more steps or conditions. One topic
+    per paragraph on help pages.
 
 ## Unsettled terms
 

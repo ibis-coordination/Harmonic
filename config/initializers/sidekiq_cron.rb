@@ -60,6 +60,26 @@ SIDEKIQ_CRON_SCHEDULE = {
     "class" => "SweepStuckLLMUsageRecordsJob",
     "description" => "Re-price unpriced LLM usage rows and mark stale pending ones abandoned",
   },
+  "cleanup_expired_tokens" => {
+    "cron" => "20 3 * * *", # Daily at 3:20 AM
+    "class" => "CleanupExpiredTokensJob",
+    "description" => "Hard-delete API tokens expired or soft-deleted for 30+ days",
+  },
+  "cleanup_expired_internal_tokens" => {
+    "cron" => "50 * * * *", # Hourly at :50
+    "class" => "CleanupExpiredInternalTokensJob",
+    "description" => "Delete expired internal tokens orphaned by crashed task runs",
+  },
+  "cleanup_expired_refresh_tokens" => {
+    "cron" => "40 3 * * *", # Daily at 3:40 AM
+    "class" => "CleanupExpiredRefreshTokensJob",
+    "description" => "Delete refresh tokens expired for 30+ days",
+  },
+  "account_deletion_scrub" => {
+    "cron" => "10 4 * * *", # Daily at 4:10 AM
+    "class" => "AccountDeletionScrubJob",
+    "description" => "Scrub accounts whose deletion grace period has expired",
+  },
   "cleanup_abandoned_bridge_setups" => {
     "cron" => "15 * * * *", # Hourly at :15
     "class" => "CleanupAbandonedBridgeSetupsJob",

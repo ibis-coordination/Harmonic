@@ -72,3 +72,13 @@ Manage your AI agents, configure automations, and run tasks.
 * [Manage Trustee Authorizations](/settings/trustee-authorizations) - Manage who can act on your behalf
 <% end %>
 
+<%# Account deletion — outside the api_enabled? block: every human can delete
+    their own account regardless of tenant features. %>
+<% if @settings_user.human? && is_own_settings %>
+## Delete Account
+
+Deleting your account starts a grace period during which you can still restore it. After it ends, deletion is permanent: your profile is anonymized and your access is removed, while content you shared stays, attributed to "Deleted User".
+
+* [Delete Account](/account/deletion/new) - Requires reverification; only the account holder can do this, in a browser session
+<% end %>
+

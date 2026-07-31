@@ -2152,5 +2152,17 @@ class UserTest < ActiveSupport::TestCase
     assert_not @user.valid?
     assert @user.errors[:llm_daily_spend_cap_cents].any?
   end
+
+  # === Account deletion ===
+
+  test "pending_deletion? is true during the grace window and false once scrubbed" do
+    assert_not @user.pending_deletion?
+
+    @user.update!(deletion_requested_at: Time.current)
+    assert @user.pending_deletion?
+
+    @user.update!(scrubbed_at: Time.current)
+    assert_not @user.pending_deletion?, "a scrubbed account is deleted, not pending deletion"
+  end
 end
 

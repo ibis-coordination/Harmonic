@@ -227,6 +227,53 @@ class AppAdminControllerTest < ActionDispatch::IntegrationTest
   end
 
   # ==========================================
+  # Account Deletion Tests
+  # ==========================================
+
+  test "app admin can request account deletion for another user" do
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    post "/app-admin/users/#{@non_admin_user.id}/actions/request_account_deletion"
+
+    assert_response :redirect
+    assert @non_admin_user.reload.pending_deletion?
+  end
+
+  test "app admin cannot request deletion of their own account here" do
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    post "/app-admin/users/#{@app_admin_user.id}/actions/request_account_deletion"
+
+    assert_response :redirect
+    assert_not @app_admin_user.reload.pending_deletion?
+  end
+
+  test "app admin can restore a pending-deletion account" do
+    AccountDeletionService.request_deletion!(user: @non_admin_user)
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    post "/app-admin/users/#{@non_admin_user.id}/actions/restore_account"
+
+    assert_response :redirect
+    assert_not @non_admin_user.reload.pending_deletion?
+  end
+
+  test "the admin user page surfaces a suspended account pending deletion" do
+    AccountDeletionService.request_deletion!(user: @non_admin_user)
+    @non_admin_user.update!(suspended_at: Time.current, suspended_reason: "Test")
+
+    sign_in_as_admin(@app_admin_user, tenant: @primary_tenant, admin_path: "/app-admin")
+
+    get "/app-admin/users/#{@non_admin_user.id}"
+
+    assert_response :success
+    assert_includes response.body, "scheduled for deletion"
+    assert_includes response.body, "cannot restore",
+                    "a suspended account pending deletion cannot self-restore; the page must say so"
+  end
+
+  # ==========================================
   # Account Security Reset Tests
   # ==========================================
 

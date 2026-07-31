@@ -1,0 +1,32 @@
+<div class="container">
+  <div class="header">
+    <h1>Harmonic</h1>
+  </div>
+
+  <div class="content">
+    <% if @subdomain_only %>
+      <h2>Reminder: your account on <%= @subdomain %> will be permanently deleted soon</h2>
+      <p>
+        Your account on <strong><%= @subdomain %></strong> will be permanently deleted on
+        <strong><%= @scrub_date.to_fs(:long) %></strong>.
+      </p>
+    <% else %>
+      <h2>Reminder: your account will be permanently deleted soon</h2>
+      <p>
+        Your account will be permanently deleted on
+        <strong><%= @scrub_date.to_fs(:long) %></strong>.
+      </p>
+    <% end %>
+
+    <p>
+      This is the last reminder. If you want to keep the account, log in and
+      restore it before that date — afterwards, deletion is permanent.
+    </p>
+
+    <a href="<%= @restore_url %>" class="button">Restore my account</a>
+  </div>
+
+  <div class="footer">
+    <p>You requested this account deletion. If you've changed your mind, restore your account before the date above.</p>
+  </div>
+</div>

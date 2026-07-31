@@ -28,7 +28,8 @@ class DataDeletionManager
 
   sig { params(collective: Collective, confirmation_token: String).returns(String) }
   def delete_collective!(collective:, confirmation_token:)
-    validate_confirmation_token!(confirmation_token, message: "delete_collective! will delete all associated Notes, Decisions, Commitments, RepresentationSessions, TrusteeUsers, and any other associated data.")
+    validate_confirmation_token!(confirmation_token,
+                                 message: "delete_collective! will delete all associated Notes, Decisions, Commitments, RepresentationSessions, TrusteeUsers, and any other associated data.")
     # Ensure the collective exists
     collective_name = collective.name
     collective_id_value = collective.id
@@ -49,7 +50,7 @@ class DataDeletionManager
         Link, NoteHistoryEvent, Note,
         DecisionAuditEntry, Vote, Option, DecisionParticipant, Decision,
         CommitmentParticipant, Commitment,
-        Invite, CollectiveMember
+        Invite, CollectiveMember,
       ].each do |model|
         model.tenant_scoped_only(collective.tenant_id).where(collective_id: collective.id).delete_all
       end
@@ -65,9 +66,23 @@ class DataDeletionManager
   sig { params(user: User, confirmation_token: String, force_delete: T::Boolean).returns(String) }
   def delete_user!(user:, confirmation_token:, force_delete: false)
     validate_confirmation_token!(confirmation_token)
-    if force_delete
-      raise NotImplementedError, "full deletion of users is not implemented yet"
+    raise NotImplementedError, "full deletion of users is not implemented yet" if force_delete
+
+    # Deletion is blocked while the user is the only active admin of a
+    # collective that still has other active members — the admin role must be
+    # transferred first (the members page, update_member_roles). Collectives
+    # where the user is the only remaining member are archived during deletion
+    # instead.
+    blocking_handles = AccountDeletionService.sole_admin_blocking_handles(user)
+    if blocking_handles.any?
+      raise "Cannot delete user: they are the sole admin of collectives with other members: " \
+            "#{blocking_handles.join(", ")}. Transfer the admin role first (update_member_roles)."
     end
+    # Billing cleanup happens before any local mutation: if the Stripe call
+    # fails, deletion aborts with nothing scrubbed. Remaining prepaid balance
+    # is forfeited with the vendor-side customer object.
+    stripe_customer = StripeCustomer.find_by(billable: user)
+    StripeService.close_customer!(stripe_customer) if stripe_customer
     ActiveRecord::Base.transaction do
       # OauthIdentities and OmniAuthIdentity can be completely deleted (no tenant scope)
       OauthIdentity.where(user_id: user.id).delete_all
@@ -76,41 +91,123 @@ class DataDeletionManager
       user.name = "Deleted User"
       user.image.purge if user.image.attached?
       user.save!
-      # API tokens are marked as deleted but not destroyed
-      ApiToken.for_user_across_tenants(user).update_all(deleted_at: Time.current)
-      User.where(parent_id: user.id).each do |ai_agent| # User has no tenant scope
-        # AI agent users are not modified, but their API tokens are marked as deleted
-        ApiToken.for_user_across_tenants(ai_agent).update_all(deleted_at: Time.current)
-      end
-      CollectiveMember.for_user_across_tenants(user).each do |collective_member|
-        collective_member_is_sole_admin = collective_member.is_admin? && collective_member.collective.admins.count == 1
-        if collective_member_is_sole_admin
-          # If the user is the only admin of the collective, we need to assign a new admin
-          other_collective_members = collective_member.collective.collective_members.where.not(user_id: user.id).where(archived_at: nil)
-          representatives =  other_collective_members.where_has_role('representative')
-          new_admin = representatives.first || other_collective_members.first
-          if new_admin
-            new_admin.add_role!('admin')
-          else
-            # If there are no other users, ??? Need to handle this case
-            # TODO
-          end
-        end
-        collective_member.archived_at = Time.current
-        collective_member.save!
-      end
-      TenantUser.for_user_across_tenants(user).each do |tenant_user|
-        tenant_user.update!(
-          display_name: "Deleted User",
-          handle: "#{SecureRandom.hex(10)}-deleted",
-          settings: tenant_user.settings.merge(
-            pinned: {},
-          ),
-          archived_at: Time.current,
-        )
-      end
+      # Terminate all access: sessions, refresh tokens, push subscriptions, and
+      # API tokens (the user's and their AI agents' — soft-deleted, not destroyed).
+      user.revoke_all_sessions!
+      scrub_slice!(user: user, tenant_id: nil)
+      # Mark the irreversible phase complete so the deletion scrub job never
+      # re-selects this account.
+      user.update!(scrubbed_at: Time.current) if user.scrubbed_at.nil?
     end
     "PII for user '#{user.id}' has been removed and the user has been marked as deleted."
+  end
+
+  # Per-subdomain account deletion: scrubs one tenant's slice of the account —
+  # the per-tenant counterpart of delete_user!. Global concerns (login
+  # identities, email, sessions, Stripe, the User row) are untouched, so the
+  # account keeps working on every other subdomain.
+  sig { params(user: User, tenant: Tenant, confirmation_token: String).returns(String) }
+  def delete_tenant_user!(user:, tenant:, confirmation_token:)
+    validate_confirmation_token!(confirmation_token)
+    blocking_handles = AccountDeletionService.sole_admin_blocking_handles(user, tenant_id: tenant.id)
+    if blocking_handles.any?
+      raise "Cannot delete user on this subdomain: they are the sole admin of collectives with " \
+            "other members: #{blocking_handles.join(", ")}. Transfer the admin role first (update_member_roles)."
+    end
+    ActiveRecord::Base.transaction do
+      scrub_slice!(user: user, tenant_id: tenant.id)
+    end
+    "PII for user '#{user.id}' has been removed on subdomain '#{tenant.subdomain}'."
+  end
+
+  # The shared scrub: everything tenant-bound about the account. tenant_id nil
+  # sweeps all tenants (global deletion); a tenant_id restricts every sweep to
+  # that tenant (per-subdomain deletion). Idempotent — safe to re-run after a
+  # partial failure.
+  sig { params(user: User, tenant_id: T.nilable(String)).void }
+  private def scrub_slice!(user:, tenant_id:)
+    now = Time.current
+    # API tokens in scope stop working. (Global deletion also revokes them via
+    # revoke_all_sessions!; this covers the per-tenant path and is idempotent.)
+    scoped(ApiToken.for_user_across_tenants(user), tenant_id)
+      .where(deleted_at: nil).find_each(&:delete!)
+    # Trustee authorizations in both directions — nobody may act for this user
+    # again, and this user's trustee relationships must not survive them.
+    scoped(TrusteeGrant.for_user_across_tenants(user), tenant_id)
+      .where(revoked_at: nil, declined_at: nil)
+      .update_all(revoked_at: now)
+    # User-owned automation rules (including the notification forwarder) must
+    # stop firing — a forwarder would keep sending the user's notification
+    # content to an external URL.
+    scoped(AutomationRule.for_user_across_tenants(user), tenant_id).where(deleted_at: nil).find_each do |rule|
+      rule.soft_delete!(by: user)
+    end
+    # The user's data exports contain exactly the data being scrubbed.
+    scoped(DataExport.for_user_across_tenants(user), tenant_id).find_each do |export|
+      export.file.purge if export.file.attached?
+      export.destroy!
+    end
+    # Decision audit chains: null the identity columns (the chain hashes are
+    # untouched, so entries verify as scrubbed rather than tampered).
+    DecisionAuditEntry.scrub_identity_for!(user, tenant_id: tenant_id)
+    # Child AI agents cannot act without a principal: archive them (in scope),
+    # revoke their trustee authorizations, and stop their automation rules.
+    # Their content survives, like the principal's.
+    User.where(parent_id: user.id).find_each do |ai_agent| # User has no tenant scope
+      scoped(ApiToken.for_user_across_tenants(ai_agent), tenant_id)
+        .where(deleted_at: nil).find_each(&:delete!)
+      scoped(TrusteeGrant.for_user_across_tenants(ai_agent), tenant_id)
+        .where(revoked_at: nil, declined_at: nil)
+        .update_all(revoked_at: now)
+      scoped(AutomationRule.for_user_across_tenants(ai_agent), tenant_id).where(deleted_at: nil).find_each do |rule|
+        rule.soft_delete!(by: user)
+      end
+      scoped(TenantUser.for_user_across_tenants(ai_agent), tenant_id)
+        .where(archived_at: nil)
+        .update_all(archived_at: now)
+    end
+    scoped(CollectiveMember.for_user_across_tenants(user), tenant_id).each do |collective_member|
+      if collective_member.archived_at.nil? && collective_member.is_admin?
+        collective = Collective.tenant_scoped_only(collective_member.tenant_id)
+          .find_by(id: collective_member.collective_id)
+        if collective && collective.archived_at.nil?
+          active_admins = CollectiveMember.tenant_scoped_only(collective_member.tenant_id)
+            .where(collective_id: collective.id, archived_at: nil)
+          # The sole-admin precheck ran before this transaction; a member who
+          # joined since would otherwise be stranded in an archived collective.
+          # Only archive when the collective is genuinely empty but for the
+          # user being scrubbed.
+          if T.unsafe(active_admins).where_has_role("admin").count == 1 &&
+             !active_admins.where.not(user_id: user.id).exists?
+            collective.update!(archived_at: now, archived_by_id: user.id)
+            AutomationRule.tenant_scoped_only(collective.tenant_id)
+              .where(collective_id: collective.id, enabled: true)
+              .update_all(enabled: false)
+          end
+        end
+      end
+      collective_member.archived_at = now
+      collective_member.save!
+    end
+    scoped(TenantUser.for_user_across_tenants(user), tenant_id).each do |tenant_user|
+      tenant_user.update!(
+        display_name: "Deleted User",
+        handle: "#{SecureRandom.hex(10)}-deleted",
+        bio: nil,
+        location: nil,
+        website: nil,
+        settings: tenant_user.settings.merge(
+          "pinned" => {},
+        ),
+        archived_at: now,
+        scrubbed_at: now,
+      )
+    end
+  end
+
+  sig { params(relation: T.untyped, tenant_id: T.nilable(String)).returns(T.untyped) }
+  private def scoped(relation, tenant_id)
+    tenant_id ? relation.where(tenant_id: tenant_id) : relation
   end
 
   sig { params(note: Note, confirmation_token: String).returns(String) }
@@ -222,5 +319,4 @@ class DataDeletionManager
     # Delete all associated data
     raise NotImplementedError, "delete_representation_session! is not implemented yet"
   end
-
 end

@@ -1843,7 +1843,10 @@ CREATE TABLE public.tenant_users (
     archived_at timestamp(6) without time zone,
     bio text,
     location character varying,
-    website character varying
+    website character varying,
+    deletion_requested_at timestamp(6) without time zone,
+    scrubbed_at timestamp(6) without time zone,
+    deletion_reminder_sent_at timestamp(6) without time zone
 );
 
 
@@ -2346,7 +2349,10 @@ CREATE TABLE public.users (
     sessions_revoked_at timestamp(6) without time zone,
     system_role character varying,
     llm_daily_spend_cap_cents integer,
-    funding_pool_id uuid
+    funding_pool_id uuid,
+    deletion_requested_at timestamp(6) without time zone,
+    scrubbed_at timestamp(6) without time zone,
+    deletion_reminder_sent_at timestamp(6) without time zone
 );
 
 
@@ -5160,6 +5166,13 @@ CREATE UNIQUE INDEX index_stripe_customers_on_stripe_id ON public.stripe_custome
 
 
 --
+-- Name: index_tenant_users_on_pending_deletion; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_tenant_users_on_pending_deletion ON public.tenant_users USING btree (deletion_requested_at) WHERE ((deletion_requested_at IS NOT NULL) AND (scrubbed_at IS NULL));
+
+
+--
 -- Name: index_tenant_users_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5395,6 +5408,13 @@ CREATE INDEX index_users_on_funding_pool_id ON public.users USING btree (funding
 --
 
 CREATE INDEX index_users_on_parent_id ON public.users USING btree (parent_id);
+
+
+--
+-- Name: index_users_on_pending_deletion; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_users_on_pending_deletion ON public.users USING btree (deletion_requested_at) WHERE ((deletion_requested_at IS NOT NULL) AND (scrubbed_at IS NULL));
 
 
 --
@@ -10657,6 +10677,9 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260730150000'),
+('20260730120000'),
+('20260730051743'),
 ('20260727170000'),
 ('20260727120000'),
 ('20260724120000'),

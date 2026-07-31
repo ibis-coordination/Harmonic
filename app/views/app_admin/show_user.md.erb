@@ -15,6 +15,11 @@
 **Status:** SUSPENDED (since <%= time_ago_in_words(@showing_user.suspended_at) %> ago)
 **Reason:** <%= @showing_user.suspended_reason %>
 <% end -%>
+<% if @showing_user.scrubbed_at.present? -%>
+**Status:** DELETED (scrubbed <%= time_ago_in_words(@showing_user.scrubbed_at) %> ago)
+<% elsif @showing_user.pending_deletion? -%>
+**Status:** scheduled for deletion on <%= (@showing_user.deletion_requested_at + AccountDeletionService::GRACE_PERIOD).to_date.to_fs(:long) %><%= " — the user is suspended and cannot restore it themselves; use restore_account" if @showing_user.suspended? %>
+<% end -%>
 
 ## Subdomains (<%= @user_tenants.count %>)
 

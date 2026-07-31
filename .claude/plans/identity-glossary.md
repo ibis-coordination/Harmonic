@@ -1,10 +1,11 @@
 # Identity Glossary: cause · owner · acting identity
 
-**Status: proposal (round 2), 2026-07-24.** Converges the identity vocabulary that
-several plans invented independently for **the automation system**. Gates F5 of
-[automations-mental-model-and-foundation.md](automations-mental-model-and-foundation.md);
-intended as one of the first settled entries when `docs/CONTROLLED_VOCABULARY.md` exists
-(per [simplified-technical-english-controlled-vocabulary.md](simplified-technical-english-controlled-vocabulary.md)).
+**Status: settled 2026-07-29** (proposed 2026-07-24, round 2). Converges the identity
+vocabulary that several plans invented independently for **the automation system**.
+Unblocks F5 of
+[automations-mental-model-and-foundation.md](automations-mental-model-and-foundation.md).
+The three terms land as rows in `docs/CONTROLLED_VOCABULARY.md` with the first change
+that uses them.
 
 ## The three terms
 

@@ -167,6 +167,13 @@ class TenantUser < ApplicationRecord
     archived_at.present?
   end
 
+  # Per-subdomain deletion requested and the grace period still running. Once
+  # the slice is scrubbed, the request is complete — no longer "pending".
+  sig { returns(T::Boolean) }
+  def pending_deletion?
+    deletion_requested_at.present? && scrubbed_at.nil?
+  end
+
   sig { returns(String) }
   def path
     "/u/#{handle}"

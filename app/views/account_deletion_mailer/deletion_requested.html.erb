@@ -1,0 +1,35 @@
+<div class="container">
+  <div class="header">
+    <h1>Harmonic</h1>
+  </div>
+
+  <div class="content">
+    <% if @subdomain_only %>
+      <h2>Your account on <%= @subdomain %> is scheduled for deletion</h2>
+      <p>
+        You asked us to delete your account on <strong><%= @subdomain %></strong>.
+        It will be permanently deleted on <strong><%= @scrub_date.to_fs(:long) %></strong>.
+        Your accounts on other subdomains are not affected.
+      </p>
+    <% else %>
+      <h2>Your account is scheduled for deletion</h2>
+      <p>
+        You asked us to delete your account.
+        It will be permanently deleted on <strong><%= @scrub_date.to_fs(:long) %></strong>.
+      </p>
+    <% end %>
+
+    <p>
+      Until then, nothing is destroyed and you can change your mind:
+      log in and restore your account from the page below.
+      On the deletion date, your profile is anonymized and your access is permanently
+      removed. Content you shared stays, attributed to "Deleted User".
+    </p>
+
+    <a href="<%= @restore_url %>" class="button">Restore my account</a>
+  </div>
+
+  <div class="footer">
+    <p>You requested this account deletion. If you didn't, restore your account and change your password now.</p>
+  </div>
+</div>

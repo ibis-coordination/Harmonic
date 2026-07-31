@@ -280,6 +280,35 @@ class SecurityAuditLog
     )
   end
 
+  # Account deletion events (admin-initiated; self-serve deletion is
+  # attributable from the reverified session and the confirmation email)
+
+  sig { params(user: User, requested_by: User, ip: String).void }
+  def self.log_account_deletion_requested(user:, requested_by:, ip:)
+    log_event(
+      event: "account_deletion_requested",
+      severity: :warn,
+      user_id: user.id,
+      email: user.email,
+      requested_by_id: requested_by.id,
+      requested_by_email: requested_by.email,
+      ip: ip
+    )
+  end
+
+  sig { params(user: User, restored_by: User, ip: String).void }
+  def self.log_account_deletion_restored(user:, restored_by:, ip:)
+    log_event(
+      event: "account_deletion_restored",
+      severity: :info,
+      user_id: user.id,
+      email: user.email,
+      restored_by_id: restored_by.id,
+      restored_by_email: restored_by.email,
+      ip: ip
+    )
+  end
+
   sig { params(user: User, unsuspended_by: User, ip: String).void }
   def self.log_user_unsuspended(user:, unsuspended_by:, ip:)
     log_event(

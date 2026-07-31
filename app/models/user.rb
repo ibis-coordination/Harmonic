@@ -724,6 +724,13 @@ class User < ApplicationRecord
     suspended_at.present?
   end
 
+  # True while account deletion is requested and the grace period runs (or
+  # the scrub is still pending). See AccountDeletionService.
+  sig { returns(T::Boolean) }
+  def pending_deletion?
+    deletion_requested_at.present? && scrubbed_at.nil?
+  end
+
   sig { params(other_user: User).returns(T::Boolean) }
   def blocked?(other_user)
     T.unsafe(self).user_blocks_given.where(blocked: other_user).exists?

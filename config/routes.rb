@@ -360,6 +360,10 @@ Rails.application.routes.draw do
   post 'app-admin/users/:id/actions/suspend_user' => 'app_admin#execute_suspend_user'
   get 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#describe_unsuspend_user'
   post 'app-admin/users/:id/actions/unsuspend_user' => 'app_admin#execute_unsuspend_user'
+  get 'app-admin/users/:id/actions/request_account_deletion' => 'app_admin#describe_request_account_deletion'
+  post 'app-admin/users/:id/actions/request_account_deletion' => 'app_admin#execute_request_account_deletion'
+  get 'app-admin/users/:id/actions/restore_account' => 'app_admin#describe_restore_account'
+  post 'app-admin/users/:id/actions/restore_account' => 'app_admin#execute_restore_account'
   get 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#describe_toggle_billing_exempt'
   post 'app-admin/users/:id/actions/toggle_billing_exempt' => 'app_admin#execute_toggle_billing_exempt'
   get 'app-admin/collectives/:id/actions/toggle_billing_exempt' => 'app_admin#describe_toggle_collective_billing_exempt'
@@ -459,6 +463,13 @@ Rails.application.routes.draw do
   #
   # (Two-factor already lives here at /settings/two-factor; see the auth block.)
   get 'settings' => 'users#settings', as: 'settings'
+  # Deletion status/restore screen — the only pages a pending-deletion
+  # account's session can reach during the grace window — plus the
+  # reverification-gated request flow (confirm page + submit).
+  get 'account/deletion' => 'account_deletions#show', as: 'account_deletion'
+  get 'account/deletion/new' => 'account_deletions#new', as: 'new_account_deletion'
+  post 'account/deletion' => 'account_deletions#create'
+  post 'account/deletion/restore' => 'account_deletions#restore', as: 'account_deletion_restore'
   post 'settings/profile' => 'users#update_profile'
   post 'settings/workspace_trio' => 'users#update_workspace_trio'
   patch 'settings/email' => 'users#update_email'
