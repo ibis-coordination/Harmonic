@@ -185,7 +185,7 @@ class UsersController < ApplicationController
     @all_api_tokens = user_tokens.sort_by { |t| -t.created_at.to_i } +
                       agent_tokens.sort_by { |t| [t.user.display_name.downcase, -t.created_at.to_i] }
 
-    @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@settings_user).first
+    @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@settings_user).detect(&:webhook_registered?)
 
     # Live refresh tokens = trusted devices (one per family; rotated
     # predecessors are excluded, see RefreshToken.live). Sorted with the

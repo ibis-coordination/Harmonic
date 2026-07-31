@@ -113,6 +113,72 @@ class PersonaActivatorTest < ActiveSupport::TestCase
     end
   end
 
+  test "seeded default rules are system-managed" do
+    PersonaActivator.activate!(@collective)
+
+    @collective.reload.persona_users.each do |agent|
+      rules = AutomationRule.where(ai_agent_id: agent.id)
+      assert rules.any?, "precondition: rules should exist for #{agent.system_role}"
+      assert(rules.all? { |r| r.system_managed? },
+             "seeded defaults should be system-managed")
+    end
+  end
+
+  test "deactivate! leaves user-authored rules on a persona agent enabled" do
+    PersonaActivator.activate!(@collective)
+    agent = T.must(cadence_user)
+    user_rule = create_user_rule_on(agent)
+
+    PersonaActivator.deactivate!(@collective)
+
+    assert user_rule.reload.enabled?, "user-authored rule should survive persona deactivation"
+    system_rules = AutomationRule.where(ai_agent_id: agent.id, system_managed: true)
+    assert(system_rules.none?(&:enabled?), "system-managed rules should be disabled")
+  end
+
+  test "activate! after deactivate! does not re-enable a user-disabled user rule" do
+    PersonaActivator.activate!(@collective)
+    agent = T.must(cadence_user)
+    user_rule = create_user_rule_on(agent)
+    user_rule.update!(enabled: false)
+
+    PersonaActivator.deactivate!(@collective)
+    PersonaActivator.activate!(@collective)
+
+    assert_not user_rule.reload.enabled?, "restore should only touch system-managed rules"
+  end
+
+  test "seeding is not blocked by a user-authored rule with overlapping event types" do
+    PersonaActivator.activate!(@collective)
+    agent = T.must(cadence_user)
+    seeded_event_types = AutomationRule.where(ai_agent_id: agent.id, system_managed: true)
+      .flat_map(&:event_types)
+    create_user_rule_on(agent, event_types: seeded_event_types)
+
+    AutomationRule.where(ai_agent_id: agent.id, system_managed: true).each do |r|
+      r.allow_hard_destroy = true
+      r.destroy!
+    end
+
+    PersonaActivator.seed_default_automations!(agent, T.must(@tenant.id))
+
+    reseeded = AutomationRule.where(ai_agent_id: agent.id, system_managed: true)
+    assert reseeded.any?, "defaults should reseed despite the overlapping user rule"
+  end
+
+  def create_user_rule_on(agent, event_types: ["note.created"])
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: agent,
+      created_by: @owner,
+      name: "User rule #{SecureRandom.hex(2)}",
+      trigger_type: "event",
+      trigger_config: { "event_types" => event_types },
+      actions: { "task" => "User-authored task" },
+      enabled: true
+    )
+  end
+
   test "deactivate! is idempotent when the ensemble is already off" do
     assert_nothing_raised do
       PersonaActivator.deactivate!(@collective)

@@ -177,6 +177,7 @@ class NotificationServiceTest < ActiveSupport::TestCase
       name: "Agent notification webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered", "reminders.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.test/hook", "payload_template" => {} },
       webhook_secret: "whsec_#{SecureRandom.hex(32)}",
       enabled: true,

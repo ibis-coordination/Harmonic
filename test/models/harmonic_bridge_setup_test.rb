@@ -64,6 +64,7 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
       name: "existing-webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://existing.example/webhook" },
       enabled: true
     )
@@ -178,6 +179,17 @@ class HarmonicBridgeSetupTest < ActiveSupport::TestCase
     assert_equal false, rule.enabled?, "rule starts disabled until POST"
     assert_nil rule.actions["webhook_url"], "no URL until POST"
     assert_equal @agent.id, rule.ai_agent_id
+  end
+
+  test "redeem!: mints the rule as a notification_webhook rule from the start" do
+    s = build_setup
+    s.save!
+    s.redeem!
+
+    rule = s.reload.automation_rule
+    assert_equal "notification_webhook", rule.rule_type
+    assert rule.notification_webhook_rule?, "pending bridge rule is a webhook rule before it has a URL"
+    assert_not rule.system_managed?, "bridge rules are managed by their people, not the persona lifecycle"
   end
 
   test "redeem!: raises if already redeemed" do

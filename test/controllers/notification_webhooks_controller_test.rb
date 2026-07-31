@@ -34,6 +34,7 @@ class NotificationWebhooksControllerTest < ActionDispatch::IntegrationTest
         name: "existing",
         trigger_type: "event",
         trigger_config: { "event_types" => ["notifications.delivered", "reminders.delivered"] },
+        rule_type: "notification_webhook",
         actions: {
           "webhook_url" => "https://existing.example.com/hook",
           "payload_template" => {},
@@ -129,6 +130,14 @@ class NotificationWebhooksControllerTest < ActionDispatch::IntegrationTest
     assert rule.webhook_secret.present?, "signing secret should be set on webhook_secret column"
     assert_equal @user.id, rule.user_id
     assert_equal ["notifications.delivered", "reminders.delivered"], rule.trigger_config["event_types"]
+  end
+
+  test "creating a webhook rule types it as notification_webhook" do
+    patch "/u/#{@user_handle}/webhook", params: { webhook_url: "https://typed.example.com/hook" }
+
+    rule = AutomationRule.last
+    assert_equal "notification_webhook", rule.rule_type
+    assert_not rule.system_managed?
   end
 
   test "parent can set agent webhook URL (creates rule)" do

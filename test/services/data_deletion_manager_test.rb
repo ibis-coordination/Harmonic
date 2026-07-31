@@ -290,6 +290,7 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
       name: "User notification webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" },
       enabled: true,
     )
@@ -613,6 +614,7 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
       tenant: @tenant, user: @user, created_by: @user,
       name: "Webhook A", trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" }, enabled: true,
     )
     export_a = DataExport.create!(

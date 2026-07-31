@@ -396,6 +396,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "External rule",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created", "mention_filter" => "self" },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" }
     )
 
@@ -460,6 +461,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "Agent webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" }
     )
     assert rule.notification_webhook_rule?
@@ -473,12 +475,13 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "User webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" }
     )
     assert rule.notification_webhook_rule?
   end
 
-  test "notification_webhook_rule? is false for collective-only rule even with webhook_url shape" do
+  test "notification_webhook_rule? is false without the declared rule type, even with webhook_url shape" do
     rule = AutomationRule.new(
       tenant: @tenant,
       collective: @collective,
@@ -506,7 +509,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
 
   # === Shape-mixing validation ===
 
-  test "collective-only rule cannot use notification-webhook shape" do
+  test "collective rule cannot be a notification webhook" do
     rule = AutomationRule.new(
       tenant: @tenant,
       collective: @collective,
@@ -514,10 +517,180 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "Collective with webhook shape",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" }
     )
     assert_not rule.valid?
-    assert_includes rule.errors[:actions], "collective-only rules cannot use notification-webhook shape"
+    assert_includes rule.errors[:rule_type], "notification_webhook rules cannot be collective-scoped"
+  end
+
+  # === Rule type + managed-by ===
+
+  test "rule_type defaults to automation and rules are user-managed by default" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Default typed",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "Respond" }
+    )
+    assert_equal "automation", rule.rule_type
+    assert_not rule.system_managed?
+  end
+
+  test "rule_type rejects unknown values" do
+    rule = AutomationRule.new(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: "Bad values",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "Respond" },
+      rule_type: "forwarder"
+    )
+    assert_not rule.valid?
+    assert_includes rule.errors[:rule_type], "is not included in the list"
+  end
+
+  test "a notification webhook rule requires a user or agent recipient" do
+    no_owner = AutomationRule.new(
+      tenant: @tenant,
+      created_by: @user,
+      name: "Orphan webhook",
+      rule_type: "notification_webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+    assert_not no_owner.valid?
+    assert_includes no_owner.errors[:rule_type].join(" "), "requires a user or agent recipient"
+  end
+
+  test "webhook_url-shaped actions require the notification_webhook rule type" do
+    rule = AutomationRule.new(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "Undeclared forwarder",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+    assert_not rule.valid?
+    assert_includes rule.errors[:actions].join(" "), "notification_webhook"
+  end
+
+  test "notification_webhook_rule? keys on rule_type, including URL-less pending rules" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    pending = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Pending bridge rule",
+      rule_type: "notification_webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "payload_template" => {} },
+      enabled: false
+    )
+    assert pending.notification_webhook_rule?
+    assert_not pending.webhook_registered?
+    assert_nil pending.webhook_url
+  end
+
+  test "webhook_url and webhook_registered? read the forwarder URL from actions" do
+    rule = AutomationRule.create!(
+      tenant: @tenant,
+      user: @user,
+      created_by: @user,
+      name: "Registered forwarder",
+      rule_type: "notification_webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+    assert_equal "https://example.com/hook", rule.webhook_url
+    assert rule.webhook_registered?
+
+    automation = AutomationRule.new(actions: [{ "type" => "webhook", "url" => "https://example.com" }])
+    assert_nil automation.webhook_url
+  end
+
+  test "excluding_notification_webhooks excludes pending (URL-less) webhook rules too" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    pending = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Pending bridge rule",
+      rule_type: "notification_webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "payload_template" => {} },
+      enabled: false
+    )
+    automation = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Real automation",
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "Respond" }
+    )
+
+    listed = AutomationRule.where(ai_agent_id: external_agent.id).excluding_notification_webhooks
+    assert_includes listed, automation
+    assert_not_includes listed, pending
+  end
+
+  test "notification_webhook_for finds the owner's rule by type, pending included" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    pending = AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Pending bridge rule",
+      rule_type: "notification_webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "payload_template" => {} },
+      enabled: false
+    )
+
+    found = AutomationRule.notification_webhook_for(external_agent)
+    assert_includes found, pending
+    assert_nil found.detect(&:webhook_registered?), "pending rule is not a registered webhook"
+  end
+
+  test "one webhook per recipient counts pending rules" do
+    external_agent = create_ai_agent(parent: @user, agent_configuration: { "mode" => "external" })
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Pending bridge rule",
+      rule_type: "notification_webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "payload_template" => {} },
+      enabled: false
+    )
+    second = AutomationRule.new(
+      tenant: @tenant,
+      ai_agent: external_agent,
+      created_by: @user,
+      name: "Manual webhook",
+      rule_type: "notification_webhook",
+      trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "webhook_url" => "https://example.com/hook" }
+    )
+    assert_not second.valid?
+    assert_includes second.errors[:base].join(" "), "already has a notification webhook"
   end
 
   # === Single-notification-webhook-per-user validation ===
@@ -531,6 +704,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "First webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/first" }
     )
     second = AutomationRule.new(
@@ -540,6 +714,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "Second webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/second" }
     )
     assert_not second.valid?
@@ -554,6 +729,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "First user webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/first" }
     )
     second = AutomationRule.new(
@@ -563,6 +739,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "Second user webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/second" }
     )
     assert_not second.valid?
@@ -578,6 +755,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "First",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/first" }
     )
     second = AutomationRule.new(
@@ -587,6 +765,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "Second",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/second" }
     )
 
@@ -605,6 +784,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "Webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/first" }
     )
     rule.actions = rule.actions.merge("webhook_url" => "https://example.com/updated")
@@ -634,6 +814,7 @@ class AutomationRuleTest < ActiveSupport::TestCase
       name: "Webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => url },
     }.merge(owner_attrs))
   end

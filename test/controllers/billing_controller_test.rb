@@ -85,6 +85,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
       name: "Forward notifications",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" },
       enabled: true,
     )

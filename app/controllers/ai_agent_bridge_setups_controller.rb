@@ -51,7 +51,7 @@ class AiAgentBridgeSetupsController < ApplicationController
     # existing webhook first" state instead of letting the user submit and
     # bounce off HarmonicBridgeSetup's no_existing_notification_webhook_for_agent
     # validation. The model validation is still the real guard.
-    @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@ai_agent).first
+    @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@ai_agent).detect(&:webhook_registered?)
     @llm_gateway_available = llm_gateway_available?
   end
 

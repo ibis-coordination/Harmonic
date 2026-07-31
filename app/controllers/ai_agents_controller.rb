@@ -124,7 +124,7 @@ class AiAgentsController < ApplicationController
   # GET /ai-agents/:handle/settings - Show settings for a specific AI agent
   def settings
     @page_title = "Settings - #{@ai_agent.display_name}"
-    @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@ai_agent).first if @ai_agent.external_ai_agent?
+    @notification_webhook = AutomationRule.tenant_scoped_only.notification_webhook_for(@ai_agent).detect(&:webhook_registered?) if @ai_agent.external_ai_agent?
 
     # Proration preview no longer needed here — reactivation is managed on /billing
 

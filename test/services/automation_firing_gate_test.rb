@@ -93,6 +93,7 @@ class AutomationFiringGateTest < ActiveSupport::TestCase
       user: @user,
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" },
     )
     event = Event.create!(
