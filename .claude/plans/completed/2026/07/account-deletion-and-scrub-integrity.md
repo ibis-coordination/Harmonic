@@ -1,6 +1,6 @@
 # Account Deletion and Scrub Integrity
 
-**Status:** Planned 2026-07-28, not started.
+**Status:** Complete. Shipped in PR #547 (all three parts), released as 1.64.0 on 2026-07-30; terminology glossary/lint landed via #544. Manual E2E checklist verified 2026-07-31 (`test/manual/account_deletion/deletion_scrub.manual_test.md`).
 
 Completes the account lifecycle. Users can be created, suspended, and archived
 per-tenant, but there is no way to delete an account: no user-facing flow, no admin
@@ -12,10 +12,10 @@ would be deleted or scrubbed on their account closure" (since reworded). The pro
 functionality its own surfaces already describe.
 
 Picks up Phase 3 of
-[data-lifecycle-management.md](completed/2026/05/data-lifecycle-management.md)
+[data-lifecycle-management.md](../05/data-lifecycle-management.md)
 (account closure — as it was then called — was planned there and never built) plus the scrub gaps found in the
 2026-07-28 audit. General table retention stays in
-[resource-limits-hardening.md](resource-limits-hardening.md) Phase 4 — not duplicated
+[resource-limits-hardening.md](../../../resource-limits-hardening.md) Phase 4 — not duplicated
 here.
 
 ## The deletion model
@@ -203,7 +203,7 @@ a failing test against `delete_user!` (or its successor service) first.
 ## Out of scope
 
 - General retention windows for append-only tables
-  ([resource-limits-hardening.md](resource-limits-hardening.md) Phase 4 owns these).
+  ([resource-limits-hardening.md](../../../resource-limits-hardening.md) Phase 4 owns these).
 - Full hard deletion (`force_delete`) — a later decision; the deletion model above
   does not promise it.
 - Tenant/subdomain deletion (exists separately via the Admin App API).
