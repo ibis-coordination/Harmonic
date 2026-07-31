@@ -121,6 +121,19 @@ class AccountDeletionFlowTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, 'value="subdomain"'
     assert_includes response.body, 'value="everywhere"'
+    assert_no_match(/name="scope"[^>]*checked/, response.body,
+                    "neither scope may be pre-selected — the user must choose explicitly")
+  end
+
+  test "a deletion request without an explicit scope is refused for a multi-subdomain account" do
+    tenant_b = create_tenant
+    tenant_b.add_user!(@user)
+    sign_in_with_reverification(@user, tenant: @tenant, path: "/account/deletion/new")
+
+    post "/account/deletion"
+    assert_redirected_to "/account/deletion/new"
+    assert_not @user.reload.pending_deletion?
+    assert_nil TenantUser.tenant_scoped_only(@tenant.id).find_by(user_id: @user.id).deletion_requested_at
   end
 
   test "submitting a global deletion request schedules deletion and signs the user out" do

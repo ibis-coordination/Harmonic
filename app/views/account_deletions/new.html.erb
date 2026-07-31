@@ -50,12 +50,12 @@
           You have accounts on <%= @active_subdomain_count %> subdomains. Choose what to delete:
         </legend>
         <label style="display: block; margin-bottom: 8px;">
-          <input type="radio" name="scope" value="subdomain" checked>
+          <input type="radio" name="scope" value="subdomain" required>
           Delete my account on <strong><%= @current_subdomain %></strong> only —
           my login and my accounts on other subdomains keep working.
         </label>
         <label style="display: block;">
-          <input type="radio" name="scope" value="everywhere">
+          <input type="radio" name="scope" value="everywhere" required>
           Delete my account everywhere — all subdomains, my login, and (on the deletion date) my prepaid balance.
         </label>
       </fieldset>
@@ -64,8 +64,15 @@
     <% end %>
 
     <div class="pulse-form-actions" style="margin-top: 16px;">
+      <%# With a scope choice on the page, "you will be signed out" is only
+          true for one of the options — keep the confirm text scope-neutral. %>
+      <% confirm_text = if @active_subdomain_count > 1
+           "Request account deletion for the selected scope? You can restore it until #{@scrub_date.to_fs(:long)}."
+         else
+           "Request account deletion? You will be signed out. You can restore your account until #{@scrub_date.to_fs(:long)}."
+         end %>
       <button type="submit" class="pulse-action-btn pulse-action-btn-danger"
-              data-turbo-confirm="Request account deletion? You will be signed out. You can restore your account until <%= @scrub_date.to_fs(:long) %>.">
+              data-turbo-confirm="<%= confirm_text %>">
         Delete my account
       </button>
       <a href="/settings" class="pulse-action-btn-subtle">Cancel</a>

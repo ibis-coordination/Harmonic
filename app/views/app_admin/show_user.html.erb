@@ -33,7 +33,7 @@
   <% end %>
 </p>
 
-<% if @showing_user.pending_deletion? && @showing_user.scrubbed_at.nil? %>
+<% if @showing_user.pending_deletion? %>
   <% deletion_date = (@showing_user.deletion_requested_at + AccountDeletionService::GRACE_PERIOD).to_date %>
   <div class="pulse-form-hint" style="margin: 12px 0; padding: 12px; border: 1px solid var(--color-danger-emphasis, #cf222e); border-radius: 6px;">
     This account is scheduled for deletion on <strong><%= deletion_date.to_fs(:long) %></strong>.

@@ -61,11 +61,17 @@ class AccountDeletionService
     now = Time.current
     ActiveRecord::Base.transaction do
       user.update!(deletion_requested_at: now, deletion_reminder_sent_at: nil)
+      # An earlier per-subdomain request keeps its timestamp: it marks when
+      # that tenant's rules were disabled, and restore! re-enables from that
+      # boundary. Scrub and reminder timing for a globally-pending user key
+      # off the user row alone, so the older tenant timestamp is inert there.
       TenantUser.for_user_across_tenants(user)
-        .update_all(deletion_requested_at: now, deletion_reminder_sent_at: nil)
+        .update_all(["deletion_requested_at = COALESCE(deletion_requested_at, ?), " \
+                     "deletion_reminder_sent_at = NULL", now,])
       disable_rules!(user, at: now)
       User.where(parent_id: user.id).find_each do |ai_agent| # User has no tenant scope
-        TenantUser.for_user_across_tenants(ai_agent).update_all(deletion_requested_at: now)
+        TenantUser.for_user_across_tenants(ai_agent)
+          .update_all(["deletion_requested_at = COALESCE(deletion_requested_at, ?)", now])
         disable_rules!(ai_agent, at: now)
       end
       # Sessions, refresh tokens, push subscriptions, and API tokens die now.
@@ -87,12 +93,23 @@ class AccountDeletionService
 
     request_time = T.must(user.deletion_requested_at)
     ActiveRecord::Base.transaction do
-      # Only the deletion machinery touches this user's rules during the grace
-      # period (the user cannot log in), so rows disabled at or after the
-      # request time are exactly the rows request_deletion! disabled.
-      reenable_rules!(user, since: request_time)
-      User.where(parent_id: user.id).find_each do |ai_agent|
-        reenable_rules!(ai_agent, since: request_time)
+      # Rules were disabled per tenant, at either the global request time or
+      # at an earlier per-subdomain request the global one superseded (whose
+      # timestamp request_deletion! preserved on that TenantUser row). Each
+      # earlier tenant re-enables from its own boundary; everything else from
+      # the global request time. Rules the user disabled themselves before the
+      # relevant boundary stay disabled.
+      earlier_boundaries = TenantUser.for_user_across_tenants(user)
+        .where(deletion_requested_at: ...request_time)
+        .pluck(:tenant_id, :deletion_requested_at)
+      agents = User.where(parent_id: user.id).to_a # User has no tenant scope
+      ([user] + agents).each do |owner|
+        earlier_boundaries.each do |tenant_id, boundary|
+          reenable_rules!(owner, since: boundary, tenant_id: tenant_id)
+        end
+        reenable_rules!(owner, since: request_time)
+      end
+      agents.each do |ai_agent|
         TenantUser.for_user_across_tenants(ai_agent).update_all(deletion_requested_at: nil)
       end
       TenantUser.for_user_across_tenants(user).update_all(deletion_requested_at: nil)

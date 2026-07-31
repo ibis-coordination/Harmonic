@@ -47,10 +47,11 @@ class AccountDeletionsController < ApplicationController
 
   def create
     user = T.must(current_user)
-    if params[:scope] == "subdomain"
+    case params[:scope]
+    when "subdomain"
       AccountDeletionService.request_tenant_deletion!(user: user, tenant: T.must(current_tenant))
       redirect_to account_deletion_path
-    else
+    when "everywhere"
       scrub_date = (Time.current + AccountDeletionService::GRACE_PERIOD).to_date
       AccountDeletionService.request_deletion!(user: user, tenant: current_tenant)
       # The request revoked all sessions; end this one cleanly rather than
@@ -59,6 +60,10 @@ class AccountDeletionsController < ApplicationController
       flash[:notice] = "Your account is scheduled for deletion on #{scrub_date.to_fs(:long)}. " \
                        "Log in before then if you want to restore it."
       redirect_to "/login"
+    else
+      # Never guess the scope: an absent value must not fall through to the
+      # more destructive global deletion.
+      redirect_to new_account_deletion_path, alert: "Choose what to delete."
     end
   rescue RuntimeError => e
     flash[:alert] = e.message

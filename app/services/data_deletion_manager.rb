@@ -173,9 +173,12 @@ class DataDeletionManager
         if collective && collective.archived_at.nil?
           active_admins = CollectiveMember.tenant_scoped_only(collective_member.tenant_id)
             .where(collective_id: collective.id, archived_at: nil)
-          if T.unsafe(active_admins).where_has_role("admin").count == 1
-            # The precheck above guarantees no other active members remain —
-            # archive the empty collective and stop its automations.
+          # The sole-admin precheck ran before this transaction; a member who
+          # joined since would otherwise be stranded in an archived collective.
+          # Only archive when the collective is genuinely empty but for the
+          # user being scrubbed.
+          if T.unsafe(active_admins).where_has_role("admin").count == 1 &&
+             !active_admins.where.not(user_id: user.id).exists?
             collective.update!(archived_at: now, archived_by_id: user.id)
             AutomationRule.tenant_scoped_only(collective.tenant_id)
               .where(collective_id: collective.id, enabled: true)

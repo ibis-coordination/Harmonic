@@ -728,7 +728,7 @@ class User < ApplicationRecord
   # the scrub is still pending). See AccountDeletionService.
   sig { returns(T::Boolean) }
   def pending_deletion?
-    deletion_requested_at.present?
+    deletion_requested_at.present? && scrubbed_at.nil?
   end
 
   sig { params(other_user: User).returns(T::Boolean) }

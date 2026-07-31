@@ -417,6 +417,25 @@ class DataDeletionManagerTest < ActiveSupport::TestCase
     assert_not rule.reload.enabled, "the archived collective's automations must be disabled"
   end
 
+  test "delete_user! does not archive a collective a member joined after the sole-admin precheck" do
+    T.must(@collective.collective_members.find_by(user_id: @user.id)).add_role!("admin")
+    joiner = create_user(email: "joiner-#{SecureRandom.hex(4)}@example.com", name: "Grace Joiner")
+    @tenant.add_user!(joiner)
+    @collective.add_user!(joiner)
+
+    # A member joining between the precheck and the scrub transaction means the
+    # precheck saw a solo collective that is no longer solo. Stubbing the
+    # precheck reproduces that stale read.
+    AccountDeletionService.stub(:sole_admin_blocking_handles, []) do
+      @ddm.delete_user!(user: @user, confirmation_token: @ddm.confirmation_token)
+    end
+
+    assert_nil @collective.reload.archived_at,
+               "a collective that still has an active member must not be archived"
+    joiner_membership = T.must(@collective.collective_members.find_by(user_id: joiner.id))
+    assert_nil joiner_membership.archived_at, "the joiner's membership must survive"
+  end
+
   test "delete_user! blocks when the only other admin already left the collective" do
     T.must(@collective.collective_members.find_by(user_id: @user.id)).add_role!("admin")
     former_admin = create_user(email: "former-#{SecureRandom.hex(4)}@example.com", name: "Former Admin")

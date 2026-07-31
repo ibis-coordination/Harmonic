@@ -188,7 +188,7 @@ class AccountDeletionServiceTest < ActiveSupport::TestCase
     @user.update!(scrubbed_at: Time.current)
 
     assert_raises(RuntimeError) { AccountDeletionService.restore!(user: @user) }
-    assert @user.reload.pending_deletion?, "a scrubbed account's deletion state must not be cleared"
+    assert @user.reload.deletion_requested_at.present?, "a scrubbed account's deletion state must not be cleared"
   end
 
   # === scrub_due ===
@@ -316,13 +316,38 @@ class AccountDeletionServiceTest < ActiveSupport::TestCase
 
     travel_to(2.days.from_now) do
       AccountDeletionService.request_deletion!(user: @user)
-      assert_operator T.must(tenant_user_for(@user, @tenant).deletion_requested_at), :>, earlier,
-                      "global request restarts the per-subdomain clock"
+      assert_equal earlier, tenant_user_for(@user, @tenant).deletion_requested_at,
+                   "the earlier per-subdomain timestamp survives as that tenant's rules-disable boundary"
+      assert tenant_user_for(@user, tenant_b).deletion_requested_at.present?
 
       AccountDeletionService.restore!(user: @user)
       assert_nil tenant_user_for(@user, @tenant).deletion_requested_at
       assert_nil tenant_user_for(@user, tenant_b).deletion_requested_at
     end
+  end
+
+  test "restore! after a superseding global request re-enables rules the per-subdomain request disabled" do
+    agent = create_ai_agent(parent: @user)
+    @tenant.add_user!(agent)
+    add_second_tenant!(@user)
+    rule = forwarder_rule_for(@user)
+    agent_rule = AutomationRule.create!(
+      tenant: @tenant, ai_agent: agent, created_by: @user,
+      name: "Agent rule", trigger_type: "event",
+      trigger_config: { "event_types" => ["notifications.delivered"] },
+      actions: { "task" => "Do the thing" }, enabled: true,
+    )
+
+    AccountDeletionService.request_tenant_deletion!(user: @user, tenant: @tenant)
+    travel_to(2.days.from_now) do
+      AccountDeletionService.request_deletion!(user: @user)
+      AccountDeletionService.restore!(user: @user)
+    end
+
+    assert rule.reload.enabled,
+           "rules disabled by the superseded per-subdomain request must be re-enabled by the global restore"
+    assert agent_rule.reload.enabled,
+           "agent rules disabled by the superseded per-subdomain request must be re-enabled too"
   end
 
   test "restore_tenant! clears only that subdomain and re-enables what the request disabled" do
