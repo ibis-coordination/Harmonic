@@ -62,6 +62,8 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
     "test_webhook",
     "suspend_user",
     "unsuspend_user",
+    "request_account_deletion",
+    "restore_account",
     "toggle_billing_exempt",
     "update_tenant_settings",
     "create_tenant",

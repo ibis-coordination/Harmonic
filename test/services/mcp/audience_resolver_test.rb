@@ -129,6 +129,8 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "report_content" => :shared,
     "suspend_user" => :shared,
     "unsuspend_user" => :shared,
+    "request_account_deletion" => :shared,
+    "restore_account" => :shared,
     "toggle_billing_exempt" => :shared,
     "create_trustee_authorization" => :shared,
     "accept_trustee_authorization" => :shared,
