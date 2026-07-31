@@ -1,5 +1,7 @@
 # LLM gateway token in the bridge handshake
 
+**Status:** Complete. Shipped in PR #542, released 1.63.0 (2026-07-27); harmonic-bridge 0.5.0 tagged and published to npm. Stickman goose-sprite e2e verified 2026-07-30 (gateway-billed wake, ledger row confirmed).
+
 ## Goal
 
 `harmonic-bridge add` exchanges a setup URL for an MCP token and a webhook
@@ -114,6 +116,6 @@ deferred.
 
 Harmonic-as-provider requires a `stripe_billing` tenant with the `llm_gateway`
 flag and a funded payer; self-hosted Harmonic has no gateway —
-[llm-gateway-without-billing.md](llm-gateway-without-billing.md) would remove
+[llm-gateway-without-billing.md](../../../llm-gateway-without-billing.md) would remove
 that. Bring-your-own-key keeps working in every harness, permanently; this is
 an enhancement to setup, never the only path.
