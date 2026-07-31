@@ -86,9 +86,30 @@ A single registry (likely in/next to `EventService`) declaring every event type 
 *Pays for:* makes the leak class structural rather than vigilance-based; gives new event types a forcing function.
 
 ### F2. Dispatch consolidation — one checkpoint, not just one query
+
+**Status: core shipped on branch `automation-model-round-2-fixes` (2026-07-31) as `AutomationFiringGate`** — all four paths fire through it; liveness + tier + chain + both rate limits have one home; every fired run records chain metadata and passes it to its execution job, so cascades are depth-limited from any origin (schedule/webhook/manual firings start a fresh chain). Behavior changes shipped with it: manual runs now respect tier and rate limits; webhooks return 429 at the rate limit. **Remaining, split out as F2b below: cascade-awareness across agentic steps.**
 Per P5's full sentence: one place answers "is this rule live *and allowed to fire right now*," and all four trigger paths — event, schedule, inbound webhook, manual — consult it. That's the liveness query (enabled, not deleted, correct trigger type) **and** the limits (chain depth, rate limits, tier gate), which today run only on the event path. Per-audience matchers as separate, individually testable units (the strategy split discussed after the leak fix). The scheduler job and inbound-webhook lookup route through the same core instead of hand-rolling. F2 also owns **cascade-awareness** (chain identity propagated through agentic steps' side effects — the trio-incident gap), or it becomes another scattered guard.
 *Acceptance:* the manual-path `enabled` gap can't recur (the targeted fix's tests move onto the checkpoint); scheduler/webhook/manual paths hit the same chain/rate/tier checks as events; the tier gate has one home instead of three.
 *Pays for:* the next liveness- or limits-semantics change is a one-site change. Four-site patching (soft delete) never recurs.
+
+### F2b. Cascade-awareness across agentic steps (design round needed)
+The chain travels thread → job args → thread, so it dies at the agentic-step
+boundary: an agent task run does its work through separate API/MCP requests,
+and content the agent creates emits events with a fresh chain — mutual-trigger
+loops between agents never hit the depth limit (the trio incident's structural
+cause). The fix shape: persist the chain onto the task run at creation (the
+executor has it), then restore it when the agent's requests execute actions —
+which requires the server to attribute an agent's request to its active task
+run. How that attribution works (per-run context, token linkage, something
+else) needs investigation before design; do not guess it. Scope stays F2's:
+the gate is ready, the chain just has to reach it.
+
+### F1b. Explicit recipient on delivery events (P1b, remaining from F1)
+Delivery events overload `event.actor_id` as the recipient. Give events an
+explicit recipient (column or metadata — decide at implementation), set by
+`NotificationService` / `ReminderDeliveryJob`, read by the gate's matcher and
+the template renderer, with `actor_id` fallback for pre-change rows. Self-
+contained; unblocks nothing else, so schedule freely.
 
 ### F3. Explicit rule types — two dimensions
 `rule_type` column on `automation_rules` (bare `type` is Rails-STI-reserved; the prefixed form matches `event_type`, `trigger_type`, `notification_type`): `automation` vs `notification_forwarder` (name TBD), **plus a managed-by dimension** (`user | system`) — round-2 verification showed persona rules have no marker at all: deactivation `update_all`s every rule on the agent (clobbering user-authored ones) and reseeding is blocked by user edits. All shape-sniffing (`actions->>'webhook_url'` — 9 live sites, `excluding_notification_webhooks`, the partial-index predicate, the bridge-setup `PENDING_RULE_NAME` convention) replaced by the columns; `PENDING_RULE_NAME` is really a *lifecycle state* stored in a name and gets an honest representation, not just a rule type. Uniqueness index keys on rule type. Decide *after this lands* whether forwarders migrate to their own table — the column makes that a data migration, not a semantics hunt.
