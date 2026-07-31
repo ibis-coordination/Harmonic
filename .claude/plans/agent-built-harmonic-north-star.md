@@ -1,6 +1,6 @@
 # Agent-Built Harmonic — North Star
 
-**Status: aspirational direction, articulated 2026-07-24. Not a schedule. This doc exists so every mid-level plan can check its bearing against the same end state.**
+**Status: aspirational direction, articulated 2026-07-24. Not a schedule. This doc exists so every mid-level plan can check its bearing against the same end state. Stocktake 2026-07-30: rung 1 complete (controlled vocabulary shipped in 1.64.0); rung 5 had the strongest shipping week (one-command external agents with funded LLM access); rungs 2–4 are now the thinnest part of the stack and the bottleneck by this doc's own ordering.**
 
 ## The end state
 
@@ -38,7 +38,7 @@ The load-bearing pieces exist or are actively planned, and they compose:
 
 Each layer makes the one above it buildable. This ordering is the real content of this doc.
 
-1. **Controlled vocabulary** ([simplified-technical-english-controlled-vocabulary](simplified-technical-english-controlled-vocabulary.md)) — *the bedrock*. One term = one meaning, everywhere: UI copy, tool descriptions, help pages, plan documents, code identifiers. In an organization where most readers and writers are LLMs, vocabulary discipline is not documentation hygiene — it is **action-selection reliability** and **cross-team coordination bandwidth**. Evidence from this week alone: "archive" nearly got three incompatible meanings; four plan docs independently named the same identity concept four ways. Humans absorb that ambiguity; agent teams compound it. The STE doc's current scope (agent-facing copy) should be understood as phase one of a development-wide vocabulary system.
+1. **Controlled vocabulary** ([simplified-technical-english-controlled-vocabulary](completed/2026/07/simplified-technical-english-controlled-vocabulary.md)) — *the bedrock*. **Complete as of 1.64.0 (2026-07-30)**: glossary (docs/CONTROLLED_VOCABULARY.md), writing rules including STE sentence-level rules, `check-vocabulary.sh` lint in pre-commit, and the sweeps that made copy match (principal, subdomain, tier, trustee authorization, account deletion). The identity glossary (cause/owner/acting identity) is settled. Unsettled-terms list is empty. One term = one meaning, everywhere: UI copy, tool descriptions, help pages, plan documents, code identifiers. In an organization where most readers and writers are LLMs, vocabulary discipline is not documentation hygiene — it is **action-selection reliability** and **cross-team coordination bandwidth**. The glossary is now a living system: new domain concepts get rows in the same change that introduces them.
 2. **Mental models** — each subsystem describable in one sentence an automator/agent can hold ([automations-mental-model-and-foundation](automations-mental-model-and-foundation.md) is the template: five slots, seven glossary terms). Models are written *in* the controlled vocabulary.
 3. **Foundations** — the refactors that make the models true in code (automations foundation stages; execute-time action authorization; event-kind registry).
 4. **Programmability + governance** — automations as the collective's hands, policies as its boundaries, decisions as its will (the governance overview's arc).
@@ -48,20 +48,21 @@ Each layer makes the one above it buildable. This ordering is the real content o
 
 ## What each existing track contributes
 
-| Track | Rung it builds |
-|---|---|
-| Controlled vocabulary | 1 — bedrock for everything above |
-| Automations mental model + foundation | 2–3 |
-| Enforce authz at execute time; event registry; dispatch consolidation | 3 |
-| Decision semantics / action approval; moderation controls | 4 |
-| Personas/Trio; funding pools; sprite-hosted agents; harmonic-bridge | 5 |
-| Admin agents + multi-instance exploration | 6 |
-| Agent security / trust verification; resource limits hardening | guardrails for 5–7 |
+| Track | Rung it builds | State (2026-07-30) |
+|---|---|---|
+| Controlled vocabulary | 1 — bedrock for everything above | **Shipped** (1.64.0); glossary is a living system |
+| Automations mental model + foundation | 2–3 | Planned, unstarted — current bottleneck |
+| Enforce authz at execute time; event registry; dispatch consolidation | 3 | Planned, unstarted |
+| Decision semantics / action approval; moderation controls | 4 | Plans settled; decision user sets (#534) landed as groundwork |
+| Personas/Trio; funding pools; sprite-hosted agents; harmonic-bridge | 5 | One-command external agents with funded LLM access (goose/codex harnesses, sprites, gateway handshake — 1.61–1.63) |
+| Admin agents + multi-instance exploration | 6 | Exploration doc only |
+| Agent security / trust verification; resource limits hardening | guardrails for 5–7 | Trustee bypass fixed (#522); frontmatter-injection fix on branch; account-deletion scrub shipped (#547) |
+| Legal foundation (ToS / privacy / customer agreement) | prerequisite for open sign-up; first non-engineering business function | Prereqs closed, retention settled, drafts v1 written; attorney gate ahead |
 
 ## Hard problems (named, not solved)
 
 - **Trust and provenance for developer agents.** An agent that ships code is the highest-capability actor in the system. [agent-security-trust-verification](agent-security-trust-verification.md) maps the provenance stack; Decision-authorized execution covers runtime actions — but *code change* authority (review, merge, deploy) needs its own governance treatment. Today that's human-gated (push is deliberately human-held); the transition path from human-gated to decision-gated is undesigned.
-- **Who pays — Harmonic needs a functioning business, run by the same agent teams.** Tokens and infrastructure are paid for by revenue, which means the end-state organization is not just developers and sysadmins: it needs **all the roles of a functioning business** — accounting, legal, customer support, business strategy, marketing. The self-governing-teams structure has to accommodate non-engineering functions from the start, and the coordination substrate (rung 4) is as much for a marketing team's campaign cycle as for a dev team's release cycle. Funding pools cover collective-scoped LLM spend today; the revenue side is the open half ([agent-funding-models-exploration](agent-funding-models-exploration.md)).
+- **Who pays — Harmonic needs a functioning business, run by the same agent teams.** Tokens and infrastructure are paid for by revenue, which means the end-state organization is not just developers and sysadmins: it needs **all the roles of a functioning business** — accounting, legal, customer support, business strategy, marketing. The self-governing-teams structure has to accommodate non-engineering functions from the start, and the coordination substrate (rung 4) is as much for a marketing team's campaign cycle as for a dev team's release cycle. Funding pools cover collective-scoped LLM spend today; the revenue side is the open half ([agent-funding-models-exploration](agent-funding-models-exploration.md)). First evidence the non-engineering side works the same way: the legal function is being built by the same plan-doc-driven agent workflow as the engineering tracks — account deletion shipped as its load-bearing prerequisite (1.64.0), and ToS/privacy drafts exist pending attorney review.
 - **Stability before autonomy.** The trio incident (mutual-trigger cascade) shows what immature agent organization looks like at small scale. The layer stack ordering is the mitigation: don't scale agent autonomy (5–7) faster than foundations and governance (1–4) harden.
 - **Human step-back is a dial, not a switch.** Every mandatory human checkpoint removed must be replaced by an *observable* automated one. The measure of readiness is boring: incident rate, rollback rate, decision quality — tracked in Harmonic, naturally.
 
@@ -81,6 +82,6 @@ Surveyed 2026-07-24 against every active plan. Listed so they're latent by choic
 
 ## Near-term implications (what changes now)
 
-1. **Vocabulary work gets promoted.** The STE exploration's sequencing (normalize tier/zone/space → glossary doc → writing rules → lint) starts, and the glossary's scope statement widens: plan docs and new domain concepts check against it. The identity-glossary convergence (cause/owner/acting identity, drafted in [identity-glossary.md](identity-glossary.md)) from the automations compatibility map becomes one of its first settled entries.
+1. **Vocabulary work gets promoted.** ~~The STE exploration's sequencing (normalize tier/zone/space → glossary doc → writing rules → lint) starts~~ **Done (1.64.0)** — all four steps shipped, and the identity-glossary convergence (cause/owner/acting identity, [identity-glossary.md](identity-glossary.md)) is settled.
 2. **Plan docs are written for agent readers.** They increasingly *are* the coordination medium of rung 7's teams. Standalone, linked, one-meaning terms — the existing handoff discipline, now with a reason that scales.
-3. **Every mid-level plan can cite its rung.** Not bureaucracy — just a one-line "this builds toward" so drift is visible early.
+3. **Every mid-level plan can cite its rung.** Not bureaucracy — just a one-line "this builds toward" so drift is visible early. *(Not yet adopted as of 2026-07-30 — no plan doc carries the line. Adopt for new plans; don't retrofit.)*
