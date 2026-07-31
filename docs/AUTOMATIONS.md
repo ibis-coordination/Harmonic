@@ -313,7 +313,6 @@ actions:
     url: "https://api.example.com/notify"
     method: POST                  # Optional: GET, POST, PUT, PATCH, DELETE
     headers:                      # Optional: custom headers
-      Authorization: "Bearer {{secrets.api_token}}"
       X-Custom-Header: "value"
     payload:                      # Request body (JSON)
       event_type: "{{event.type}}"

@@ -134,11 +134,12 @@ actions:
     url: "https://hooks.slack.com/services/..."
     method: POST           # Optional: GET, POST, PUT, PATCH, DELETE
     headers:               # Optional
-      Authorization: "Bearer {{secrets.token}}"
+      X-Source: "harmonic"
     payload:               # Request body
       text: "New: {{subject.title}}"
       actor: "{{event.actor.name}}"
     timeout: 30            # Optional: seconds</code></pre>
+  <p>Header values are stored in plain text in the rule. Do not put credentials in them.</p>
 
   <h4>Internal Actions</h4>
   <p>Create content directly in the collective. Resources created are tracked with automation attribution.</p>

@@ -148,11 +148,13 @@ actions:
     url: "https://hooks.slack.com/services/..."
     method: POST           # Optional: GET, POST, PUT, PATCH, DELETE
     headers:               # Optional
-      Authorization: "Bearer {{secrets.token}}"
+      X-Source: "harmonic"
     payload:               # Request body
       text: "New: {{subject.title}}"
     timeout: 30            # Optional: seconds
 ```
+
+Header values are stored in plain text in the rule. Do not put credentials in them.
 
 ### Internal Actions
 
