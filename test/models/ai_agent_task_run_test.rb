@@ -17,6 +17,61 @@ class AiAgentTaskRunTest < ActiveSupport::TestCase
     @collective.add_user!(@ai_agent)
   end
 
+  # === Lineage rule recurrence ===
+
+  def create_lineage_rule(name)
+    AutomationRule.create!(
+      tenant: @tenant,
+      ai_agent: @ai_agent,
+      created_by: @user,
+      name: name,
+      trigger_type: "event",
+      trigger_config: { "event_type" => "note.created" },
+      actions: { "task" => "React" },
+    )
+  end
+
+  def queue_run(rule:, parent: nil)
+    AiAgentTaskRun.create_queued(
+      ai_agent: @ai_agent,
+      tenant: @tenant,
+      initiated_by: @user,
+      task: "Lineage test",
+      automation_rule: rule,
+      parent_task_run: parent,
+    )
+  end
+
+  test "create_queued counts earlier runs of the same rule in the chain" do
+    rule_a = create_lineage_rule("Rule A")
+    rule_b = create_lineage_rule("Rule B")
+
+    run1 = queue_run(rule: rule_a)
+    run2 = queue_run(rule: rule_b, parent: run1)
+    run3 = queue_run(rule: rule_a, parent: run2)
+    run4 = queue_run(rule: rule_b, parent: run3)
+    run5 = queue_run(rule: rule_a, parent: run4)
+
+    assert_equal 0, run1.rule_recurrence
+    assert_equal 0, run2.rule_recurrence
+    assert_equal 1, run3.rule_recurrence, "rule A already ran once in this chain"
+    assert_equal 1, run4.rule_recurrence
+    assert_equal 2, run5.rule_recurrence, "rule A already ran twice in this chain"
+  end
+
+  test "rule recurrence is zero without a parent or without a rule" do
+    rule = create_lineage_rule("Rule Solo")
+
+    no_parent = queue_run(rule: rule)
+    assert_equal 0, no_parent.rule_recurrence
+
+    no_rule = AiAgentTaskRun.create_queued(
+      ai_agent: @ai_agent, tenant: @tenant, initiated_by: @user,
+      task: "Manual", parent_task_run: no_parent,
+    )
+    assert_equal 0, no_rule.rule_recurrence
+  end
+
   # === formatted_tokens Tests ===
 
   test "formatted_tokens returns nil when total_tokens is nil" do

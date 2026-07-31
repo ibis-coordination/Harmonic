@@ -221,7 +221,8 @@ CREATE TABLE public.ai_agent_task_runs (
     mode character varying DEFAULT 'task'::character varying NOT NULL,
     chat_session_id uuid,
     parent_task_run_id uuid,
-    chain_depth integer DEFAULT 0 NOT NULL
+    chain_depth integer DEFAULT 0 NOT NULL,
+    rule_recurrence integer DEFAULT 0 NOT NULL
 );
 
 
@@ -10677,6 +10678,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260731072222'),
 ('20260730150000'),
 ('20260730120000'),
 ('20260730051743'),

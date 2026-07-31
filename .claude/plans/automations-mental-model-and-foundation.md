@@ -92,25 +92,31 @@ Per P5's full sentence: one place answers "is this rule live *and allowed to fir
 *Acceptance:* the manual-path `enabled` gap can't recur (the targeted fix's tests move onto the checkpoint); scheduler/webhook/manual paths hit the same chain/rate/tier checks as events; the tier gate has one home instead of three.
 *Pays for:* the next liveness- or limits-semantics change is a one-site change. Four-site patching (soft delete) never recurs.
 
-### F2b. Cascade-awareness across agentic steps — enforce the lineage that already exists
-The attribution infrastructure is already built (verified 2026-07-31): internal
-agents act through ephemeral run-bound tokens, every MCP call resolves to its
-task run, content gets `AiAgentTaskRunResource` attribution rows, and the
-executor derives `parent_task_run` from those rows at run creation —
-`chain_depth = parent.chain_depth + 1`, reset to 0 by human-authored content.
-Lineage is reconstructed from data at creation, deliberately not threaded
-through the runner boundary.
+### F2b. Cascade visibility across agentic steps — SHIPPED as loop tracking, not enforcement
+**Settled position (Dan, 2026-07-31): loops and deep chains are signals, not
+violations.** Agents collaborating as intended will loop — A reviews B, B
+responds — and long chains are the product's future, not a failure mode. So
+lineage gets *visibility*, matching chain_depth's own "observability only"
+design; nothing dispatches or throttles on it. What actually bounds runaway
+cost: per-rule rate limits on every path (F2) and the balance gate; per-
+principal spend caps (Trio Track C, open) are the eventual dollar-denominated
+bound. Do not add depth/loop enforcement without operational data showing the
+signals are insufficient.
 
-The gap is one line in `ai_agent_task_run.rb`: chain_depth is "observability
-only — nothing dispatches or throttles on these." Mutual-trigger cascades are
-fully visible and entirely unenforced. F2b: the firing gate's chain check
-consults the data-derived lineage depth alongside the thread chain (seed the
-chain with the max of the two; the parent derivation moves from the executor's
-private method to somewhere both can call). The existing `:chain_blocked`
-refusal then covers agent-boundary cascades. Known limitation to state, not
-fix: external agents use their own long-lived tokens, not run-bound ones, so
-their content gets no attribution row and lineage resets — their cascades are
-bounded only by the per-rule rate limits.
+Shipped (branch `automation-model-round-2-fixes`): `rule_recurrence` on
+`ai_agent_task_runs` — how many earlier runs of the same rule appear in the
+run's lineage chain, computed at `create_queued` beside chain_depth. Surfaced
+to *users* on the run detail pages (HTML + markdown: "3rd run of its
+automation in this chain"), on the system-admin run view, and as the
+`automations.rule_recurrence_total` metric.
+
+Context that made this cheap (verified 2026-07-31): lineage already crosses
+the runner boundary by reconstruction from data — run-bound ephemeral tokens
+attribute every internal-agent MCP call to its task run, content gets
+`AiAgentTaskRunResource` rows, and the executor derives `parent_task_run` /
+`chain_depth` from those at run creation, resetting on human-authored content.
+Known limitation: external agents use their own long-lived tokens, so their
+content gets no attribution row and lineage resets there.
 
 ### F1b. Explicit recipient on delivery events (P1b, remaining from F1)
 Delivery events overload `event.actor_id` as the recipient. Give events an

@@ -68,6 +68,9 @@
     <% if @task_run.parent_task_run_id %>
       | Triggered from: <a href="<%= system_admin_task_run_path(@task_run.parent_task_run_id) %>"><code><%= @task_run.parent_task_run_id[0..7] %></code></a>
       | Depth: <%= @task_run.chain_depth %>
+      <% if @task_run.rule_recurrence.positive? %>
+        | Rule recurrence: <%= @task_run.rule_recurrence %>
+      <% end %>
     <% end %>
     <% if @task_run.stripe_customer_id.present? %>
       | Billing: <code><%= @task_run.stripe_customer_id[0..7] %></code>
