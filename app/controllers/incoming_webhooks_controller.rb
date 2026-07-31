@@ -31,13 +31,26 @@ class IncomingWebhooksController < ActionController::Base
     return render_invalid_signature unless verify_signature
 
     return render_ip_not_allowed unless ip_allowed?
-    return render_rule_disabled unless @automation_rule.enabled?
-    return render_rule_disabled unless collective_tier_allows?
 
-    run = create_rule_run
-    queue_execution(run)
+    result = AutomationFiringGate.fire!(
+      @automation_rule,
+      source: "webhook",
+      trigger_data: {
+        "webhook_path" => params[:webhook_path],
+        "payload" => parsed_payload,
+        "received_at" => Time.current.iso8601,
+        "source_ip" => request.remote_ip,
+      }
+    )
 
-    render json: { status: "accepted", run_id: run.id }, status: :ok
+    case result.refusal_reason
+    when nil
+      render json: { status: "accepted", run_id: result.run.id }, status: :ok
+    when :disabled, :tier_locked
+      render_rule_disabled
+    else
+      render_rate_limited
+    end
   end
 
   private
@@ -55,18 +68,6 @@ class IncomingWebhooksController < ActionController::Base
       .not_deleted
       .where(trigger_type: "webhook")
       .find_by(webhook_path: params[:webhook_path])
-  end
-
-  # Collective-scoped webhook rules pause when their collective isn't on
-  # the paid tier (or main, or on a non-billing tenant). Agent/user
-  # webhook rules have no associated collective gate.
-  def collective_tier_allows?
-    return true unless @automation_rule.collective_id.present?
-
-    collective = Collective.tenant_scoped_only(@current_tenant.id).find_by(id: @automation_rule.collective_id)
-    return false if collective.nil?
-
-    collective.tier_unlocks_paid_features?
   end
 
   def signature_present?
@@ -95,22 +96,6 @@ class IncomingWebhooksController < ActionController::Base
     @automation_rule.ip_allowed?(request.remote_ip)
   end
 
-  def create_rule_run
-    AutomationRuleRun.create!(
-      automation_rule: @automation_rule,
-      tenant_id: @current_tenant.id,
-      collective_id: @automation_rule.collective_id,
-      trigger_source: "webhook",
-      status: "pending",
-      trigger_data: {
-        "webhook_path" => params[:webhook_path],
-        "payload" => parsed_payload,
-        "received_at" => Time.current.iso8601,
-        "source_ip" => request.remote_ip,
-      }
-    )
-  end
-
   def parsed_payload
     return nil if request.raw_post.blank?
 
@@ -118,13 +103,6 @@ class IncomingWebhooksController < ActionController::Base
   rescue JSON::ParserError
     # For non-JSON payloads, store as raw string
     request.raw_post
-  end
-
-  def queue_execution(run)
-    AutomationRuleExecutionJob.perform_later(
-      automation_rule_run_id: run.id,
-      tenant_id: run.tenant_id
-    )
   end
 
   def render_not_found
@@ -141,6 +119,10 @@ class IncomingWebhooksController < ActionController::Base
 
   def render_rule_disabled
     render json: { error: "rule_disabled", message: "Automation rule is disabled" }, status: :unprocessable_entity
+  end
+
+  def render_rate_limited
+    render json: { error: "rate_limited", message: "Rate limit reached; try again in a minute" }, status: :too_many_requests
   end
 
   def render_ip_not_allowed

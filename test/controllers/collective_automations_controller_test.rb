@@ -518,6 +518,44 @@ class CollectiveAutomationsControllerTest < ActionDispatch::IntegrationTest
   # application-level billing gate before reaching the per-action gate
   # under test.
 
+  test "run_automation_rule refuses a manual run when collective is free" do
+    setup_gate_test
+    rule = create_collective_automation_rule(
+      name: "Gate Manual Run",
+      trigger_type: "manual",
+      trigger_config: {},
+    )
+
+    assert_no_difference -> { AutomationRuleRun.unscoped.count } do
+      post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/run_automation_rule"
+    end
+
+    assert_response :redirect
+    assert_match(/paid plan/i, flash[:error].to_s)
+  end
+
+  test "run_automation_rule refuses when the rule's rate limit is reached" do
+    rule = create_collective_automation_rule(
+      name: "Rate Limited Manual",
+      trigger_type: "manual",
+      trigger_config: {},
+    )
+    10.times do
+      AutomationRuleRun.unscoped.create!(
+        tenant: @tenant, automation_rule: rule, trigger_source: "manual",
+        status: "completed", trigger_data: {},
+      )
+    end
+
+    assert_no_difference -> { AutomationRuleRun.unscoped.count } do
+      post "/collectives/#{@collective.handle}/settings/automations/#{rule.truncated_id}/actions/run_automation_rule",
+        headers: @headers
+    end
+
+    assert_response :unprocessable_entity
+    assert_includes response.body, "rate limit"
+  end
+
   test "execute_toggle blocks enabling a disabled rule when collective is free" do
     setup_gate_test
     rule = create_collective_automation_rule(name: "Gate Toggle", enabled: false)

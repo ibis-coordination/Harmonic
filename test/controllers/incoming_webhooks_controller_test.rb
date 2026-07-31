@@ -216,6 +216,40 @@ class IncomingWebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_equal "rule_disabled", json["error"]
   end
 
+  # === Rate Limit Tests ===
+
+  test "webhook returns 429 when the rule's rate limit is reached" do
+    10.times do
+      AutomationRuleRun.unscoped.create!(
+        tenant: @tenant, automation_rule: @automation_rule, trigger_source: "webhook",
+        status: "completed", trigger_data: {},
+      )
+    end
+    payload = { "event" => "test" }.to_json
+
+    assert_no_difference -> { AutomationRuleRun.unscoped.count } do
+      post "/hooks/#{@webhook_path}",
+        params: payload,
+        headers: valid_webhook_headers(payload)
+    end
+
+    assert_response :too_many_requests
+    json = JSON.parse(response.body)
+    assert_equal "rate_limited", json["error"]
+  end
+
+  test "webhook runs record chain metadata" do
+    payload = { "event" => "test" }.to_json
+
+    post "/hooks/#{@webhook_path}",
+      params: payload,
+      headers: valid_webhook_headers(payload)
+
+    assert_response :ok
+    run = AutomationRuleRun.unscoped.order(:created_at).last
+    assert run.chain_metadata.present?, "webhook-fired runs must carry chain metadata"
+  end
+
   # === Edge Cases ===
 
   test "empty payload is accepted" do

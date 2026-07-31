@@ -360,14 +360,6 @@ class CollectiveAutomationsController < ApplicationController
                                  })
     end
 
-    unless @automation_rule.enabled?
-      return render_action_error({
-                                   action_name: "run_automation_rule",
-                                   resource: @automation_rule,
-                                   error: "This automation is disabled. Enable it before running it.",
-                                 })
-    end
-
     # Extract and validate inputs from params
     inputs, input_errors = extract_and_validate_inputs(params[:inputs])
 
@@ -379,38 +371,46 @@ class CollectiveAutomationsController < ApplicationController
                                  })
     end
 
-    # Build trigger data for manual run
-    trigger_data = {
-      "inputs" => inputs,
-      "triggered_at" => Time.current.iso8601,
-      "triggered_by" => @current_user.id,
-    }
-
-    # Create the run
-    run = AutomationRuleRun.create!(
-      tenant: @current_tenant,
-      collective: @current_collective,
-      automation_rule: @automation_rule,
-      trigger_source: "manual",
-      trigger_data: trigger_data,
-      status: "pending",
+    result = AutomationFiringGate.fire!(
+      @automation_rule,
+      source: "manual",
+      trigger_data: {
+        "inputs" => inputs,
+        "triggered_at" => Time.current.iso8601,
+        "triggered_by" => @current_user.id,
+      }
     )
 
-    # Execute asynchronously
-    AutomationRuleExecutionJob.perform_later(
-      automation_rule_run_id: run.id,
-      tenant_id: run.tenant_id
-    )
+    unless result.allowed?
+      return render_action_error({
+                                   action_name: "run_automation_rule",
+                                   resource: @automation_rule,
+                                   error: firing_refusal_message(result.refusal_reason),
+                                 })
+    end
 
     render_action_success({
                             action_name: "run_automation_rule",
                             resource: @automation_rule,
                             result: "Automation run started.",
-                            metadata: { run_id: run.id },
+                            metadata: { run_id: result.run.id },
                           })
   end
 
   private
+
+  def firing_refusal_message(reason)
+    case reason
+    when :disabled
+      "This automation is disabled. Enable it before running it."
+    when :tier_locked
+      "Running automations requires the collective to be on the paid plan."
+    when :rule_rate_limited, :tenant_rate_limited
+      "Automation rate limit reached. Try again in a minute."
+    else
+      "This automation cannot run right now."
+    end
+  end
 
   def build_test_summary(result)
     parts = ["Test completed successfully."]
