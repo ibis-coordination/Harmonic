@@ -1,13 +1,20 @@
 # Controlled vocabulary for agent-facing copy (borrowing from ASD-STE100)
 
-**Status:** Exploration, promoted 2026-07-24: per
-[agent-built-harmonic-north-star.md](agent-built-harmonic-north-star.md), the controlled
+**Status:** Complete. All four sequencing steps done; glossary
+(`docs/CONTROLLED_VOCABULARY.md`), copy sweeps, route renames, and
+`scripts/check-vocabulary.sh` lint shipped in PR #544; STE sentence-level writing
+rules (passive + ellipsis amendments) landed via PR #547. Both released in 1.64.0
+(2026-07-30). The glossary's unsettled-terms list is empty; the doc itself is the
+living artifact from here.
+
+Originally: exploration, promoted 2026-07-24: per
+[agent-built-harmonic-north-star.md](../../../agent-built-harmonic-north-star.md), the controlled
 vocabulary is the bedrock layer for the automations and programmable-governance work — in
 an organization whose readers and writers are mostly LLMs, vocabulary discipline is
 action-selection reliability and coordination bandwidth, not documentation hygiene. The
 copy-surface scope below is phase one; the glossary's jurisdiction grows to cover new
 domain concepts and plan-doc vocabulary (e.g. the identity glossary — cause / owner /
-acting identity — drafted in [identity-glossary.md](identity-glossary.md), and
+acting identity — drafted in [identity-glossary.md](../../../identity-glossary.md), and
 the archive vs. soft-delete distinction settled 2026-07-24).
 
 ## The idea in one line
