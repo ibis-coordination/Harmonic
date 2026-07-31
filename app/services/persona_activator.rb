@@ -80,12 +80,14 @@ class PersonaActivator
   private_class_method :ensure_flag!
 
   # Idempotent: skips any default whose (ai_agent_id, event_type) row already
-  # exists. Called from `bootstrap!` and from the legacy-trio adoption
-  # migration; safe to invoke either way.
+  # exists among the system-managed rules — user-authored rules on the same
+  # agent never block seeding. Called from `bootstrap!` and from the
+  # legacy-trio adoption migration; safe to invoke either way.
   sig { params(agent: User, tenant_id: String).void }
   def self.seed_default_automations!(agent, tenant_id)
     persona = T.must(Personas.fetch(agent.system_role))
-    existing_event_types = AutomationRule.where(ai_agent_id: agent.id, trigger_type: "event")
+    existing_event_types = AutomationRule
+      .where(ai_agent_id: agent.id, trigger_type: "event", system_managed: true)
       .flat_map(&:event_types)
 
     persona.default_automations.each do |attrs|
@@ -96,6 +98,7 @@ class PersonaActivator
         tenant_id: tenant_id,
         ai_agent_id: agent.id,
         created_by_id: agent.id,
+        system_managed: true,
         name: attrs.fetch(:name),
         description: attrs.fetch(:description),
         trigger_type: "event",
@@ -140,7 +143,9 @@ class PersonaActivator
       member&.archive!
       @collective.clear_persona_user_cache!
 
-      AutomationRule.where(ai_agent_id: agent.id).update_all(enabled: false)
+      # Only the seeded defaults — rules a person authored on this agent
+      # are theirs and survive the persona lifecycle.
+      AutomationRule.where(ai_agent_id: agent.id, system_managed: true).update_all(enabled: false)
     end
   end
 
@@ -160,7 +165,7 @@ class PersonaActivator
     member.unarchive! if member&.archived?
     grant_activation_roles!(agent)
 
-    AutomationRule.where(ai_agent_id: agent.id).update_all(enabled: true)
+    AutomationRule.where(ai_agent_id: agent.id, system_managed: true).update_all(enabled: true)
 
     @collective.ensure_personas_funded!
     agent

@@ -91,9 +91,10 @@ class HarmonicBridgeSetup < ApplicationRecord
     T::Array[T::Hash[Symbol, String]]
   )
   DEFAULT_EVENTS = T.let(["notifications.delivered", "reminders.delivered"].freeze, T::Array[String])
-  # Distinguishes a freshly-minted (URL-less) bridge rule from arbitrary
-  # other rules on the same agent. Used by redeem!'s post-lock conflict
-  # check and by `mint_bridge_rule!`.
+  # Display name for a freshly-minted (URL-less) bridge rule until
+  # stage_webhook! names it after its destination host. Purely cosmetic —
+  # pending-ness is carried by the rule being a notification_webhook rule
+  # with no URL, never by this string.
   PENDING_RULE_NAME = "harmonic-bridge (pending setup)".freeze
 
   # Mirrors NotificationWebhooksController#default_payload_template. Kept as
@@ -154,18 +155,24 @@ class HarmonicBridgeSetup < ApplicationRecord
       # `no_existing_notification_webhook_for_agent` runs at create time and
       # is TOCTOU — two setups racing through create both see an empty
       # world. Re-check here inside the lock, against the current state of
-      # AutomationRule. Matches both (a) any active notification webhook
-      # (URL set) and (b) another pending bridge setup's freshly-minted rule
-      # that hasn't been staged yet. Other rule shapes (scheduled tasks,
-      # collective-wide rules) are unrelated and stay out of scope.
+      # AutomationRule. rule_type covers both (a) any registered
+      # notification webhook and (b) another pending bridge setup's
+      # freshly-minted rule that hasn't been staged yet. Other rules
+      # (scheduled tasks, collective-wide rules) are unrelated.
       conflicting = AutomationRule.tenant_scoped_only(tenant_id)
         .not_deleted
-        .where(ai_agent_id: ai_agent_user_id)
-        .where("(actions->>'webhook_url') IS NOT NULL OR name = ?", PENDING_RULE_NAME)
+        .where(ai_agent_id: ai_agent_user_id, rule_type: "notification_webhook")
       raise ConflictingSetup if conflicting.exists?
 
       token = mint_bridge_token!
-      rule = mint_bridge_rule!
+      begin
+        rule = mint_bridge_rule!
+      rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
+        # The pre-mint check above is read-then-write; the one-webhook
+        # validation and its backing unique index (which counts pending
+        # rules) close the race. Surface it as the same conflict.
+        raise ConflictingSetup
+      end
       llm_token, llm_status = mint_llm_token_if_requested
       update!(api_token: token, llm_api_token: llm_token, automation_rule: rule, redeemed_at: Time.current)
       result = {
@@ -226,7 +233,7 @@ class HarmonicBridgeSetup < ApplicationRecord
       raise WebhookAlreadyRegistered unless webhook_registered_at.nil?
 
       rule = automation_rule
-      raise WebhookNotStaged if rule.nil? || rule.actions["webhook_url"].blank?
+      raise WebhookNotStaged if rule.nil? || !rule.webhook_registered?
 
       rule.update!(enabled: true)
       update!(webhook_registered_at: Time.current)
@@ -319,6 +326,7 @@ class HarmonicBridgeSetup < ApplicationRecord
       ai_agent: ai_agent_user,
       created_by: created_by_user,
       name: PENDING_RULE_NAME,
+      rule_type: "notification_webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => events_recommended },
       actions: { "payload_template" => PAYLOAD_TEMPLATE },
@@ -371,11 +379,9 @@ class HarmonicBridgeSetup < ApplicationRecord
   def no_existing_notification_webhook_for_agent
     return if ai_agent_user_id.blank? || tenant_id.blank?
 
-    existing = AutomationRule.tenant_scoped_only(tenant_id).not_deleted.where(
-      "ai_agent_id = :id AND (actions->>'webhook_url') IS NOT NULL",
-      id: ai_agent_user_id
-    )
-    return unless existing.exists?
+    existing = AutomationRule.tenant_scoped_only(tenant_id).not_deleted
+      .where(ai_agent_id: ai_agent_user_id, rule_type: "notification_webhook")
+    return unless existing.any?(&:webhook_registered?)
 
     errors.add(:base, "Agent already has a notification webhook subscription. Remove it before generating a bridge setup URL.")
   end

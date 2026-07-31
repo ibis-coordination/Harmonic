@@ -123,6 +123,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "User notification webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" },
       enabled: true,
     )
@@ -839,6 +840,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Forward notifications",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered", "reminders.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" },
       enabled: true
     )
@@ -867,6 +869,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Forward notifications",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" },
       enabled: true
     )
@@ -900,6 +903,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
           name: name,
           trigger_type: "event",
           trigger_config: { "event_types" => ["notifications.delivered", "reminders.delivered"] },
+          rule_type: "notification_webhook",
           actions: { "webhook_url" => "https://example.com/#{name}" },
           enabled: true,
         }.merge(owner_attrs)
@@ -936,6 +940,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Recipient hook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" },
       enabled: true
     )
@@ -959,6 +964,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Recipient hook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" },
       enabled: true
     )
@@ -994,6 +1000,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Forward notifications",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" },
       enabled: true
     )
@@ -1045,6 +1052,7 @@ class AutomationDispatcherTest < ActiveSupport::TestCase
       name: "Forward chat",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" },
       enabled: true,
     )

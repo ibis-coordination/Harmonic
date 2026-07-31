@@ -7,6 +7,11 @@ class AutomationRule < ApplicationRecord
   include HasDeletedAt
 
   TRIGGER_TYPES = ["event", "schedule", "webhook", "manual"].freeze
+  # What the rule IS: a general automation, or the one-per-recipient
+  # notification forwarder ("notification webhook" in user-facing copy).
+  # The type decides which gates and uniqueness rules apply — never
+  # inferred from the actions shape.
+  RULE_TYPES = ["automation", "notification_webhook"].freeze
 
   belongs_to :tenant
   belongs_to :collective, optional: true
@@ -18,11 +23,13 @@ class AutomationRule < ApplicationRecord
 
   validates :name, presence: true
   validates :trigger_type, presence: true, inclusion: { in: TRIGGER_TYPES }
+  validates :rule_type, inclusion: { in: RULE_TYPES }
   validate :only_one_scope_type
   validate :ai_agent_must_be_agent_type
   validate :webhook_path_required_for_webhook_trigger
   validate :require_task_for_internal_agent_rule
-  validate :no_webhook_shape_on_collective_only_rule
+  validate :notification_webhook_requires_recipient
+  validate :webhook_shape_matches_rule_type
   validate :one_notification_webhook_per_user
 
   before_validation :generate_webhook_secret, on: :create
@@ -62,18 +69,17 @@ class AutomationRule < ApplicationRecord
   end
   # Excludes notification-webhook rules (managed in their own UI) from
   # general automation listings.
-  scope :excluding_notification_webhooks, lambda {
-    where("(actions->>'webhook_url') IS NULL OR (ai_agent_id IS NULL AND user_id IS NULL)")
-  }
-  # The recipient's notification webhook rule, if any. Recipient is a User
-  # (human) or an AI agent (also a User). Backed by the partial unique index
-  # on (tenant_id, COALESCE(ai_agent_id, user_id)) — at most one row.
+  scope :excluding_notification_webhooks, -> { where(rule_type: "automation") }
+  # The recipient's notification webhook rule, if any — pending (URL-less
+  # bridge-minted) rules included; callers that need a registered one
+  # filter with #webhook_registered?. Recipient is a User (human) or an AI
+  # agent (also a User). Backed by the partial unique index on
+  # (tenant_id, COALESCE(ai_agent_id, user_id)) — at most one row.
   scope :notification_webhook_for, lambda { |owner|
     column = owner.ai_agent? ? :ai_agent_id : :user_id
     not_deleted
-      .where(trigger_type: "event")
+      .where(rule_type: "notification_webhook")
       .where(column => owner.id)
-      .where("(actions->>'webhook_url') IS NOT NULL")
   }
 
   sig { returns(T::Boolean) }
@@ -88,9 +94,26 @@ class AutomationRule < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def notification_webhook_rule?
-    return false if ai_agent_id.nil? && user_id.nil?
+    rule_type == "notification_webhook"
+  end
 
-    actions.is_a?(Hash) && actions["webhook_url"].present?
+  # `system_managed` (boolean column, predicate from Rails): true when a
+  # platform process owns the rule's lifecycle — persona defaults seeded
+  # and toggled by PersonaActivator. False for everything people author.
+
+  # The forwarder's destination URL. Nil until the subscription is
+  # registered — bridge-minted rules exist without a URL while the
+  # verification handshake is in flight.
+  sig { returns(T.nilable(String)) }
+  def webhook_url
+    return nil unless notification_webhook_rule? && actions.is_a?(Hash)
+
+    actions["webhook_url"].presence
+  end
+
+  sig { returns(T::Boolean) }
+  def webhook_registered?
+    webhook_url.present?
   end
 
   sig { returns(T::Boolean) }
@@ -200,7 +223,10 @@ class AutomationRule < ApplicationRecord
 
   sig { returns(String) }
   def path
-    if ai_agent_id.present?
+    if notification_webhook_rule?
+      tu = TenantUser.find_by(tenant_id: tenant_id, user_id: ai_agent_id || user_id)
+      ai_agent_id.present? ? "/ai-agents/#{tu&.handle}/webhook" : "/u/#{tu&.handle}/webhook"
+    elsif ai_agent_id.present?
       agent_tu = TenantUser.find_by(tenant_id: tenant_id, user_id: ai_agent_id)
       "/ai-agents/#{agent_tu&.handle}/automations/#{truncated_id}"
     elsif collective_id.present?
@@ -262,11 +288,25 @@ class AutomationRule < ApplicationRecord
   end
 
   sig { void }
-  def no_webhook_shape_on_collective_only_rule
-    return unless collective_id.present? && ai_agent_id.nil? && user_id.nil?
+  def notification_webhook_requires_recipient
+    return unless notification_webhook_rule?
+
+    if collective_id.present?
+      errors.add(:rule_type, "notification_webhook rules cannot be collective-scoped")
+    elsif ai_agent_id.nil? && user_id.nil?
+      errors.add(:rule_type, "notification_webhook requires a user or agent recipient")
+    end
+  end
+
+  # The forwarder actions shape is only legal on a declared forwarder —
+  # a general automation carrying `webhook_url` would silently behave as
+  # one under the old shape-sniffing dispatch.
+  sig { void }
+  def webhook_shape_matches_rule_type
+    return if notification_webhook_rule?
     return unless actions.is_a?(Hash) && actions["webhook_url"].present?
 
-    errors.add(:actions, "collective-only rules cannot use notification-webhook shape")
+    errors.add(:actions, "webhook_url shape requires the notification_webhook rule type")
   end
 
   sig { void }
@@ -276,10 +316,9 @@ class AutomationRule < ApplicationRecord
     recipient_id = ai_agent_id || user_id
     return if recipient_id.nil?
 
-    scope = AutomationRule.tenant_scoped_only(tenant_id).not_deleted.where(
-      "(ai_agent_id = :rid OR user_id = :rid) AND (actions->>'webhook_url') IS NOT NULL",
-      rid: recipient_id
-    )
+    scope = AutomationRule.tenant_scoped_only(tenant_id).not_deleted
+      .where(rule_type: "notification_webhook")
+      .where("ai_agent_id = :rid OR user_id = :rid", rid: recipient_id)
     scope = scope.where.not(id: id) if persisted?
     return unless scope.exists?
 

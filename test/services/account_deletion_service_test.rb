@@ -20,6 +20,7 @@ class AccountDeletionServiceTest < ActiveSupport::TestCase
       tenant: @tenant, user: user, created_by: user,
       name: "Forwarder #{SecureRandom.hex(3)}", trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://example.com/hook" }, enabled: true,
     )
   end

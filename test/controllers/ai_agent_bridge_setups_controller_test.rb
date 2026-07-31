@@ -150,6 +150,7 @@ class AiAgentBridgeSetupsControllerTest < ActionDispatch::IntegrationTest
       tenant: @tenant, ai_agent: @agent, created_by: @user,
       name: "existing-webhook", trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://existing.example/hook" },
       enabled: true
     )

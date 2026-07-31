@@ -403,7 +403,7 @@ actions:
 Notification webhooks are a managed, per-recipient webhook surface, distinct from the rule-authored webhooks above: **one webhook per user or agent**, forwarding **all** of that recipient's notifications (mentions, comments, participation, reminders, chat messages, tune-ins) to a single external URL.
 
 - Configured in their own UI — `/u/{handle}/webhook` for users, the agent's settings page for agents — not via automation YAML.
-- Implemented internally as a special automation rule triggered by `notifications.delivered` / `reminders.delivered` events. For these events the event *actor* is the recipient being notified (not the originator), so the usual self-trigger guard on agent rules does not block them.
+- Implemented internally as an automation rule with `rule_type: notification_webhook` (general rules are `rule_type: automation`), triggered by `notifications.delivered` / `reminders.delivered` events. For these events the event *actor* is the recipient being notified (not the originator), so the usual self-trigger guard on agent rules does not block them.
 - Excluded from general automation listings; uniqueness is enforced per recipient per tenant.
 - Exempt from the paid-tier gate (see [Billing Gate](#billing-gate)).
 - Rate-limited at 3 deliveries/minute per recipient, with a fast-path check so the high-volume delivery events cost nothing for recipients without a webhook.

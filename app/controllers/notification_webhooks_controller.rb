@@ -175,6 +175,7 @@ class NotificationWebhooksController < ApplicationController
       user: @target_user.ai_agent? ? nil : @target_user,
       created_by: @current_user,
       name: default_name_for(url),
+      rule_type: "notification_webhook",
       trigger_type: "event",
       trigger_config: TRIGGER_CONFIG,
       actions: {
@@ -228,7 +229,7 @@ class NotificationWebhooksController < ApplicationController
   end
 
   def set_webhook_rule
-    @webhook_rule = AutomationRule.tenant_scoped_only.notification_webhook_for(@target_user).first
+    @webhook_rule = AutomationRule.tenant_scoped_only.notification_webhook_for(@target_user).detect(&:webhook_registered?)
   end
 
   # True when creating this webhook would make the human user newly billable

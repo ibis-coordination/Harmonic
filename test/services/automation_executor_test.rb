@@ -823,6 +823,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
       name: "External webhook rule",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created", "mention_filter" => "self" },
+      rule_type: "notification_webhook",
       actions: {
         "webhook_url" => "https://parent.example.com/hook",
         "payload_template" => { "event" => "{{event.type}}" },
@@ -862,6 +863,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
       name: "External webhook rule",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created", "mention_filter" => "self" },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://parent.example.com/hook" },
       enabled: true
     )
@@ -886,6 +888,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
       name: "My webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://my-server.example.com/hook" },
       enabled: true
     )
@@ -910,6 +913,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
       name: "My webhook",
       trigger_type: "event",
       trigger_config: { "event_types" => ["notifications.delivered"] },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://my-server.example.com/hook" },
       enabled: true
     )
@@ -939,6 +943,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
       name: "External webhook rule",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://parent.example.com/hook" },
       enabled: true
     )
@@ -968,6 +973,7 @@ class AutomationExecutorTest < ActiveSupport::TestCase
       name: "External webhook rule",
       trigger_type: "event",
       trigger_config: { "event_type" => "note.created" },
+      rule_type: "notification_webhook",
       actions: { "webhook_url" => "https://parent.example.com/hook" },
       enabled: true
     )

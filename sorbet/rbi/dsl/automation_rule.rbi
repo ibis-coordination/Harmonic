@@ -1437,6 +1437,12 @@ class AutomationRule
     def restore_name!; end
 
     sig { void }
+    def restore_rule_type!; end
+
+    sig { void }
+    def restore_system_managed!; end
+
+    sig { void }
     def restore_tenant_id!; end
 
     sig { void }
@@ -1465,6 +1471,51 @@ class AutomationRule
 
     sig { void }
     def restore_yaml_source!; end
+
+    sig { returns(::String) }
+    def rule_type; end
+
+    sig { params(value: ::String).returns(::String) }
+    def rule_type=(value); end
+
+    sig { returns(T::Boolean) }
+    def rule_type?; end
+
+    sig { returns(T.nilable(::String)) }
+    def rule_type_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def rule_type_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def rule_type_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def rule_type_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def rule_type_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def rule_type_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def rule_type_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def rule_type_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def rule_type_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def rule_type_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def rule_type_was; end
+
+    sig { void }
+    def rule_type_will_change!; end
 
     sig { returns(T.nilable([T.untyped, T.untyped])) }
     def saved_change_to_actions; end
@@ -1551,6 +1602,18 @@ class AutomationRule
     def saved_change_to_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_rule_type; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_rule_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def saved_change_to_system_managed; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_system_managed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_tenant_id; end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
@@ -1609,6 +1672,51 @@ class AutomationRule
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_yaml_source?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T::Boolean) }
+    def system_managed; end
+
+    sig { params(value: T::Boolean).returns(T::Boolean) }
+    def system_managed=(value); end
+
+    sig { returns(T::Boolean) }
+    def system_managed?; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def system_managed_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def system_managed_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def system_managed_came_from_user?; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def system_managed_change; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def system_managed_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def system_managed_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def system_managed_in_database; end
+
+    sig { returns(T.nilable([T::Boolean, T::Boolean])) }
+    def system_managed_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def system_managed_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def system_managed_previously_was; end
+
+    sig { returns(T.nilable(T::Boolean)) }
+    def system_managed_was; end
+
+    sig { void }
+    def system_managed_will_change!; end
 
     sig { returns(::String) }
     def tenant_id; end
@@ -2056,6 +2164,12 @@ class AutomationRule
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_name?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_rule_type?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_system_managed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_tenant_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
