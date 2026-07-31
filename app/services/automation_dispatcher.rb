@@ -8,10 +8,10 @@ class AutomationDispatcher
   # but this ensures no single tenant can overwhelm the system
   TENANT_RUNS_PER_MINUTE = 100
 
-  # For these events, `event.actor` is the recipient (the user being notified)
-  # rather than the originator — so the self-trigger guard on agent rules must
-  # NOT block them. See `notification_delivery_job.rb` and `reminder_delivery_job.rb`.
-  NOTIFICATION_DELIVERED_EVENTS = T.let(["notifications.delivered", "reminders.delivered"].freeze, T::Array[String])
+  # Event audiences are declared in EventTypeRegistry. For single-recipient
+  # types, `event.actor` is the recipient (the user being notified) rather
+  # than the originator — so the self-trigger guard on agent rules must NOT
+  # block them. See `notification_delivery_job.rb` and `reminder_delivery_job.rb`.
 
   # Dispatch an event to all matching automation rules
   sig { params(event: Event).void }
@@ -38,7 +38,7 @@ class AutomationDispatcher
     collective_id = event.collective_id
     return [] if collective_id.nil?
 
-    # Notification-delivered events fire per-recipient (event.actor is the
+    # Single-recipient events fire per-recipient (event.actor is the
     # recipient) and their content is private to that recipient: ONLY rules
     # owned by the recipient may fire. Matching by collective membership
     # here would deliver one member's notification payloads to every other
@@ -47,7 +47,7 @@ class AutomationDispatcher
     # (every Event row is collective-scoped), not a routing input — no
     # membership check and no tier gate: the webhook forwards the
     # notification system the recipient already has, not a paid automation.
-    if NOTIFICATION_DELIVERED_EVENTS.include?(event.event_type)
+    if EventTypeRegistry.single_recipient?(event.event_type)
       recipient_id = event.actor_id
       return [] if recipient_id.nil?
 
@@ -84,11 +84,11 @@ class AutomationDispatcher
   sig { params(event: Event, rule: AutomationRule).returns(T::Boolean) }
   def self.matches_rule?(event, rule)
     # Collective access check (redundant safety net — also enforced at
-    # the query level in find_matching_rules). Skipped for per-recipient
-    # notification events: those match on rule ownership, and the
-    # recipient's own notification forwards regardless of their current
-    # membership state in the event's collective.
-    unless NOTIFICATION_DELIVERED_EVENTS.include?(event.event_type)
+    # the query level in find_matching_rules). Skipped for single-recipient
+    # events: those match on rule ownership, and the recipient's own
+    # notification forwards regardless of their current membership state
+    # in the event's collective.
+    unless EventTypeRegistry.single_recipient?(event.event_type)
       return false unless rule_has_collective_access?(rule, event)
     end
 
@@ -103,10 +103,10 @@ class AutomationDispatcher
     return false unless AutomationConditionEvaluator.evaluate_all(rule.conditions, event)
 
     # Don't trigger if the actor is the same agent (prevent self-triggering),
-    # except for notification-delivered events where actor==recipient is exactly
+    # except for single-recipient events where actor==recipient is exactly
     # when the webhook should fire.
     if rule.agent_rule? && event.actor_id == rule.ai_agent_id &&
-       !NOTIFICATION_DELIVERED_EVENTS.include?(event.event_type)
+       !EventTypeRegistry.single_recipient?(event.event_type)
       return false
     end
 

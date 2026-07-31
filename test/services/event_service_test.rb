@@ -27,7 +27,7 @@ class EventServiceTest < ActiveSupport::TestCase
     Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
 
     event = EventService.record!(
-      event_type: "system.test",
+      event_type: "note.deleted",
       actor: nil,
       subject: nil,
       metadata: {},
@@ -35,5 +35,19 @@ class EventServiceTest < ActiveSupport::TestCase
 
     assert event.persisted?
     assert_nil event.actor
+  end
+
+  test "record! refuses an unregistered event type outside production" do
+    tenant, collective, _user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+
+    assert_raises(EventTypeRegistry::UnknownEventType) do
+      EventService.record!(
+        event_type: "made.up",
+        actor: nil,
+        subject: nil,
+        metadata: {},
+      )
+    end
   end
 end
