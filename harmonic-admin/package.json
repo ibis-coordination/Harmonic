@@ -1,0 +1,45 @@
+{
+  "name": "@ibis-coordination/harmonic-admin",
+  "version": "0.1.0",
+  "description": "Admin CLI for operating Harmonic instances: deployment, monitoring, and sysadmin tasks.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "harmonic-admin": "dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test $(find src -name '*.test.ts' -type f)",
+    "dev": "tsx src/bin.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ibis-coordination/Harmonic.git",
+    "directory": "harmonic-admin"
+  },
+  "homepage": "https://github.com/ibis-coordination/Harmonic/tree/main/harmonic-admin#readme",
+  "bugs": {
+    "url": "https://github.com/ibis-coordination/Harmonic/issues"
+  },
+  "keywords": [
+    "harmonic",
+    "admin",
+    "monitoring",
+    "cli"
+  ]
+}
