@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.65.0] - 2026-07-31
+
+### Added
+
+- **harmonic-admin CLI v1** (#552) — new in-repo TypeScript package (`harmonic-admin/`, bridge conventions) for operating prod from a laptop without SSH: `prod status` (healthcheck + /metrics + Sentry digest, each source degrading independently when its credential is missing), `prod sentry issues`, `prod sentry show <id>`, and `doctor`. Read-only tokens live in `~/.config/harmonic-admin/env`; the CLI never prints token values. Defaults to the www host because the apex redirect strips Authorization headers. Deploy: none (tooling only).
+- **Automations foundation: event-type registry, one firing gate, loop visibility** (#548) — `EventTypeRegistry` (every event type declares its audience), `AutomationFiringGate` as the single checkpoint for all four trigger paths, rule-recurrence tracking in task-run lineage chains (visibility signal plus `automations_rule_recurrence_total` metric — no enforcement), manual runs of disabled rules refused, and automation docs corrected to match actual behavior. Deploy: web + worker, one additive migration.
+- **Explicit `rule_type` and `system_managed` on automation rules** (#551) — the notification-webhook forwarders and platform-managed persona defaults are now explicit columns instead of shape-sniffing on `actions`; the unique forwarder-per-recipient index re-keys to `rule_type`, and persona deactivation no longer risks disabling user-authored rules. Deploy: web + worker, one migration with backfill.
+
+### Fixed
+
+- **`/metrics` endpoint 500** (#552) — the Prometheus endpoint was latently broken since it was written (`Yabeda::Prometheus::Exporter` is Rack middleware; calling `.new` without arguments raised on every scrape), masked by the 503 that `METRICS_AUTH_TOKEN` being unset produced. Now renders via `Yabeda.collect!` + Prometheus text marshaling, and the web service opts into `YABEDA_SIDEKIQ_COLLECT_CLUSTER_METRICS` so queue-depth/retry/dead gauges appear on `/metrics`. Metric names in `docs/MONITORING.md` corrected against a live scrape. Deploy: web (container recreate so the compose env change applies).
+
+### Changed
+
+- **Dependency bumps** — msgpack 1.4.4 → 1.8.2 (#549), Rails 8.1.3 → 8.1.3.1 (#550).
+
 ## [1.64.0] - 2026-07-30
 
 ### Added
