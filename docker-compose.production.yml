@@ -23,6 +23,10 @@ services:
       - RAILS_ENV=production
       - RAILS_LOG_TO_STDOUT=true
       - RAILS_SERVE_STATIC_FILES=true
+      # The web process serves /metrics, so it must collect the cluster-wide
+      # sidekiq gauges (queue sizes, retry/dead counts) that yabeda-sidekiq
+      # otherwise only collects inside Sidekiq server processes.
+      - YABEDA_SIDEKIQ_COLLECT_CLUSTER_METRICS=true
     env_file:
       - .env
     depends_on:

@@ -7,6 +7,11 @@ services:
     build: .
     command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails s -p 3000 -b '0.0.0.0'"
     user: "1000:1000"
+    environment:
+      # The web process serves /metrics, so it must collect the cluster-wide
+      # sidekiq gauges (queue sizes, retry/dead counts) that yabeda-sidekiq
+      # otherwise only collects inside Sidekiq server processes.
+      - YABEDA_SIDEKIQ_COLLECT_CLUSTER_METRICS=true
     volumes:
       - .:/app
       - node_modules:/app/node_modules

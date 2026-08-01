@@ -202,16 +202,29 @@ Expose application metrics for scraping by Prometheus or compatible services.
 - `rails_db_runtime_seconds` - Database query time
 
 **Sidekiq (via yabeda-sidekiq):**
-- `sidekiq_jobs_executed_total` - Total jobs executed
-- `sidekiq_jobs_failed_total` - Total failed jobs
-- `sidekiq_job_runtime_seconds` - Job execution time
-- `sidekiq_queue_size` - Current queue depth
+- `sidekiq_jobs_enqueued_total` - Total jobs enqueued
+- `sidekiq_jobs_waiting_count` - Current queue depth, per queue
+- `sidekiq_jobs_retry_count` - Failed jobs waiting to be retried
+- `sidekiq_jobs_dead_count` - Jobs that exceeded their retry count
+- `sidekiq_jobs_scheduled_count` - Jobs scheduled for later execution
+- `sidekiq_active_workers_count` / `sidekiq_active_processes` - Busy workers / worker processes
+- `sidekiq_queue_latency` - Seconds since the oldest waiting job was enqueued, per queue
+
+The cluster-wide gauges above require `YABEDA_SIDEKIQ_COLLECT_CLUSTER_METRICS=true`
+on the web service (set in the compose files), because `/metrics` is served by the
+web process, not a Sidekiq server process. Per-job execution metrics
+(`sidekiq_jobs_executed_total`, `sidekiq_jobs_failed_total`, runtime histograms)
+are collected only inside Sidekiq server processes and do not appear on `/metrics`.
 
 **Custom Application Metrics:**
-- `harmonic_auth_login_attempts_total` - Login attempts by result
-- `harmonic_content_notes_created_total` - Notes created
-- `harmonic_security_rate_limited_total` - Rate limited requests
-- `harmonic_security_ip_blocked_total` - Blocked IPs
+- `auth_login_attempts_total` - Login attempts by result
+- `content_notes_created_total` - Notes created (also decisions, commitments, votes)
+- `security_rate_limited_total` - Rate limited requests
+- `security_ip_blocked_total` - Blocked IPs
+- `api_requests_total` / `api_request_duration_seconds` - API traffic and latency
+- `automations_runs_total` (+ rate-limit/chain-block/recurrence counters) - Automation activity
+- `deadline_events_fired_total` / `deadline_events_errors_total` - Deadline processing
+- `users_active_users` - Users active in the last 15 minutes
 
 ---
 
