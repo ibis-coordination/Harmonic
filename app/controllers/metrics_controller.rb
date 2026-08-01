@@ -8,9 +8,11 @@ class MetricsController < ActionController::Base # rubocop:disable Rails/Applica
   before_action :authenticate_metrics_token
 
   def show
-    # Skip standard application callbacks for metrics endpoint
-    exporter = Yabeda::Prometheus::Exporter.new
-    render plain: exporter.call({})&.last&.first || "", content_type: "text/plain"
+    # Yabeda gauges (e.g. sidekiq queue sizes) are populated by collect
+    # blocks that only run when a scrape asks for them.
+    Yabeda.collect!
+    render plain: Prometheus::Client::Formats::Text.marshal(Prometheus::Client.registry),
+           content_type: "text/plain"
   end
 
   private
