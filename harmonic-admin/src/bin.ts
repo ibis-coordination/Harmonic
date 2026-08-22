@@ -5,10 +5,14 @@
 
 import { runCommand } from "./cli.js";
 
+// Set exitCode instead of calling process.exit(): exit() terminates before
+// pending stdout writes flush, which truncates large page bodies on pipes.
 runCommand(process.argv.slice(2)).then(
-  (code) => process.exit(code),
+  (code) => {
+    process.exitCode = code;
+  },
   (err) => {
     process.stderr.write(`harmonic-admin: ${err instanceof Error ? err.message : String(err)}\n`);
-    process.exit(1);
+    process.exitCode = 1;
   },
 );

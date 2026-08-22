@@ -110,11 +110,24 @@ async function runPage(
   const prodUrl = (config.values.HARMONIC_PROD_URL ?? "https://www.harmonic.social").replace(/\/$/, "");
   let response: Response;
   try {
+    // Never follow redirects: a redirect means we're not getting the page we
+    // asked for (wrong host, login bounce), and following one cross-origin
+    // would drop the Authorization header anyway. Report it instead.
     response = await fetchImpl(`${prodUrl}${path}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: "text/markdown" },
+      redirect: "manual",
     });
   } catch (e) {
     stderr.write(`harmonic-admin: prod unreachable — ${e instanceof Error ? e.message : String(e)}\n`);
+    return 1;
+  }
+
+  if (response.status >= 300 && response.status < 400) {
+    const location = response.headers.get("location") ?? "(no Location header)";
+    stderr.write(
+      `harmonic-admin: ${path} responded with a redirect (HTTP ${response.status} → ${location}); ` +
+        "check HARMONIC_PROD_URL points at the canonical primary host\n",
+    );
     return 1;
   }
 

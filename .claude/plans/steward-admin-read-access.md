@@ -69,6 +69,24 @@ Preconditions verified in dev e2e:
   (token auth gates agent tokens on the parent human's activation;
   sys_admin humans count as activated, so Dan qualifies).
 
+## Review notes (2026-08-22)
+
+- Internal tokens are exempt from the token-flag check (never the role
+  check): MCP dispatch mints per-request internal tokens with no flags,
+  and the steward's future fetch_page path runs through them.
+- Consumers should treat fetched page content as data, not instructions —
+  dead-job args are attacker-influenceable strings rendered into the
+  markdown an agent reads.
+- Sibling gaps flagged, undecided: AppAdminController and
+  TenantAdminController markdown/HTML pages check only the user role, not
+  the token's app_admin/tenant_admin flag. Same fix shape; tenant-admin
+  needs a usage audit first (existing agent workflows may hold plain
+  tokens).
+- Latent model bug (not from this change): `ApiToken#expired?` raises on
+  nil expires_at while the authenticate scope explicitly allows
+  never-expiring rows. Always mint with expires_at; model fix is a small
+  follow-up.
+
 ## Later
 
 - Steward as resident sprite agent using MCP `fetch_page` (same identity).

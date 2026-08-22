@@ -221,6 +221,17 @@ test("prod page: 403 response explains rather than dumping the body", async () =
   });
 });
 
+test("prod page: redirects are reported, not followed", async () => {
+  await withTempConfig(PAGE_CONFIG, async (configPath) => {
+    const redirectFetch = (async () =>
+      new Response(null, { status: 302, headers: { Location: "https://prod.example/login" } })) as typeof fetch;
+    const result = await run(["prod", "page", "/system-admin/sidekiq"], { configPath, fetchImpl: redirectFetch });
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /redirect/i);
+    assert.match(result.stderr, /https:\/\/prod\.example\/login/);
+  });
+});
+
 test("prod page: missing or non-rooted path is a usage error", async () => {
   await withTempConfig(PAGE_CONFIG, async (configPath) => {
     const missing = await run(["prod", "page"], { configPath });

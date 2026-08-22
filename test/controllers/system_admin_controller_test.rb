@@ -745,6 +745,47 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  def create_internal_token_for(user)
+    collective = @primary_tenant.main_collective
+    rule = AutomationRule.create!(
+      tenant: @primary_tenant,
+      collective: collective,
+      name: "Internal token context",
+      trigger_type: "manual",
+      trigger_config: {},
+      actions: [],
+      created_by: @sys_admin_user,
+    )
+    run = AutomationRuleRun.create!(
+      tenant: @primary_tenant,
+      collective: collective,
+      automation_rule: rule,
+      trigger_source: "manual",
+      status: "pending",
+    )
+    ApiToken.create_internal_token(user: user, tenant: @primary_tenant, context: run)
+  end
+
+  test "internal token of a sys_admin agent passes without the flag (MCP dispatch path)" do
+    steward, _token = create_steward_with_token
+    internal = create_internal_token_for(steward)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/system-admin/sidekiq",
+        headers: { "Authorization" => "Bearer #{internal.plaintext_token}", "Accept" => "text/markdown" }
+    assert_response :success
+  end
+
+  test "internal token still requires the sys_admin role on its user" do
+    steward, _token = create_steward_with_token(user_sys_admin: false)
+    internal = create_internal_token_for(steward)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/system-admin/sidekiq",
+        headers: { "Authorization" => "Bearer #{internal.plaintext_token}", "Accept" => "text/markdown" }
+    assert_response :forbidden
+  end
+
   test "read-scope token cannot POST a job retry" do
     _steward, token = create_steward_with_token
     host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
