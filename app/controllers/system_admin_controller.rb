@@ -297,10 +297,16 @@ class SystemAdminController < ApplicationController
   end
 
   def ensure_sys_admin
-    unless @current_user&.sys_admin?
-      @sidebar_mode = 'none'
-      render status: :forbidden, layout: 'application', template: 'system_admin/403_not_sys_admin'
-    end
+    authorized = @current_user&.sys_admin?
+    # Token-authenticated requests need the sys_admin flag on the token too
+    # (same redundant user-role AND token-flag check as the Admin API), so an
+    # ordinary token can't reach these pages just because its owner is a
+    # sys_admin.
+    authorized &&= @current_token.sys_admin? if api_token_present?
+    return if authorized
+
+    @sidebar_mode = 'none'
+    render status: :forbidden, layout: 'application', template: 'system_admin/403_not_sys_admin'
   end
 
   def set_sidebar_mode
