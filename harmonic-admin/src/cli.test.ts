@@ -184,6 +184,55 @@ test("prod sentry show: renders issue detail with latest event tags", async () =
   });
 });
 
+const PAGE_CONFIG = SENTRY_CONFIG + "\nHARMONIC_STEWARD_TOKEN=steward-tok\n";
+
+test("prod page: fetches markdown with steward bearer and prints it verbatim", async () => {
+  await withTempConfig(PAGE_CONFIG, async (configPath) => {
+    let recorded: { url: string; headers: Record<string, string> } | undefined;
+    const pageFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      recorded = { url: String(input), headers: (init?.headers ?? {}) as Record<string, string> };
+      return new Response("# Sidekiq\n\n*No dead jobs*\n", { status: 200 });
+    }) as typeof fetch;
+    const result = await run(["prod", "page", "/system-admin/sidekiq"], { configPath, fetchImpl: pageFetch });
+    assert.equal(result.code, 0);
+    assert.equal(result.stdout, "# Sidekiq\n\n*No dead jobs*\n");
+    assert.ok(recorded);
+    assert.equal(recorded.url, "https://prod.example/system-admin/sidekiq");
+    assert.equal(recorded.headers["Authorization"], "Bearer steward-tok");
+    assert.equal(recorded.headers["Accept"], "text/markdown");
+  });
+});
+
+test("prod page: missing steward token degrades to a no-access error", async () => {
+  await withTempConfig(SENTRY_CONFIG, async (configPath) => {
+    const result = await run(["prod", "page", "/system-admin/sidekiq"], { configPath });
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /HARMONIC_STEWARD_TOKEN/);
+  });
+});
+
+test("prod page: 403 response explains rather than dumping the body", async () => {
+  await withTempConfig(PAGE_CONFIG, async (configPath) => {
+    const forbiddenFetch = (async () => new Response("<html>403</html>", { status: 403 })) as typeof fetch;
+    const result = await run(["prod", "page", "/system-admin/sidekiq"], { configPath, fetchImpl: forbiddenFetch });
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /HTTP 403/);
+    assert.match(result.stderr, /sys_admin/);
+  });
+});
+
+test("prod page: missing or non-rooted path is a usage error", async () => {
+  await withTempConfig(PAGE_CONFIG, async (configPath) => {
+    const missing = await run(["prod", "page"], { configPath });
+    assert.equal(missing.code, 64);
+    assert.match(missing.stderr, /requires a path/);
+
+    const nonRooted = await run(["prod", "page", "https://elsewhere.example/x"], { configPath });
+    assert.equal(nonRooted.code, 64);
+    assert.match(nonRooted.stderr, /path starting with/);
+  });
+});
+
 test("prod sentry show: missing id is a usage error", async () => {
   await withTempConfig(SENTRY_CONFIG, async (configPath) => {
     const result = await run(["prod", "sentry", "show"], { configPath });

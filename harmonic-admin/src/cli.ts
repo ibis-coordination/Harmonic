@@ -64,6 +64,10 @@ async function runProd(
     return result.exitCode;
   }
 
+  if (sub === "page") {
+    return await runPage(args.slice(1), config, opts, stdout, stderr);
+  }
+
   if (sub === "sentry") {
     return await runSentry(args.slice(1), config, opts, stdout, stderr);
   }
@@ -71,6 +75,60 @@ async function runProd(
   stderr.write(`harmonic-admin: unknown command "prod ${sub ?? ""}"\n`);
   printUsage(stderr);
   return 64;
+}
+
+// Authenticated pager for prod's markdown pages (system-admin and any other
+// page the steward token can read). Prints the body verbatim — never parses
+// or re-renders; page structure belongs to Rails.
+async function runPage(
+  args: readonly string[],
+  config: AdminConfig,
+  opts: CliOpts,
+  stdout: Writable,
+  stderr: Writable,
+): Promise<number> {
+  const path = args[0];
+  if (path === undefined) {
+    stderr.write('harmonic-admin: "prod page" requires a path (e.g. /system-admin/sidekiq)\n');
+    return 64;
+  }
+  if (!path.startsWith("/")) {
+    stderr.write('harmonic-admin: "prod page" takes a path starting with "/", not a full URL\n');
+    return 64;
+  }
+
+  const token = config.values.HARMONIC_STEWARD_TOKEN;
+  if (token === undefined) {
+    stderr.write(
+      `harmonic-admin: no access to prod pages — set HARMONIC_STEWARD_TOKEN in ${config.path} ` +
+        "(read-scope rest token with the sys_admin flag, held by the steward agent)\n",
+    );
+    return 1;
+  }
+
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  const prodUrl = (config.values.HARMONIC_PROD_URL ?? "https://www.harmonic.social").replace(/\/$/, "");
+  let response: Response;
+  try {
+    response = await fetchImpl(`${prodUrl}${path}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "text/markdown" },
+    });
+  } catch (e) {
+    stderr.write(`harmonic-admin: prod unreachable — ${e instanceof Error ? e.message : String(e)}\n`);
+    return 1;
+  }
+
+  if (!response.ok) {
+    const hint =
+      response.status === 401 || response.status === 403
+        ? " (token rejected — the steward token needs read scope, the sys_admin flag, and a sys_admin user)"
+        : "";
+    stderr.write(`harmonic-admin: HTTP ${response.status} for ${path}${hint}\n`);
+    return 1;
+  }
+
+  stdout.write(await response.text());
+  return 0;
 }
 
 async function runSentry(
@@ -171,6 +229,9 @@ Commands:
                             Never prints secret values.
   prod status               HTTPS to prod + Sentry API: availability, job backlog,
                             and error digest in one view. Read-only.
+  prod page <path>          HTTPS to prod: fetch a markdown page as the steward
+                            agent and print it verbatim (e.g. /system-admin/sidekiq).
+                            Read-only.
   prod sentry issues        Sentry API: unresolved issues, most recent first. Read-only.
   prod sentry show <id>     Sentry API: one issue in detail. Read-only.
 
@@ -181,6 +242,7 @@ Configuration (~/.config/harmonic-admin/env, chmod 600; KEY=VALUE lines;
 real environment variables override; HARMONIC_ADMIN_CONFIG overrides the path):
   HARMONIC_PROD_URL         Prod base URL (default https://www.harmonic.social)
   HARMONIC_METRICS_TOKEN    Bearer token for /metrics (secret)
+  HARMONIC_STEWARD_TOKEN    Steward agent's read-scope rest token for markdown pages (secret)
   SENTRY_API_TOKEN          Read-only Sentry token (secret; project:read, event:read, org:read)
   SENTRY_ORG                Sentry organization slug
   SENTRY_PROJECT            Sentry project slug

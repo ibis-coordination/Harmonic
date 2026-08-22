@@ -25,6 +25,7 @@ version mutates anything.
 | Command | Acts | Description |
 |---------|------|-------------|
 | `harmonic-admin prod status` | prod over HTTPS + Sentry API | Availability (healthcheck), job backlog (/metrics), and error digest (Sentry) in one view |
+| `harmonic-admin prod page <path>` | prod over HTTPS | Fetch a markdown page as the steward agent and print it verbatim (e.g. `/system-admin/sidekiq`) |
 | `harmonic-admin prod sentry issues` | Sentry API | Unresolved issues, most recent first |
 | `harmonic-admin prod sentry show <id>` | Sentry API | One issue in detail, including the latest event |
 | `harmonic-admin doctor` | local only | Which credentials/sources are configured; never prints secret values |
@@ -45,6 +46,7 @@ dangerous (SSH, deploy access) deliberately has no home here.
 |-----|--------|---------|
 | `HARMONIC_PROD_URL` | no | Prod base URL (default `https://www.harmonic.social`; must be the canonical host — a redirect would strip the metrics bearer header) |
 | `HARMONIC_METRICS_TOKEN` | yes | Bearer token for the `/metrics` endpoint |
+| `HARMONIC_STEWARD_TOKEN` | yes | The steward agent's read-scope rest token (minted with the `sys_admin` token flag) for `prod page` |
 | `SENTRY_API_TOKEN` | yes | Read-only Sentry token (scopes: `project:read`, `event:read`, `org:read`) |
 | `SENTRY_ORG` | no | Sentry organization slug |
 | `SENTRY_PROJECT` | no | Sentry project slug |
