@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.66.0] - 2026-08-22
+
+### Added
+
+- **Steward read access to system-admin pages** (#554) — a dedicated steward agent identity (an external AI agent principaled by an admin, holding the sys_admin role and a read-scope rest token) can read the existing markdown system-admin pages — Sidekiq queues, retries, scheduled, dead set, per-job detail — via the new `harmonic-admin prod page <path>`, an authenticated pager that prints page markdown verbatim and never parses it. Pages render as the steward, so attribution stays honest; the CLI is read-only permanently, with future mutations going through Harmonic's action system. Provisioning steps and preconditions in `.claude/plans/steward-admin-read-access.md`. Deploy: web only, no migrations; then provision the steward via console.
+
+### Security
+
+- **Token access to system-admin requires the token's `sys_admin` flag** (#554) — token-authenticated requests to `/system-admin/*` now need the flag on the token as well as the role on its user, matching the Admin API's redundant check; previously any token belonging to a sys_admin user could read those pages. Internal per-request tokens (MCP dispatch) are exempt from the flag, never the role. Session access and reverification are unchanged.
+
+### Changed
+
+- **Dependency bumps** — agent-runner undici 8.5.0 → 8.9.0 (#553).
+
 ## [1.65.0] - 2026-07-31
 
 ### Added
