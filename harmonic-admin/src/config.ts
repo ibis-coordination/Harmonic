@@ -13,6 +13,7 @@ import path from "node:path";
 export const CONFIG_KEYS = [
   "HARMONIC_PROD_URL",
   "HARMONIC_METRICS_TOKEN",
+  "HARMONIC_STEWARD_TOKEN",
   "SENTRY_API_TOKEN",
   "SENTRY_ORG",
   "SENTRY_PROJECT",
@@ -22,7 +23,11 @@ export const CONFIG_KEYS = [
 export type ConfigKey = (typeof CONFIG_KEYS)[number];
 
 /** Keys whose values must never be written to any output stream. */
-export const SECRET_KEYS: readonly ConfigKey[] = ["HARMONIC_METRICS_TOKEN", "SENTRY_API_TOKEN"];
+export const SECRET_KEYS: readonly ConfigKey[] = [
+  "HARMONIC_METRICS_TOKEN",
+  "HARMONIC_STEWARD_TOKEN",
+  "SENTRY_API_TOKEN",
+];
 
 const DEFAULTS: Partial<Record<ConfigKey, string>> = {
   // The www host, not the apex: the apex 301s to www, and fetch strips

@@ -297,10 +297,20 @@ class SystemAdminController < ApplicationController
   end
 
   def ensure_sys_admin
-    unless @current_user&.sys_admin?
-      @sidebar_mode = 'none'
-      render status: :forbidden, layout: 'application', template: 'system_admin/403_not_sys_admin'
+    authorized = @current_user&.sys_admin?
+    # Token-authenticated requests need the sys_admin flag on the token too
+    # (same redundant user-role AND token-flag check as the Admin API), so an
+    # ordinary user-minted token can't reach these pages just because its
+    # owner is a sys_admin. Internal tokens are exempt from the flag (never
+    # the role): they're minted server-side per request for an
+    # already-authenticated user — MCP dispatch reaches these pages that way.
+    if api_token_present?
+      authorized &&= @current_token&.internal? || @current_token&.sys_admin?
     end
+    return if authorized
+
+    @sidebar_mode = 'none'
+    render status: :forbidden, layout: 'application', template: 'system_admin/403_not_sys_admin'
   end
 
   def set_sidebar_mode

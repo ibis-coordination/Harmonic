@@ -694,4 +694,103 @@ class SystemAdminControllerTest < ActionDispatch::IntegrationTest
     assert_match(/System Health/, response.body)
     assert_match(/DB pool:/, response.body)
   end
+
+  # ============================================================================
+  # SECTION: Token access requires the sys_admin flag on BOTH user and token
+  # ============================================================================
+
+  def create_steward_with_token(user_sys_admin: true, token_sys_admin: true, scopes: ApiToken.read_scopes)
+    @primary_tenant.add_user!(@sys_admin_user)
+    @primary_tenant.enable_api!
+    Tenant.scope_thread_to_tenant(subdomain: @primary_tenant.subdomain)
+    steward = create_ai_agent(parent: @sys_admin_user, name: "Steward", agent_configuration: { "mode" => "external" })
+    @primary_tenant.add_user!(steward)
+    steward.update!(sys_admin: user_sys_admin)
+    token = ApiToken.create!(
+      tenant: @primary_tenant,
+      user: steward,
+      token_type: "rest",
+      scopes: scopes,
+      sys_admin: token_sys_admin,
+    )
+    [steward, token]
+  end
+
+  def token_headers(token)
+    { "Authorization" => "Bearer #{token.plaintext_token}", "Accept" => "text/markdown" }
+  end
+
+  test "sys_admin-flagged token of a sys_admin steward agent reads sidekiq markdown" do
+    _steward, token = create_steward_with_token
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/system-admin/sidekiq", headers: token_headers(token)
+    assert_response :success
+    assert_match(/Dead/i, response.body)
+  end
+
+  test "token without the sys_admin flag is refused even when its user is sys_admin" do
+    _steward, token = create_steward_with_token(token_sys_admin: false)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/system-admin/sidekiq", headers: token_headers(token)
+    assert_response :forbidden
+  end
+
+  test "sys_admin-flagged token is refused when its user lacks the sys_admin role" do
+    _steward, token = create_steward_with_token(user_sys_admin: false)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/system-admin/sidekiq", headers: token_headers(token)
+    assert_response :forbidden
+  end
+
+  def create_internal_token_for(user)
+    collective = @primary_tenant.main_collective
+    rule = AutomationRule.create!(
+      tenant: @primary_tenant,
+      collective: collective,
+      name: "Internal token context",
+      trigger_type: "manual",
+      trigger_config: {},
+      actions: [],
+      created_by: @sys_admin_user,
+    )
+    run = AutomationRuleRun.create!(
+      tenant: @primary_tenant,
+      collective: collective,
+      automation_rule: rule,
+      trigger_source: "manual",
+      status: "pending",
+    )
+    ApiToken.create_internal_token(user: user, tenant: @primary_tenant, context: run)
+  end
+
+  test "internal token of a sys_admin agent passes without the flag (MCP dispatch path)" do
+    steward, _token = create_steward_with_token
+    internal = create_internal_token_for(steward)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/system-admin/sidekiq",
+        headers: { "Authorization" => "Bearer #{internal.plaintext_token}", "Accept" => "text/markdown" }
+    assert_response :success
+  end
+
+  test "internal token still requires the sys_admin role on its user" do
+    steward, _token = create_steward_with_token(user_sys_admin: false)
+    internal = create_internal_token_for(steward)
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    get "/system-admin/sidekiq",
+        headers: { "Authorization" => "Bearer #{internal.plaintext_token}", "Accept" => "text/markdown" }
+    assert_response :forbidden
+  end
+
+  test "read-scope token cannot POST a job retry" do
+    _steward, token = create_steward_with_token
+    host! "#{@primary_tenant.subdomain}.#{ENV['HOSTNAME']}"
+
+    post "/system-admin/sidekiq/jobs/nonexistent-jid/retry", headers: token_headers(token)
+    assert_response :forbidden
+  end
 end
