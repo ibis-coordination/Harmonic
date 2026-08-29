@@ -48,15 +48,19 @@ This commitment has been deleted<%= " by the author" if @commitment.deleted_by_i
 
 ## Status
 
+<% noun = @commitment.metric_name.singularize -%>
+<% if @commitment.has_critical_mass? -%>
 Progress bar: `<%= '#' * (@commitment.progress_percentage / 2) %><%= '_' * ((100 - @commitment.progress_percentage) / 2) %>` <%= @commitment.progress_percentage %>%
 
-<% noun = @commitment.metric_name.singularize -%>
 __<%= @commitment.participant_count %>__ of __<%= @commitment.critical_mass %>__ <%= noun.pluralize(@commitment.critical_mass) %> needed to reach critical mass.
 <% unless @commitment.critical_mass_achieved? -%>
 __<%= @commitment.remaining_needed_for_critical_mass %>__ more <%= noun.pluralize(@commitment.remaining_needed_for_critical_mass) %> needed.
 <% end -%>
 <% if @commitment.critical_mass_achieved? -%>
 Critical mass achieved! 🎉
+<% end -%>
+<% else -%>
+__<%= @commitment.participant_count %>__ <%= noun.pluralize(@commitment.participant_count) %>. No critical mass required.
 <% end -%>
 
 ## <%= @commitment.metric_name.capitalize %>
