@@ -9926,7 +9926,7 @@ ALTER TABLE ONLY public.funding_pools
 --
 
 ALTER TABLE ONLY public.llm_usage_records
-    ADD CONSTRAINT fk_rails_84d3b918da FOREIGN KEY (api_token_id) REFERENCES public.api_tokens(id);
+    ADD CONSTRAINT fk_rails_84d3b918da FOREIGN KEY (api_token_id) REFERENCES public.api_tokens(id) ON DELETE SET NULL;
 
 
 --
@@ -10166,7 +10166,7 @@ ALTER TABLE ONLY public.votes
 --
 
 ALTER TABLE ONLY public.harmonic_bridge_setups
-    ADD CONSTRAINT fk_rails_afa9958aeb FOREIGN KEY (llm_api_token_id) REFERENCES public.api_tokens(id);
+    ADD CONSTRAINT fk_rails_afa9958aeb FOREIGN KEY (llm_api_token_id) REFERENCES public.api_tokens(id) ON DELETE SET NULL;
 
 
 --
@@ -10534,7 +10534,7 @@ ALTER TABLE ONLY public.heartbeats
 --
 
 ALTER TABLE ONLY public.harmonic_bridge_setups
-    ADD CONSTRAINT fk_rails_ef145b89b2 FOREIGN KEY (api_token_id) REFERENCES public.api_tokens(id);
+    ADD CONSTRAINT fk_rails_ef145b89b2 FOREIGN KEY (api_token_id) REFERENCES public.api_tokens(id) ON DELETE SET NULL;
 
 
 --
@@ -10680,6 +10680,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260915162410'),
 ('20260731183016'),
 ('20260731072222'),
 ('20260730150000'),

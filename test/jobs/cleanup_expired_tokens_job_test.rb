@@ -109,4 +109,53 @@ class CleanupExpiredTokensJobTest < ActiveJob::TestCase
     assert_nil ApiToken.find_by(id: old_token_tenant1.id), "Tenant1 old token should be deleted"
     assert_nil ApiToken.find_by(id: old_token_tenant2.id), "Tenant2 old token should be deleted"
   end
+
+  test "tokens referenced by bridge setups and usage records are deleted, references nullified" do
+    agent = create_ai_agent(parent: @user, name: "Bridge Agent", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+
+    bridged_token = agent.api_tokens.create!(
+      name: "Bridged Expired",
+      scopes: ApiToken.read_scopes,
+      expires_at: 31.days.ago,
+    )
+    llm_token = agent.api_tokens.create!(
+      name: "LLM Expired",
+      token_type: "llm_gateway",
+      scopes: ApiToken.read_scopes,
+      expires_at: 31.days.ago,
+    )
+    bridge_setup = HarmonicBridgeSetup.create!(
+      tenant: @tenant,
+      ai_agent_user: agent,
+      created_by_user: @user,
+      api_token: bridged_token,
+      llm_api_token: llm_token,
+    )
+    usage_record = LLMUsageRecord.create!(
+      selection_id: "sel_#{SecureRandom.uuid}",
+      status: "pending",
+      ai_agent_id: agent.id,
+      payer_stripe_customer_id: "cus_cleanup_test",
+      origin_tenant_id: @tenant.id,
+      api_token: llm_token,
+      occurred_at: Time.current,
+    )
+    plain_token = @user.api_tokens.create!(
+      name: "Plain Expired",
+      scopes: ApiToken.read_scopes,
+      expires_at: 31.days.ago,
+    )
+
+    Tenant.current_id = nil
+    CleanupExpiredTokensJob.perform_now
+
+    assert_nil ApiToken.unscoped_for_system_job.find_by(id: bridged_token.id), "bridged token should be deleted"
+    assert_nil ApiToken.unscoped_for_system_job.find_by(id: llm_token.id), "llm token should be deleted"
+    assert_nil ApiToken.unscoped_for_system_job.find_by(id: plain_token.id), "plain token should be deleted"
+    bridge_setup.reload
+    assert_nil bridge_setup.api_token_id, "bridge setup token reference should be nullified"
+    assert_nil bridge_setup.llm_api_token_id, "bridge setup llm token reference should be nullified"
+    assert_nil usage_record.reload.api_token_id, "usage record token reference should be nullified"
+  end
 end
