@@ -13,6 +13,8 @@ Clone the repo or copy these files to your server:
 ├── docker-compose.production.yml
 ├── .env                      # your configuration
 ├── config/
+│   ├── clamav/
+│   │   └── clamd.conf          # mounted into the clamav container
 │   └── maintenance/
 │       ├── Caddyfile.template  # maintenance mode template
 │       └── maintenance.html    # maintenance page

@@ -27,6 +27,9 @@ services:
       # sidekiq gauges (queue sizes, retry/dead counts) that yabeda-sidekiq
       # otherwise only collects inside Sidekiq server processes.
       - YABEDA_SIDEKIQ_COLLECT_CLUSTER_METRICS=true
+      # Curb glibc malloc arena proliferation: Ruby RSS grew ~35% over days
+      # of uptime (observed in OOM-event process tables, May-Aug 2026).
+      - MALLOC_ARENA_MAX=2
     env_file:
       - .env
     depends_on:
@@ -55,6 +58,8 @@ services:
     environment:
       - RAILS_ENV=production
       - RAILS_LOG_TO_STDOUT=true
+      # Same rationale as the web service's MALLOC_ARENA_MAX.
+      - MALLOC_ARENA_MAX=2
     env_file:
       - .env
     depends_on:
@@ -204,6 +209,18 @@ services:
     restart: unless-stopped
     volumes:
       - clamav_data:/var/lib/clamav
+      # In-place database reload (ConcurrentDatabaseReload no) — see the
+      # file's comments. Copy config/clamav/clamd.conf to the server first.
+      - ./config/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
+    deploy:
+      resources:
+        limits:
+          # Steady-state clamd holds ~950MB of signature DB. The cap scopes
+          # any future spike to this container (kill + restart) instead of
+          # host-wide OOM.
+          memory: 1536M
+        reservations:
+          memory: 1G
     networks:
       - backend
 
