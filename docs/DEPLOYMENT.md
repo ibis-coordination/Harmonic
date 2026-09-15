@@ -17,12 +17,46 @@ Clone the repo or copy these files to your server:
 │       ├── Caddyfile.template  # maintenance mode template
 │       └── maintenance.html    # maintenance page
 └── scripts/
+    ├── provision-host.sh     # idempotent host config (swap, sysctl)
     ├── deploy.sh             # pull latest images and restart
     ├── rollback.sh           # rollback to previous image version
     ├── hotfix-patch.sh       # emergency file-level patching
     ├── maintenance.sh        # maintenance mode toggle script
     └── generate-caddyfile.sh # manual Caddyfile regeneration
 ```
+
+### Host Provisioning (Repeatable)
+
+Host-level config lives in `scripts/provision-host.sh` — idempotent, safe to
+re-run, and the single source of truth for anything configured on the droplet
+itself rather than in a container. A fresh droplet and the current production
+host converge to identical config by running it:
+
+```bash
+sudo /opt/harmonic/scripts/provision-host.sh
+```
+
+Currently covers: a 4G swapfile (`SWAP_SIZE_GB` to override) registered in
+/etc/fstab, and `vm.swappiness=10` via /etc/sysctl.d/. Add future host-level
+config to this script, never by hand — ad hoc host changes don't survive a
+rebuild.
+
+Monitoring alerts are account-level (not host-level), so they're captured
+here as a repeatable command instead. One-time per droplet, from any machine
+with `doctl` authenticated:
+
+```bash
+doctl monitoring alert create \
+  --type "v1/insights/droplet/memory_utilization_percent" \
+  --compare GreaterThan --value 85 --window 5m \
+  --entities "$DROPLET_ID" \
+  --emails "$ALERT_EMAIL" \
+  --description "Harmonic prod memory > 85%"
+```
+
+Memory on the droplet degrades slowly when it degrades at all (a leak takes
+weeks to build), so an 85% alert gives ample lead time before anything locks
+up.
 
 After initial setup, a `Caddyfile` will also be present - it is auto-generated from tenant subdomains by `RegenerateCaddyfileJob` (see [Caddyfile Management](#caddyfile-management) below).
 
