@@ -6,26 +6,38 @@ Production uses pre-built Docker images from GitHub Container Registry. No sourc
 
 ### Server Setup (One-Time)
 
-Clone the repo or copy these files to your server:
+The deployment directory is a clone of this repo (production uses
+`/root/app/HarmonicTeam`; any path works — `docker compose ls` shows where the
+running stack lives). Compose files, mounted config, and scripts all arrive
+via `git pull`; only images come from the registry. Nothing is hand-copied.
+
+```bash
+git clone git@github.com:ibis-coordination/Harmonic.git
+cd Harmonic
+cp .env.example .env   # then configure (see prerequisites above)
+```
+
+Files the running stack reads from the clone:
 
 ```
-/opt/harmonic/
-├── docker-compose.production.yml
-├── .env                      # your configuration
-├── config/
-│   ├── clamav/
-│   │   └── clamd.conf          # mounted into the clamav container
-│   └── maintenance/
-│       ├── Caddyfile.template  # maintenance mode template
-│       └── maintenance.html    # maintenance page
-└── scripts/
-    ├── provision-host.sh     # idempotent host config (swap, sysctl)
-    ├── deploy.sh             # pull latest images and restart
-    ├── rollback.sh           # rollback to previous image version
-    ├── hotfix-patch.sh       # emergency file-level patching
-    ├── maintenance.sh        # maintenance mode toggle script
-    └── generate-caddyfile.sh # manual Caddyfile regeneration
+docker-compose.production.yml
+.env                            # your configuration (gitignored)
+Caddyfile                       # auto-generated after first boot (gitignored)
+config/
+├── clamav/clamd.conf           # mounted into the clamav container
+└── maintenance/                # maintenance-mode template + page
+scripts/
+├── provision-host.sh           # idempotent host config (swap, sysctl)
+├── deploy.sh                   # pull latest images and restart
+├── rollback.sh                 # rollback to previous image version
+├── hotfix-patch.sh             # emergency file-level patching
+├── maintenance.sh              # maintenance mode toggle script
+└── generate-caddyfile.sh       # manual Caddyfile regeneration
 ```
+
+A release that changes any of these (compose file, mounted config, scripts)
+needs a `git pull` in the deployment directory before `deploy.sh` — deploy.sh
+pulls images, not the repo.
 
 ### Host Provisioning (Repeatable)
 
@@ -35,7 +47,7 @@ itself rather than in a container. A fresh droplet and the current production
 host converge to identical config by running it:
 
 ```bash
-sudo /opt/harmonic/scripts/provision-host.sh
+sudo ./scripts/provision-host.sh   # from the deployment directory
 ```
 
 Currently covers: a 4G swapfile (`SWAP_SIZE_GB` to override) registered in
