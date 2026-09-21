@@ -210,7 +210,7 @@ services:
     volumes:
       - clamav_data:/var/lib/clamav
       # In-place database reload (ConcurrentDatabaseReload no) — see the
-      # file's comments. Copy config/clamav/clamd.conf to the server first.
+      # file's comments. Arrives via git pull in the deployment directory.
       - ./config/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
     deploy:
       resources:

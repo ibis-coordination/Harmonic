@@ -6,36 +6,48 @@ Production uses pre-built Docker images from GitHub Container Registry. No sourc
 
 ### Server Setup (One-Time)
 
-Clone the repo or copy these files to your server:
+The deployment directory is a clone of this repo — any path works, and
+`docker compose ls` shows where a running stack lives. Compose files, mounted
+config, and scripts all arrive via `git pull`; only images come from the
+registry. Nothing is hand-copied.
+
+```bash
+git clone git@github.com:ibis-coordination/Harmonic.git
+cd Harmonic
+cp .env.example .env   # then configure (see prerequisites above)
+```
+
+Files the running stack reads from the clone:
 
 ```
-/opt/harmonic/
-├── docker-compose.production.yml
-├── .env                      # your configuration
-├── config/
-│   ├── clamav/
-│   │   └── clamd.conf          # mounted into the clamav container
-│   └── maintenance/
-│       ├── Caddyfile.template  # maintenance mode template
-│       └── maintenance.html    # maintenance page
-└── scripts/
-    ├── provision-host.sh     # idempotent host config (swap, sysctl)
-    ├── deploy.sh             # pull latest images and restart
-    ├── rollback.sh           # rollback to previous image version
-    ├── hotfix-patch.sh       # emergency file-level patching
-    ├── maintenance.sh        # maintenance mode toggle script
-    └── generate-caddyfile.sh # manual Caddyfile regeneration
+docker-compose.production.yml
+.env                            # your configuration (gitignored)
+Caddyfile                       # auto-generated after first boot (gitignored)
+config/
+├── clamav/clamd.conf           # mounted into the clamav container
+└── maintenance/                # maintenance-mode template + page
+scripts/
+├── provision-host.sh           # idempotent host config (swap, sysctl)
+├── deploy.sh                   # pull latest images and restart
+├── rollback.sh                 # rollback to previous image version
+├── hotfix-patch.sh             # emergency file-level patching
+├── maintenance.sh              # maintenance mode toggle script
+└── generate-caddyfile.sh       # manual Caddyfile regeneration
 ```
+
+A release that changes any of these (compose file, mounted config, scripts)
+needs a `git pull` in the deployment directory before `deploy.sh` — deploy.sh
+pulls images, not the repo.
 
 ### Host Provisioning (Repeatable)
 
 Host-level config lives in `scripts/provision-host.sh` — idempotent, safe to
-re-run, and the single source of truth for anything configured on the droplet
-itself rather than in a container. A fresh droplet and the current production
-host converge to identical config by running it:
+re-run, and the single source of truth for anything configured on the host
+itself rather than in a container. A fresh host and an existing one converge
+to identical config by running it:
 
 ```bash
-sudo /opt/harmonic/scripts/provision-host.sh
+sudo ./scripts/provision-host.sh   # from the deployment directory
 ```
 
 Currently covers: a 4G swapfile (`SWAP_SIZE_GB` to override) registered in
@@ -43,9 +55,11 @@ Currently covers: a 4G swapfile (`SWAP_SIZE_GB` to override) registered in
 config to this script, never by hand — ad hoc host changes don't survive a
 rebuild.
 
-Monitoring alerts are account-level (not host-level), so they're captured
-here as a repeatable command instead. One-time per droplet, from any machine
-with `doctl` authenticated:
+Set a memory alert with your hosting provider (threshold ~85%, short window)
+so a slow climb pages you long before the host degrades — memory problems
+build over weeks when they build at all. Provider alerts are account-level,
+not host-level, so capture yours as a repeatable CLI command or API call
+rather than dashboard clicks. Example for a DigitalOcean-hosted instance:
 
 ```bash
 doctl monitoring alert create \
@@ -53,12 +67,8 @@ doctl monitoring alert create \
   --compare GreaterThan --value 85 --window 5m \
   --entities "$DROPLET_ID" \
   --emails "$ALERT_EMAIL" \
-  --description "Harmonic prod memory > 85%"
+  --description "Harmonic memory > 85%"
 ```
-
-Memory on the droplet degrades slowly when it degrades at all (a leak takes
-weeks to build), so an 85% alert gives ample lead time before anything locks
-up.
 
 After initial setup, a `Caddyfile` will also be present - it is auto-generated from tenant subdomains by `RegenerateCaddyfileJob` (see [Caddyfile Management](#caddyfile-management) below).
 
