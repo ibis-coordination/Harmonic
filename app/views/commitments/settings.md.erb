@@ -15,7 +15,7 @@ Current settings for <%= type_label.downcase %> **<%= @commitment.title %>**:
 |---------|-------|
 | Title | <%= @commitment.title %> |
 | Description | <%= @commitment.description || "(none)" %> |
-| Critical Mass | <%= @commitment.critical_mass %> |
+| Critical Mass | <%= @commitment.critical_mass || "(none)" %> |
 | Deadline | <%= @commitment.deadline %> |
 <% if @commitment.is_calendar_event? %>
 | Starts at | <%= @commitment.starts_at %> |

@@ -260,11 +260,15 @@ class CommitmentsController < ApplicationController
     return render "404", status: :not_found unless @commitment
     return render "shared/403", status: :forbidden unless @commitment.can_edit_settings?(@current_user)
 
-    # Check for lowering critical mass
-    if model_params[:critical_mass].present?
-      cm_is_lower = model_params[:critical_mass].to_i < @commitment.critical_mass.to_i
-      if cm_is_lower && @commitment.participant_count > 0
-        flash[:alert] = "You cannot lower the critical mass after participants have joined."
+    # Check for lowering/removing critical mass. Clearing the field counts as
+    # lowering — a critical-mass rule can't be removed once people joined
+    # under it.
+    if @commitment.participant_count > 0
+      cm_param = model_params[:critical_mass]
+      clearing = cm_param == "" && @commitment.has_critical_mass?
+      lowering = cm_param.present? && cm_param.to_i < @commitment.critical_mass.to_i
+      if clearing || lowering
+        flash[:alert] = "You cannot lower or remove the critical mass after participants have joined."
         redirect_to @commitment.path
         return
       end
@@ -297,7 +301,7 @@ class CommitmentsController < ApplicationController
     end
     @commitment = api_helper(params: helper_params).update_commitment_settings
     # Handle close_at_critical_mass option (HTML form specific)
-    if params[:deadline_option] == "close_at_critical_mass"
+    if params[:deadline_option] == "close_at_critical_mass" && @commitment.has_critical_mass?
       @commitment.limit = @commitment.critical_mass
       @commitment.close_if_limit_reached
       @commitment.save!
