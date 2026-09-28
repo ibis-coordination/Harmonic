@@ -18,13 +18,13 @@
   "dependencies": {
     "effect": "^3.21.0",
     "ioredis": "^5.4.0",
-    "undici": "^8.9.0",
+    "undici": "^8.10.2",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "tsx": "^4.22.4",
     "typescript": "^5.7.0",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.2"
   }
 }
