@@ -388,7 +388,7 @@ GEM
     ruby-vips (2.3.0)
       ffi (~> 1.12)
       logger
-    rubyzip (2.3.2)
+    rubyzip (3.4.0)
     securerandom (0.4.1)
     selenium-webdriver (4.1.0)
       childprocess (>= 0.5, < 5.0)
@@ -568,7 +568,7 @@ DEPENDENCIES
   rqrcode (~> 2.2)
   rubocop
   rubocop-rails
-  rubyzip (~> 2.3)
+  rubyzip (~> 3.4)
   selenium-webdriver
   sentry-rails
   sentry-ruby

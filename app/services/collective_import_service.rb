@@ -134,7 +134,7 @@ class CollectiveImportService
         if name.start_with?("attachments/")
           basename = File.basename(name)
           target_path = File.join(attachments_dir, basename)
-          entry.extract(target_path)
+          entry.extract(basename, destination_directory: attachments_dir)
           @attachment_paths[basename] = target_path
         else
           @zip_data[name] = entry.get_input_stream.read
