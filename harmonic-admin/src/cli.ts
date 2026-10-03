@@ -10,6 +10,7 @@ import type { Writable } from "node:stream";
 import { loadConfig, type AdminConfig } from "./config.js";
 import { runDoctor } from "./doctor.js";
 import { runProdStatus, type StatusSection } from "./status.js";
+import { runProdReport } from "./report.js";
 import { SentryClient } from "./sentry.js";
 
 export interface CliOpts {
@@ -66,6 +67,17 @@ async function runProd(
 
   if (sub === "page") {
     return await runPage(args.slice(1), config, opts, stdout, stderr);
+  }
+
+  if (sub === "report") {
+    const result = await runProdReport(config, { fetchImpl: opts.fetchImpl });
+    if (result.posted) {
+      stdout.write(result.response ?? "");
+    } else {
+      stderr.write(`harmonic-admin: ${result.error ?? "failed to post report"}\n`);
+      stdout.write(result.digest + "\n");
+    }
+    return result.posted ? result.exitCode : 1;
   }
 
   if (sub === "sentry") {
@@ -242,6 +254,9 @@ Commands:
                             Never prints secret values.
   prod status               HTTPS to prod + Sentry API: availability, job backlog,
                             and error digest in one view. Read-only.
+  prod report               HTTPS to prod + Sentry API: run the status checks and
+                            post the digest as a note in the reporting collective.
+                            Writes one note, nothing else.
   prod page <path>          HTTPS to prod: fetch a markdown page as the steward
                             agent and print it verbatim (e.g. /system-admin/sidekiq).
                             Read-only.

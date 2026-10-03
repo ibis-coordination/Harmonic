@@ -51,6 +51,20 @@ namespace :steward do
     end
   end
 
+  desc "Join a steward to its reporting collective and mint a content token (no admin flag). Usage: steward:enable_reporting[collective-handle] or [collective-handle,handle]"
+  task :enable_reporting, [:collective_handle, :handle] => :environment do |_t, args|
+    abort "steward:enable_reporting requires a collective handle, e.g. rake 'steward:enable_reporting[ops]'" if args[:collective_handle].blank?
+    handle = args[:handle].presence || "steward"
+
+    with_primary_tenant do |tenant|
+      token = StewardProvisioner.enable_reporting!(tenant: tenant, handle: handle, collective_handle: args[:collective_handle])
+      puts "Steward #{handle.inspect} joined collective #{args[:collective_handle].inspect}; content token minted (no admin flag)."
+      print_token_once(token)
+    rescue StewardProvisioner::PreconditionFailed => e
+      abort "steward: #{e.message}"
+    end
+  end
+
   desc "Revoke a steward's tokens and remove its sys_admin role. Usage: steward:revoke or steward:revoke[handle]"
   task :revoke, [:handle] => :environment do |_t, args|
     handle = args[:handle].presence || "steward"

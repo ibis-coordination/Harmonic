@@ -86,13 +86,15 @@ test("loadConfig: HARMONIC_ADMIN_CONFIG env var overrides the default path", asy
 });
 
 test("CONFIG_KEYS covers the v1 sources and SECRET_KEYS is a subset", () => {
-  for (const key of ["HARMONIC_PROD_URL", "HARMONIC_METRICS_TOKEN", "SENTRY_API_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT", "SENTRY_BASE_URL"]) {
+  for (const key of ["HARMONIC_PROD_URL", "HARMONIC_METRICS_TOKEN", "SENTRY_API_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT", "SENTRY_BASE_URL", "HARMONIC_STEWARD_TOKEN", "HARMONIC_STEWARD_REPORT_TOKEN", "HARMONIC_REPORT_COLLECTIVE"]) {
     assert.ok((CONFIG_KEYS as readonly string[]).includes(key), `missing ${key}`);
   }
   for (const key of SECRET_KEYS) {
     assert.ok((CONFIG_KEYS as readonly string[]).includes(key));
   }
   assert.ok(SECRET_KEYS.includes("SENTRY_API_TOKEN"));
+  assert.ok(SECRET_KEYS.includes("HARMONIC_STEWARD_REPORT_TOKEN"));
+  assert.ok(!SECRET_KEYS.includes("HARMONIC_REPORT_COLLECTIVE"));
   assert.ok(SECRET_KEYS.includes("HARMONIC_METRICS_TOKEN"));
   assert.ok(!SECRET_KEYS.includes("SENTRY_ORG"));
 });

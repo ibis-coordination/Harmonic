@@ -15,6 +15,8 @@ class StewardProvisioner
   class PreconditionFailed < StandardError; end
 
   TOKEN_NAME = "harmonic-admin steward read"
+  REPORT_TOKEN_NAME = "harmonic-admin steward report"
+  REPORT_TOKEN_SCOPES = T.let(["read:all", "create:all"].freeze, T::Array[String])
   TOKEN_LIFETIME = 1.year
 
   class ProvisionResult < T::Struct
@@ -53,6 +55,26 @@ class StewardProvisioner
     new_token = mint_token!(steward, tenant)
     active_rest_tokens(steward).where.not(id: new_token.id).find_each(&:delete!)
     new_token
+  end
+
+  # Reporting: the steward joins one designated collective (where its status
+  # reports land as notes) and holds a second token that can post content but
+  # — carrying no sys_admin flag — cannot read admin pages. The mirror image
+  # of the read token's capabilities.
+  sig { params(tenant: Tenant, handle: String, collective_handle: String).returns(ApiToken) }
+  def self.enable_reporting!(tenant:, handle:, collective_handle:)
+    steward = find_steward!(tenant, handle)
+    collective = tenant.collectives.find_by(handle: collective_handle)
+    raise PreconditionFailed, "no collective with handle #{collective_handle.inspect} on tenant #{tenant.subdomain}" if collective.nil?
+
+    collective.add_user!(steward) unless collective.users.exists?(id: steward.id)
+    steward.api_tokens.create!(
+      tenant: tenant,
+      name: REPORT_TOKEN_NAME,
+      token_type: "rest",
+      scopes: REPORT_TOKEN_SCOPES,
+      expires_at: TOKEN_LIFETIME.from_now,
+    )
   end
 
   sig { params(tenant: Tenant, handle: String).void }
