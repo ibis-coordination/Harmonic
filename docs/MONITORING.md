@@ -13,6 +13,9 @@ This guide walks you through setting up monitoring and alerting for Harmonic in 
 | cAdvisor | Container metrics | Optional | 5 min |
 | Lograge | Structured logging | Automatic | None |
 
+For agent-accessible read access to system-admin surfaces (Sidekiq queues,
+dead jobs) without SSH, see [STEWARD_AGENTS.md](STEWARD_AGENTS.md).
+
 ## Post-Deployment Checklist
 
 After deploying Harmonic, complete these steps:
