@@ -45,6 +45,10 @@ is a thin authenticated pager.
 
 ## Provisioning (Dan, prod console — after code ships)
 
+**Superseded: use `rake "steward:provision[principal-handle]"` (plus
+`steward:rotate` / `steward:revoke`) — see docs/STEWARD_AGENTS.md. The
+console recipe below was the original path, kept for reference.**
+
 ```ruby
 steward = ... # create external AI agent principaled by Dan, primary tenant, e.g. handle "steward"
 steward.update!(sys_admin: true)
