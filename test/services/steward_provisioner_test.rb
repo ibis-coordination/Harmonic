@@ -98,4 +98,35 @@ class StewardProvisionerTest < ActiveSupport::TestCase
     assert_raises(StewardProvisioner::PreconditionFailed) { StewardProvisioner.rotate!(tenant: @tenant, handle: "nope") }
     assert_raises(StewardProvisioner::PreconditionFailed) { StewardProvisioner.revoke!(tenant: @tenant, handle: "nope") }
   end
+
+  test "enable_reporting! joins the collective and mints an unflagged content token" do
+    StewardProvisioner.provision!(tenant: @tenant, principal_handle: @principal.tenant_user.handle, handle: "steward")
+    token = StewardProvisioner.enable_reporting!(tenant: @tenant, handle: "steward", collective_handle: @collective.handle)
+
+    steward = User.find_by!(name: "Steward")
+    assert @collective.users.exists?(id: steward.id), "steward should join the reporting collective"
+    assert_equal ["read:all", "create:all"], token.scopes
+    assert_not token.sys_admin?, "report token must not carry the sys_admin flag"
+    assert_equal "rest", token.token_type
+    assert token.plaintext_token.present?
+  end
+
+  test "enable_reporting! is idempotent on membership and refuses unknown collective" do
+    StewardProvisioner.provision!(tenant: @tenant, principal_handle: @principal.tenant_user.handle, handle: "steward")
+    StewardProvisioner.enable_reporting!(tenant: @tenant, handle: "steward", collective_handle: @collective.handle)
+    StewardProvisioner.enable_reporting!(tenant: @tenant, handle: "steward", collective_handle: @collective.handle)
+    steward = User.find_by!(name: "Steward")
+    assert_equal 1, @collective.collective_members.where(user_id: steward.id).count
+
+    assert_raises(StewardProvisioner::PreconditionFailed) do
+      StewardProvisioner.enable_reporting!(tenant: @tenant, handle: "steward", collective_handle: "no-such-collective")
+    end
+  end
+
+  test "revoke! also revokes report tokens" do
+    StewardProvisioner.provision!(tenant: @tenant, principal_handle: @principal.tenant_user.handle, handle: "steward")
+    report_token = StewardProvisioner.enable_reporting!(tenant: @tenant, handle: "steward", collective_handle: @collective.handle)
+    StewardProvisioner.revoke!(tenant: @tenant, handle: "steward")
+    assert report_token.reload.deleted_at.present?
+  end
 end

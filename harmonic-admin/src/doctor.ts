@@ -26,6 +26,7 @@ export function runDoctor(config: AdminConfig, stdout: Writable): number {
   stdout.write(readiness("prod status", missingFor(config, [])) + " (availability always; metrics and Sentry sections need their keys)\n");
   stdout.write(readiness("prod sentry", missingFor(config, ["SENTRY_API_TOKEN", "SENTRY_ORG", "SENTRY_PROJECT"])) + "\n");
   stdout.write(readiness("prod page", missingFor(config, ["HARMONIC_STEWARD_TOKEN"])) + "\n");
+  stdout.write(readiness("prod report", missingFor(config, ["HARMONIC_STEWARD_REPORT_TOKEN", "HARMONIC_REPORT_COLLECTIVE"])) + "\n");
   return 0;
 }
 

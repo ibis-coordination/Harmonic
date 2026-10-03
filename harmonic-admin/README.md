@@ -28,6 +28,7 @@ version mutates anything.
 | `harmonic-admin prod page <path>` | prod over HTTPS | Fetch a markdown page as the steward agent and print it verbatim (e.g. `/system-admin/sidekiq`) |
 | `harmonic-admin prod sentry issues` | Sentry API | Unresolved issues, most recent first |
 | `harmonic-admin prod sentry show <id>` | Sentry API | One issue in detail, including the latest event |
+| `harmonic-admin prod report` | prod over HTTPS + Sentry API | Run the status checks and post the digest as a note in the reporting collective (writes one note, nothing else) |
 | `harmonic-admin doctor` | local only | Which credentials/sources are configured; never prints secret values |
 
 `prod status` degrades gracefully per source: a missing credential produces a
@@ -46,6 +47,8 @@ dangerous (SSH, deploy access) deliberately has no home here.
 |-----|--------|---------|
 | `HARMONIC_PROD_URL` | no | Prod base URL (default `https://www.harmonic.social`; must be the canonical host — a redirect would strip the metrics bearer header) |
 | `HARMONIC_METRICS_TOKEN` | yes | Bearer token for the `/metrics` endpoint |
+| `HARMONIC_STEWARD_REPORT_TOKEN` | yes | The steward's content token for `prod report` (create scope, no admin flag) |
+| `HARMONIC_REPORT_COLLECTIVE` | no | Handle of the collective where `prod report` posts |
 | `HARMONIC_STEWARD_TOKEN` | yes | The steward agent's read-scope rest token (minted with the `sys_admin` token flag) for `prod page` — see the repo's `docs/STEWARD_AGENTS.md` |
 | `SENTRY_API_TOKEN` | yes | Read-only Sentry token (scopes: `project:read`, `event:read`, `org:read`) |
 | `SENTRY_ORG` | no | Sentry organization slug |

@@ -251,3 +251,89 @@ test("prod sentry show: missing id is a usage error", async () => {
     assert.match(result.stderr, /requires an issue id/);
   });
 });
+
+const REPORT_CONFIG =
+  PAGE_CONFIG + "\nHARMONIC_STEWARD_REPORT_TOKEN=report-tok\nHARMONIC_REPORT_COLLECTIVE=ops\n";
+
+const HEALTHY_ROUTES = {
+  "https://prod.example/healthcheck": {
+    status: 200,
+    body: JSON.stringify({ status: "ok", checks: { database: true, redis: true } }),
+  },
+  "https://sentry.example/api/0/projects/ibis/harmonic/issues/": { status: 200, body: "[]" },
+};
+
+const CREATED_NOTE_MD =
+  '# Action Success: `create_note`\n\n## Resource\n\nNote [abc123](/n/abc123)\n\n## Result\n\nNote created.\n';
+
+interface RecordedPost {
+  url: string;
+  headers: Record<string, string>;
+  body: string;
+}
+
+function reportFetch(posts: RecordedPost[], postStatus = 200): typeof fetch {
+  return (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    const urlPath = url.split("?")[0] ?? url;
+    if (init?.method === "POST") {
+      posts.push({ url, headers: (init.headers ?? {}) as Record<string, string>, body: String(init.body) });
+      return new Response(CREATED_NOTE_MD, { status: postStatus });
+    }
+    const route = (HEALTHY_ROUTES as Record<string, { status: number; body: string }>)[urlPath];
+    if (!route) return new Response("not found", { status: 404 });
+    return new Response(route.body, { status: route.status });
+  }) as typeof fetch;
+}
+
+test("prod report: posts the digest as a note and prints its path", async () => {
+  await withTempConfig(REPORT_CONFIG, async (configPath) => {
+    const posts: RecordedPost[] = [];
+    const result = await run(["prod", "report"], { configPath, fetchImpl: reportFetch(posts) });
+    assert.equal(result.code, 0);
+    assert.equal(posts.length, 1);
+    const post = posts[0];
+    assert.ok(post);
+    assert.match(post.url, /\/collectives\/ops\/note\/actions\/create_note$/);
+    assert.equal(post.headers["Authorization"], "Bearer report-tok");
+    assert.match(post.body, /Availability/);
+    assert.match(post.body, /title=/);
+    assert.match(result.stdout, /\/n\/abc123/);
+  });
+});
+
+test("prod report: missing report credentials degrade with guidance", async () => {
+  await withTempConfig(PAGE_CONFIG, async (configPath) => {
+    const result = await run(["prod", "report"], { configPath, fetchImpl: reportFetch([]) });
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /HARMONIC_STEWARD_REPORT_TOKEN/);
+  });
+});
+
+test("prod report: still posts when prod is down and exits 1", async () => {
+  await withTempConfig(REPORT_CONFIG, async (configPath) => {
+    const posts: RecordedPost[] = [];
+    const downFetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST") {
+        posts.push({ url, headers: {}, body: String(init.body) });
+        return new Response(CREATED_NOTE_MD, { status: 200 });
+      }
+      if (url.includes("healthcheck")) throw new Error("ENOTFOUND");
+      return new Response("[]", { status: 200 });
+    }) as typeof fetch;
+    const result = await run(["prod", "report"], { configPath, fetchImpl: downFetch });
+    assert.equal(result.code, 1);
+    assert.equal(posts.length, 1);
+    assert.match(posts[0]?.body ?? "", /DOWN/);
+  });
+});
+
+test("prod report: failed post falls back to printing the digest", async () => {
+  await withTempConfig(REPORT_CONFIG, async (configPath) => {
+    const result = await run(["prod", "report"], { configPath, fetchImpl: reportFetch([], 403) });
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /failed to post/i);
+    assert.match(result.stdout, /Availability/);
+  });
+});

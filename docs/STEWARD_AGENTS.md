@@ -72,6 +72,32 @@ credentials file of the machine that will run the reads — for `harmonic-admin`
 that is `~/.config/harmonic-admin/env` (`chmod 600`) as
 `HARMONIC_STEWARD_TOKEN`. Tokens expire after a year; rotate before expiry.
 
+## Reporting
+
+A steward can post status reports into one designated collective — the only
+shared collective it joins. Reporting uses a **second token** with the
+mirror-image capability profile: `read:all` + `create:all`, **no** `sys_admin`
+flag — it can post notes but cannot read admin pages, while the admin token
+reads everything and can write nothing.
+
+```bash
+rake "steward:enable_reporting[<collective-handle>]"   # join + mint content token
+```
+
+Put the printed token in the credentials file as
+`HARMONIC_STEWARD_REPORT_TOKEN`, and the collective handle as
+`HARMONIC_REPORT_COLLECTIVE`. Then:
+
+```bash
+harmonic-admin prod report   # run the status checks, post the digest as a note
+```
+
+The note lands in the reporting collective under the steward's name; members
+are notified through the platform's own notification mechanics. The command
+exits non-zero when the instance is down even after posting successfully, so
+schedulers can escalate. `steward:revoke` revokes report tokens along with
+everything else.
+
 ## Using the access
 
 Through `harmonic-admin` (see `harmonic-admin/README.md`):
