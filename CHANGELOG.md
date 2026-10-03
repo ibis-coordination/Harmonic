@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.68.0] - 2026-10-03
+
+### Added
+
+- **Steward lifecycle as rake tasks, and the steward's first report** (#563, #564) — the steward identity (shipped 1.66.0) gains a tested lifecycle: `rake "steward:provision[principal-handle]"` / `steward:rotate` / `steward:revoke`, with `StewardProvisioner` enforcing preconditions and keeping the steward out of shared collectives. New `rake "steward:enable_reporting[collective-handle]"` joins the steward to one designated reporting collective and mints a second, mirror-image token (`create:all`, no `sys_admin` flag — posts notes, cannot read admin pages). `harmonic-admin prod report` runs the status checks and posts the digest as a steward-authored note there, members notified via the platform's own mechanics; exits non-zero when the instance is down even after posting. `docs/STEWARD_AGENTS.md` documents the identity model (steward as pattern, why a dedicated identity, capability layers). Deploy: web only, no migrations; operator setup for reporting is in STEWARD_AGENTS.md.
+
+### Changed
+
+- **Deployment docs describe the real layout** (#560) — the server-setup guide now documents the clone-based deployment model (compose files, mounted config, and scripts arrive via `git pull`; releases touching them need a pull before `deploy.sh`), replacing a hand-copied file tree that never matched reality. Kept operator-generic: no specific paths or providers; the memory-alert example is explicitly one provider's.
+- **Dependency bumps** — rubyzip 2.3.2 → 3.4.0 (#561), vitest 4 → 5 (#562).
+
 ## [1.67.0] - 2026-09-18
 
 ### Fixed
