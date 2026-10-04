@@ -5,6 +5,8 @@
 # then all tenants redirect to that one auth subdomain to authenticate, and once authenticated, the user is
 # redirected back to the original tenant subdomain with a token cookie that can be used to log in with the tenant.
 class SessionsController < ApplicationController
+  include PendingAgentSignupStash
+
   before_action :set_auth_sidebar, only: [:new, :logout_success]
   skip_forgery_protection only: :oauth_callback
 
@@ -279,6 +281,9 @@ class SessionsController < ApplicationController
       # Joining is explicit: the confirmation page performs the tenant +
       # collective join when the user accepts.
       redirect_to invite_required_path(code: invite.code)
+    elsif member && (claim_path = consume_pending_agent_signup_claim_path!)
+      # The user followed an agent signup claim link while logged out.
+      redirect_to claim_path
     else
       redirect_to root_path
     end

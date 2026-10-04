@@ -85,6 +85,15 @@ class AiAgentsController < ApplicationController
       run = @latest_runs_by_ai_agent[s.id]
       run ? -run.created_at.to_i : -s.created_at.to_i
     end
+
+    # Agents that signed themselves up and named this user as their human
+    # principal, waiting to be claimed.
+    @pending_agent_signups = if current_tenant.agent_signup_enabled?
+                               AgentSignup.tenant_scoped_only(current_tenant.id).open_pending
+                                 .where(principal_user_id: current_user.id).order(created_at: :desc)
+                             else
+                               AgentSignup.none
+                             end
   end
 
   # GET /ai-agents/:handle - Show a specific AI agent

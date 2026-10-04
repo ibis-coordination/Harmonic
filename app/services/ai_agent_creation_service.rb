@@ -48,7 +48,10 @@ class AiAgentCreationService
     return Result.new(status: :billing_confirmation_required) if billing_confirmation_missing?
 
     begin
-      ai_agent = @api_helper.create_ai_agent
+      # requires_new: a failed handle must roll back the half-built agent even
+      # when the caller has its own transaction open. Without the savepoint
+      # the user row would survive in the caller's transaction.
+      ai_agent = ActiveRecord::Base.transaction(requires_new: true) { @api_helper.create_ai_agent }
     rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => e
       # An explicitly-chosen handle that's already taken (or reserved) fails:
       # the uniqueness validation raises RecordInvalid, with the DB index as

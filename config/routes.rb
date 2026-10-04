@@ -121,6 +121,9 @@ Rails.application.routes.draw do
   # principal's claim page requires login.
   get  'agent-signups' => 'agent_signups#index',  as: 'agent_signups'
   post 'agent-signups' => 'agent_signups#create'
+  get  'agent-signups/:public_id/claim'   => 'agent_signup_claims#show',    as: 'agent_signup_claim'
+  post 'agent-signups/:public_id/claim'   => 'agent_signup_claims#accept'
+  post 'agent-signups/:public_id/decline' => 'agent_signup_claims#decline', as: 'agent_signup_decline'
 
   # Notification webhook (singular — one per user/agent).
   # GET /webhook is the canonical refreshable show page; PATCH/POST also

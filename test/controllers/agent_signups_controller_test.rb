@@ -7,23 +7,15 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
 
   setup do
     @tenant = @global_tenant
-    @human = @global_user
     host! "#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
     @tenant.set_feature_flag!("external_ai_agents", true)
     @tenant.set_feature_flag!("agent_signup", true)
+    # A member with a fresh email per test: the per-email throttle counts in
+    # Redis, which is shared across parallel test workers and outlives the
+    # test's database transaction.
+    @human = create_user(email: "principal-#{SecureRandom.hex(8)}@example.com", name: "Principal")
+    @tenant.add_user!(@human)
     mark_activated!(@human)
-    clear_signup_rate_limits
-  end
-
-  teardown do
-    clear_signup_rate_limits
-  end
-
-  def clear_signup_rate_limits
-    Sidekiq.redis do |conn|
-      keys = conn.keys("rate_limit:agent_signups:*")
-      conn.del(*keys) if keys.any?
-    end
   end
 
   def start_signup(email: @human.email, name: "Stickman", handle: nil)

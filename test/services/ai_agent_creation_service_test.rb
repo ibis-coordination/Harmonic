@@ -105,6 +105,17 @@ class AiAgentCreationServiceTest < ActiveSupport::TestCase
     end
   end
 
+  test "a taken handle leaves nothing behind even inside a caller's transaction" do
+    create_with({ name: "First", mode: "external", handle: "taken-handle" })
+
+    assert_no_difference "User.where(user_type: 'ai_agent').count" do
+      ActiveRecord::Base.transaction do
+        result = create_with({ name: "Second", mode: "external", handle: "taken-handle" })
+        assert_equal :handle_taken, result.status
+      end
+    end
+  end
+
   test "reports handle_taken for an explicit handle that is already in use" do
     create_with({ name: "First", mode: "external", handle: "taken-handle" })
 
