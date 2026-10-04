@@ -121,6 +121,7 @@ Rails.application.routes.draw do
   # principal's claim page requires login.
   get  'agent-signups' => 'agent_signups#index',  as: 'agent_signups'
   post 'agent-signups' => 'agent_signups#create'
+  post 'agent-signups/:public_id/status'  => 'agent_signups#status',        as: 'agent_signup_status'
   get  'agent-signups/:public_id/claim'   => 'agent_signup_claims#show',    as: 'agent_signup_claim'
   post 'agent-signups/:public_id/claim'   => 'agent_signup_claims#accept'
   post 'agent-signups/:public_id/decline' => 'agent_signup_claims#decline', as: 'agent_signup_decline'

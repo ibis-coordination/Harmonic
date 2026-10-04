@@ -278,6 +278,61 @@ class AgentSignupTest < ActiveSupport::TestCase
     assert_equal "pending", start(email: "nobody-#{SecureRandom.hex(4)}@example.com").agent_status
   end
 
+  # ---------- pickup ----------
+
+  test "pick_up!: mints an MCP token for the claimed agent and marks the signup redeemed" do
+    signup, agent = claimed_signup
+
+    plaintext = signup.pick_up!
+
+    token = ApiToken.authenticate(plaintext, tenant_id: @tenant.id)
+    assert_equal agent.id, token.user_id
+    assert token.mcp_type?
+    assert_equal "redeemed", signup.state
+    assert_equal token.id, signup.api_token_id
+    assert_in_delta Time.current, signup.redeemed_at, 5.seconds
+    assert_equal "redeemed", signup.agent_status
+  end
+
+  test "pick_up!: returns nil and mints nothing the second time" do
+    signup, agent = claimed_signup
+    signup.pick_up!
+
+    assert_no_difference -> { ApiToken.where(user_id: agent.id).count } do
+      assert_nil signup.pick_up!
+    end
+  end
+
+  test "pick_up!: returns nil and mints nothing before the claim" do
+    signup = start
+
+    assert_no_difference -> { ApiToken.count } do
+      assert_nil signup.pick_up!
+    end
+    assert_equal "pending", signup.state
+  end
+
+  test "pick_up!: returns nil while the agent is waiting on billing" do
+    signup, agent = claimed_signup
+    agent.update!(pending_billing_setup: true)
+
+    assert_no_difference -> { ApiToken.where(user_id: agent.id).count } do
+      assert_nil signup.pick_up!
+    end
+    assert_equal "claimed", signup.reload.state
+  end
+
+  test "pick_up!: returns nil once the pickup window has lapsed" do
+    signup, agent = claimed_signup
+
+    travel 25.hours do
+      assert_no_difference -> { ApiToken.where(user_id: agent.id).count } do
+        assert_nil signup.pick_up!
+      end
+      assert_equal "expired", signup.agent_status
+    end
+  end
+
   # ---------- feature flag ----------
 
   test "tenant: agent signup is on only when external agents are also on" do
@@ -311,6 +366,14 @@ class AgentSignupTest < ActiveSupport::TestCase
   end
 
   private
+
+  def claimed_signup
+    signup = start
+    agent = create_ai_agent(parent: @human, name: "Stickman", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    signup.claim!(ai_agent: agent)
+    [signup, agent]
+  end
 
   def wrong_code_for(signup)
     signup.pairing_code == "000000" ? "111111" : "000000"

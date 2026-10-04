@@ -180,4 +180,148 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :too_many_requests
   end
+  # ---------- status and pickup ----------
+
+  def poll(signup, secret: signup.poll_secret)
+    post "/agent-signups/#{signup.public_id}/status", params: { poll_secret: secret }.compact, as: :json
+  end
+
+  def model_signup(email: @human.email)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    AgentSignup.start!(tenant: @tenant, principal_email: email, name: "Stickman", handle: "stickman")
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  def claim!(signup)
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent = create_ai_agent(parent: @human, name: "Stickman", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent, handle: "stickman-#{SecureRandom.hex(3)}")
+    signup.claim!(ai_agent: agent)
+    agent
+  ensure
+    Tenant.clear_thread_scope
+  end
+
+  def tokens_for(agent)
+    ApiToken.tenant_scoped_only(@tenant.id).where(user_id: agent.id)
+  end
+
+  test "status is pending until the principal claims" do
+    signup = model_signup
+
+    poll(signup)
+
+    assert_response :success
+    assert_equal({ "status" => "pending" }, response.parsed_body)
+  end
+
+  test "status for a signup that matched no member is also pending" do
+    signup = model_signup(email: "nobody-#{SecureRandom.hex(4)}@example.com")
+
+    poll(signup)
+
+    assert_response :success
+    assert_equal({ "status" => "pending" }, response.parsed_body)
+  end
+
+  test "status is not found for a wrong, missing or foreign poll secret" do
+    signup = model_signup
+    other = model_signup
+
+    poll(signup, secret: "wrong")
+    assert_response :not_found
+
+    poll(signup, secret: nil)
+    assert_response :not_found
+
+    poll(signup, secret: other.poll_secret)
+    assert_response :not_found
+  end
+
+  test "status is not found for an unknown signup" do
+    post "/agent-signups/does-not-exist/status", params: { poll_secret: "anything" }, as: :json
+
+    assert_response :not_found
+  end
+
+  test "status is not found when agent signup is off" do
+    signup = model_signup
+    @tenant.set_feature_flag!("agent_signup", false)
+
+    poll(signup)
+
+    assert_response :not_found
+  end
+
+  test "status reports declined and expired" do
+    declined = model_signup
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    declined.decline!
+    Tenant.clear_thread_scope
+    poll(declined)
+    assert_equal "declined", response.parsed_body["status"]
+
+    lapsed = model_signup
+    travel 25.hours do
+      poll(lapsed)
+      assert_equal "expired", response.parsed_body["status"]
+    end
+  end
+
+  test "status hands over the MCP token once the agent is claimed" do
+    signup = model_signup
+    agent = claim!(signup)
+
+    assert_difference -> { tokens_for(agent).count }, 1 do
+      poll(signup)
+    end
+
+    assert_response :success
+    body = response.parsed_body
+    assert_equal "ready", body["status"]
+    assert_equal "https://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/mcp", body["mcp_endpoint"]
+    assert_equal agent.tenant_users.find_by(tenant_id: @tenant.id).handle, body["handle"]
+
+    token = ApiToken.authenticate(body["mcp_token"], tenant_id: @tenant.id)
+    assert_equal agent.id, token.user_id
+    assert token.mcp_type?
+  end
+
+  test "status returns the token only once" do
+    signup = model_signup
+    agent = claim!(signup)
+    poll(signup)
+
+    assert_no_difference -> { tokens_for(agent).count } do
+      poll(signup)
+    end
+
+    assert_response :success
+    assert_equal({ "status" => "redeemed" }, response.parsed_body)
+  end
+
+  test "status withholds the token while the agent waits on billing" do
+    signup = model_signup
+    agent = claim!(signup)
+    agent.update!(pending_billing_setup: true)
+
+    assert_no_difference -> { tokens_for(agent).count } do
+      poll(signup)
+    end
+
+    assert_equal({ "status" => "claimed_awaiting_billing" }, response.parsed_body)
+  end
+
+  test "status withholds the token once the pickup window has lapsed" do
+    signup = model_signup
+    agent = claim!(signup)
+
+    travel 25.hours do
+      assert_no_difference -> { tokens_for(agent).count } do
+        poll(signup)
+      end
+      assert_equal({ "status" => "expired" }, response.parsed_body)
+    end
+  end
 end

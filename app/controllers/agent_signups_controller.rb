@@ -10,6 +10,14 @@
 #                           not readable without a session on every tenant.
 #   POST /agent-signups   → starts a signup. Returns the claim URL, the
 #                           pairing code and the poll secret.
+#   POST /agent-signups/:public_id/status
+#                         → polling and pickup. Reports where the signup
+#                           stands and, once the agent is claimed and active,
+#                           returns the MCP token exactly once. POST because
+#                           it mints a credential: a GET would let a
+#                           prefetcher burn the pickup. The poll secret goes
+#                           in the body, since ApplicationController treats
+#                           any Authorization header as an API token.
 #
 # All actions are unauthenticated by design. The response to a start is the
 # same whether or not the email belongs to an eligible member, so the endpoint
@@ -22,7 +30,7 @@ class AgentSignupsController < ApplicationController
 
   # No authenticity token: the caller is an agent's HTTP client, not a browser
   # with a session cookie.
-  skip_before_action :verify_authenticity_token, only: [:create]
+  skip_before_action :verify_authenticity_token, only: [:create, :status]
 
   before_action :require_agent_signup_enabled
 
@@ -68,6 +76,23 @@ class AgentSignupsController < ApplicationController
   rescue RateLimits::Exceeded
     render status: :too_many_requests,
            json: { error: "Too many signups have named this principal_email today. Try again tomorrow." }
+  end
+
+  def status
+    signup = AgentSignup.tenant_scoped_only(current_tenant.id).find_by(public_id: params[:public_id].to_s)
+    # An unknown signup and a wrong secret get the same answer.
+    return render status: :not_found, json: { error: "not found" } unless signup&.poll_secret_matches?(params[:poll_secret].to_s)
+
+    plaintext = signup.pick_up!
+    return render json: { status: signup.agent_status } if plaintext.nil?
+
+    SecurityAuditLog.log_agent_signup_token_picked_up(signup: signup, ip: request.remote_ip)
+    render json: {
+      status: "ready",
+      mcp_token: plaintext,
+      mcp_endpoint: "#{current_tenant.url}/mcp",
+      handle: signup.ai_agent_user.tenant_users.find_by(tenant_id: current_tenant.id)&.handle,
+    }
   end
 
   private

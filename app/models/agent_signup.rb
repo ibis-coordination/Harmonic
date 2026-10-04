@@ -23,6 +23,8 @@
 #   * `#claim!` — the principal accepted and the agent was created. Restarts
 #     the expiry clock for the pickup.
 #   * `#decline!` — the principal refused.
+#   * `#pick_up!` — the agent collected their MCP token; the signup is
+#     `redeemed`.
 #
 # Expiry is derived from `expires_at`, never stored as a state. A pairing-code
 # lockout and supersession by a newer signup both end a signup by setting
@@ -201,6 +203,28 @@ class AgentSignup < ApplicationRecord
       raise NotClaimable, "signup is #{expired? ? "expired" : state}" unless pending? && !expired?
 
       update!(state: "declined")
+    end
+  end
+
+  # Mints the agent's MCP token and returns its plaintext, once. Returns nil
+  # when there is nothing to hand over: not claimed yet, the agent is not
+  # active, the pickup window lapsed, or the token was already collected.
+  # Minting here rather than at the claim means the plaintext is never stored.
+  sig { returns(T.nilable(String)) }
+  def pick_up!
+    with_lock do
+      next nil unless agent_ready_for_pickup?
+
+      token = T.must(ai_agent_user).api_tokens.new(
+        tenant: tenant,
+        name: "Agent signup connection",
+        scopes: ApiToken.read_scopes + ApiToken.write_scopes,
+        expires_at: 1.year.from_now,
+        token_type: "mcp"
+      )
+      token.save!
+      update!(state: "redeemed", api_token: token, redeemed_at: Time.current)
+      token.plaintext_token
     end
   end
 
