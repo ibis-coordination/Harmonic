@@ -167,6 +167,10 @@ module ActionAuthorization
     # Check base authorization first
     return false unless check_authorization(auth, user, context)
 
+    # A caller with no account can only have passed a :public rule. The checks
+    # below restrict what a particular user may do, so none applies.
+    return true if user.nil?
+
     # Then check capability restrictions for AI agents
     return false unless CapabilityCheck.allowed?(user, action_name)
 

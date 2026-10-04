@@ -10,12 +10,12 @@ The honest path for an agent should never cost more than a dishonest one. An age
 
 ## The flow
 
-1. **Agent starts a signup.** Unauthenticated `POST /agent-signups` on the tenant's subdomain with `principal_email`, `name`, optional `handle`. The response carries a claim URL, a pairing code, and a polling secret.
+1. **Agent starts a signup.** The unauthenticated markdown action `start_agent_signup` at `/agent-signups` on the tenant's subdomain, with `principal_email`, `name`, optional `handle`. The result carries a claim URL, a pairing code, and a polling secret.
 2. **Harmonic emails the principal** a claim link, only if the email belongs to an eligible member.
 3. **The agent tells their human** the pairing code and the claim URL. The human can use the URL directly or the emailed link; they are the same URL.
 4. **The human claims.** Logged in, they see the new-agent form prefilled with the proposed name and handle, choose capabilities, confirm billing, enter the pairing code, and accept (or decline).
 5. **The agent is created at accept**, through the same creation path as `/ai-agents/new`.
-6. **The agent picks up their token.** `POST /agent-signups/:public_id/status` with the polling secret returns status, and returns the MCP token exactly once when the agent is claimed and active.
+6. **The agent picks up their token.** The action `check_agent_signup` at `/agent-signups/:public_id`, with the polling secret, returns status, and returns the MCP token exactly once when the agent is claimed and active.
 
 ## Design
 
@@ -42,15 +42,18 @@ The raw email is not stored. When no eligible member matches, the row is created
 
 The email matches when it belongs to a user who is all of: `human?`, a member of this tenant, `email_verified?`, not suspended, and not pending deletion. Provider logins already count as verified (`OauthIdentity.find_or_create_from_auth` stamps `email_confirmed_at`).
 
-### Agent-facing endpoints
+### Agent-facing pages and actions
 
-`AgentSignupsController`, unauthenticated (`token_authenticated_action?` true, `skip_before_action :verify_authenticity_token`). All return 404 when the tenant's `agent_signup` flag is off.
+`AgentSignupsController`, unauthenticated (`token_authenticated_action?` true). Everything returns 404 when the tenant's `agent_signup` flag is off. The surface follows the markdown UI pattern used across the app: a page, its actions index, and describe/execute per action, with the actions registered in `ActionsHelper` under `authorization: :public`. MCP cannot serve this, since `/mcp` requires the token the agent is here to get.
 
-- `GET /agent-signups`: describes the flow, in markdown and HTML. This is the discovery page. `/help` is not reachable anonymously on tenants without a public main collective, so the description must live here.
-- `POST /agent-signups`: creates the signup. The response is identical whether or not the email matched. The email is sent with `deliver_later` so timing does not differ either.
-- `POST /agent-signups/:public_id/status`: polling and pickup. POST, not GET, because it mints a credential; a prefetcher must not be able to burn the pickup. The polling secret travels in the JSON body, not the `Authorization` header: `ApplicationController#api_token_present?` treats any `Authorization` header as an API token.
+- `/agent-signups`: describes the flow, in markdown and HTML. This is the discovery page. `/help` is not reachable anonymously on tenants without a public main collective, so the description must live here.
+  - `start_agent_signup(principal_email, name, handle)`: creates the signup. The result is identical whether or not the email matched. The email is sent with `deliver_later` so timing does not differ either.
+- `/agent-signups/:public_id`: one signup's page. Static, with no lookup, so it is the same for a real, expired or nonexistent signup.
+  - `check_agent_signup(poll_secret)`: polling and pickup. The secret travels in the POST body, not the `Authorization` header: `ApplicationController#api_token_present?` treats any `Authorization` header as an API token.
 
-Status values returned to the agent: `pending`, `claimed_awaiting_billing`, `ready` (with token, once), `redeemed`, `declined`, `expired`.
+Both executes answer in markdown whatever the `Accept` header, since there is no HTML form to redirect back to. Results carry their values as `- key: value` lines.
+
+Status values returned to the agent: `pending`, `claimed_awaiting_billing`, `ready` (with token, once), `redeemed`, `declined`, `expired`, and `pickup_window_closed` (claimed but not collected in time; the agent must not start again).
 
 ### Claim page
 
@@ -59,7 +62,7 @@ Status values returned to the agent: `pending`, `claimed_awaiting_billing`, `rea
 - Only the user matching `principal_user_id` can claim. Anyone else, and every visitor to a nil-principal signup, sees the same "this request is not addressed to you" page.
 - Accept verifies the 6-digit pairing code with a constant-time comparison under a row lock. A wrong code increments `failed_pairing_attempts`; the fifth failure expires the signup. Only the named principal can submit a code at all, so the code guards against a blind accept, not against guessing.
 - Accept re-checks eligibility and the `external_ai_agents` flag; both can change between signup and claim.
-- HTML only. Claiming is a human, browser-session action.
+- Accept and decline are HTML only: claiming is a human, browser-session action. The markdown view of the claim page shows the request and points to the browser, as invite acceptance does.
 - The agent proposes only name and handle. Capabilities, public writes, identity prompt and notification preferences are the human's choices on this page.
 - Decline sets `declined`.
 - An unauthenticated visitor is sent to `/login` and must return to the claim page afterwards. Login runs on the auth subdomain and its `redirect_to_resource` return path only accepts paths `LinkParser` knows. Carry the claim through login with a per-tenant session stash (the shape `PendingInviteStash` uses), consumed by the post-login redirect.
@@ -77,7 +80,7 @@ While a signup is `claimed` and not `redeemed`, the agent's page shows "Waiting 
 
 ### Limits
 
-- Rack::Attack per-IP throttle on `POST /agent-signups` and on the status endpoint, alongside the existing entries in `config/initializers/rack_attack.rb`.
+- Rack::Attack per-IP throttle on the `start_agent_signup` and `check_agent_signup` POSTs, alongside the existing entries in `config/initializers/rack_attack.rb`.
 - Per-email throttle of 3 per day via `RateLimits#enforce_rate_limit!`, keyed on a digest of the normalized email. Applied before the eligibility lookup so it does not reveal membership. This is also what bounds unwanted email to a member.
 - At most 3 `pending` signups per principal per tenant; a fourth expires the oldest.
 - `pending` signups expire after 24 hours. Pickup stays open for 24 hours after the claim. An agent's session rarely outlives that, and a longer window keeps a token-granting secret alive for no benefit; past it, the principal uses the connect flow.
@@ -112,7 +115,7 @@ Each stage is red-green: failing tests first.
 - Re-issuing a token to an existing agent through this flow.
 - Re-pickup of a lost token.
 - A per-member opt-out from agent signup emails. It needs a settings surface to undo it; the per-email throttle bounds the nuisance until then.
-- Markdown or API access to the claim page.
+- Accepting or declining a claim through markdown or the API.
 
 ## Later
 

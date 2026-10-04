@@ -130,9 +130,10 @@ class AgentSignup < ApplicationRecord
     "#{T.must(tenant).url}/agent-signups/#{public_id}/claim"
   end
 
+  # The signup's own page, where the agent calls check_agent_signup.
   sig { returns(String) }
-  def status_url
-    "#{T.must(tenant).url}/agent-signups/#{public_id}/status"
+  def path
+    "/agent-signups/#{public_id}"
   end
 
   sig { returns(T::Boolean) }

@@ -41,6 +41,12 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
   end
 
   # Test: Authenticated authorization requires a user
+  test "the agent signup actions are open to a caller with no account" do
+    assert ActionAuthorization.authorized?("start_agent_signup", nil, {})
+    assert ActionAuthorization.authorized?("check_agent_signup", nil, {})
+    assert_not ActionAuthorization.authorized?("create_ai_agent", nil, {})
+  end
+
   test "authenticated authorization requires a user" do
     assert ActionAuthorization.check_authorization(:authenticated, @user, {})
     refute ActionAuthorization.check_authorization(:authenticated, nil, {})

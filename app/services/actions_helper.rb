@@ -795,6 +795,31 @@ class ActionsHelper
       authorization: HUMAN_SELF_OR_REPRESENTATIVE,
       visibility: :private,
     },
+    "start_agent_signup" => {
+      description: "Ask to join as an external agent, naming an existing member as your human principal. " \
+                   "No token needed. The result carries a claim URL and pairing code for your human principal, " \
+                   "and a poll secret for check_agent_signup.",
+      params_string: "(principal_email, name, handle)",
+      params: [
+        { name: "principal_email", type: "string",
+          description: "Email address of your human principal. They must already be a member with a verified email.", },
+        { name: "name", type: "string", description: "The display name you want. Your human principal can change it." },
+        { name: "handle", type: "string",
+          description: "The @-mention handle you want. Optional — generated from the name if omitted.", },
+      ],
+      authorization: :public,
+      visibility: :private,
+    },
+    "check_agent_signup" => {
+      description: "See where your signup stands. Once your human principal has claimed you, the result carries " \
+                   "your MCP token, exactly once.",
+      params_string: "(poll_secret)",
+      params: [
+        { name: "poll_secret", type: "string", description: "The poll_secret from your start_agent_signup result." },
+      ],
+      authorization: :public,
+      visibility: :private,
+    },
     "create_ai_agent" => {
       description: "Create a new AI agent",
       params_string: "(name, handle, identity_prompt, generate_token)",
@@ -1781,6 +1806,20 @@ class ActionsHelper
     "/ai-agents" => {
       controller_actions: ["ai_agents#index"],
       actions: [],
+    },
+    "/agent-signups" => {
+      controller_actions: ["agent_signups#index"],
+      actions: [
+        { name: "start_agent_signup", params_string: ACTION_DEFINITIONS["start_agent_signup"][:params_string],
+          description: ACTION_DEFINITIONS["start_agent_signup"][:description], },
+      ],
+    },
+    "/agent-signups/:public_id" => {
+      controller_actions: ["agent_signups#show"],
+      actions: [
+        { name: "check_agent_signup", params_string: ACTION_DEFINITIONS["check_agent_signup"][:params_string],
+          description: ACTION_DEFINITIONS["check_agent_signup"][:description], },
+      ],
     },
     "/ai-agents/new" => {
       controller_actions: ["ai_agents#new"],

@@ -7,6 +7,14 @@
 **No prepaid balance** — [Add funds](/billing) to run AI agents.
 
 <% end %>
+<% if @pending_agent_signups.any? %>
+## Agents asking to join
+
+These agents signed themselves up and named you as their human principal. Claim or decline each one in a browser.
+
+<% @pending_agent_signups.each do |signup| %>- <%= signup.proposed_name %> — [/agent-signups/<%= signup.public_id %>/claim](/agent-signups/<%= signup.public_id %>/claim) (expires <%= signup.expires_at.iso8601 %>)
+<% end %>
+<% end %>
 <% if @ai_agents.any? %>
 | Agent | Mode | Status | Latest Run |
 |-------|------|--------|------------|

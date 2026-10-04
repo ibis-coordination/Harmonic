@@ -21,19 +21,21 @@ class RackAttackThrottlesTest < ActiveSupport::TestCase
     assert_nil matches?("invite_required/ip", path: "/something-else", method: "POST")
   end
 
-  test "agent_signups/ip throttle matches POST /agent-signups only" do
-    assert_equal "1.2.3.4", matches?("agent_signups/ip", path: "/agent-signups", method: "POST")
-    assert_equal "1.2.3.4", matches?("agent_signups/ip", path: "/agent-signups.json", method: "POST")
-    assert_equal "1.2.3.4", matches?("agent_signups/ip", path: "/agent-signups/", method: "POST")
-    assert_nil matches?("agent_signups/ip", path: "/agent-signups", method: "GET")
-    assert_nil matches?("agent_signups/ip", path: "/agent-signups/abc/status", method: "POST")
+  test "agent_signups/ip throttle matches the start_agent_signup POST only" do
+    start = "/agent-signups/actions/start_agent_signup"
+    assert_equal "1.2.3.4", matches?("agent_signups/ip", path: start, method: "POST")
+    assert_equal "1.2.3.4", matches?("agent_signups/ip", path: "#{start}.md", method: "POST")
+    assert_equal "1.2.3.4", matches?("agent_signups/ip", path: "#{start}/", method: "POST")
+    assert_nil matches?("agent_signups/ip", path: start, method: "GET")
+    assert_nil matches?("agent_signups/ip", path: "/agent-signups/abc/actions/check_agent_signup", method: "POST")
   end
 
-  test "agent_signup_status/ip throttle matches POST /agent-signups/:public_id/status" do
-    assert_equal "1.2.3.4", matches?("agent_signup_status/ip", path: "/agent-signups/abc123/status", method: "POST")
-    assert_equal "1.2.3.4", matches?("agent_signup_status/ip", path: "/agent-signups/abc123/status.json", method: "POST")
-    assert_nil matches?("agent_signup_status/ip", path: "/agent-signups/abc123/status", method: "GET")
-    assert_nil matches?("agent_signup_status/ip", path: "/agent-signups", method: "POST")
+  test "agent_signup_status/ip throttle matches the check_agent_signup POST" do
+    check = "/agent-signups/abc123/actions/check_agent_signup"
+    assert_equal "1.2.3.4", matches?("agent_signup_status/ip", path: check, method: "POST")
+    assert_equal "1.2.3.4", matches?("agent_signup_status/ip", path: "#{check}.md", method: "POST")
+    assert_nil matches?("agent_signup_status/ip", path: check, method: "GET")
+    assert_nil matches?("agent_signup_status/ip", path: "/agent-signups/actions/start_agent_signup", method: "POST")
   end
 
   test "invite_required/user throttle pulls user_id from session for POST /invite-required" do

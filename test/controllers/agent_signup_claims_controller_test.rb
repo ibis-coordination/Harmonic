@@ -394,4 +394,68 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
       assert_select "a[href=?]", "/ai-agents/stickman/settings"
     end
   end
+
+  # ---------- markdown ----------
+
+  MD = { "Accept" => "text/markdown" }.freeze
+
+  test "claim page in markdown shows the request and says to claim in a browser" do
+    sign_in_with_ai_agents_reverify(@human)
+
+    get claim_path_for, headers: MD
+
+    assert_response :success
+    assert_equal "text/markdown", response.media_type
+    assert_includes response.body, "Stickman"
+    assert_includes response.body, "browser"
+    assert_not_includes response.body, @signup.pairing_code
+  end
+
+  test "claim page in markdown tells any other member the request is not addressed to them" do
+    sign_in_with_ai_agents_reverify(other_member)
+
+    get claim_path_for, headers: MD
+
+    assert_response :forbidden
+    assert_includes response.body, "not addressed to you"
+    assert_not_includes response.body, "Stickman"
+  end
+
+  test "accept and decline are browser-only" do
+    sign_in_with_ai_agents_reverify(@human)
+
+    assert_no_difference -> { agents_of(@human).count } do
+      post claim_path_for, params: { name: "Stickman", pairing_code: @signup.pairing_code }, headers: MD
+    end
+    assert_response :not_acceptable
+    assert_includes response.body, "browser"
+
+    post "/agent-signups/#{@signup.public_id}/decline", headers: MD
+    assert_response :not_acceptable
+    assert_equal "pending", reload_signup.state
+  end
+
+  test "the agents page in markdown lists open requests" do
+    sign_in_as(@human, tenant: @tenant)
+
+    get "/ai-agents", headers: MD
+
+    assert_response :success
+    assert_includes response.body, claim_path_for
+    assert_includes response.body, "Stickman"
+  end
+
+  test "the agent's page in markdown carries the pickup notices" do
+    sign_in_with_ai_agents_reverify(@human)
+    accept
+
+    get "/ai-agents/stickman", headers: MD
+    assert_includes response.body, "Waiting for the agent to collect their token"
+
+    travel 25.hours do
+      sign_in_as(@human, tenant: @tenant)
+      get "/ai-agents/stickman", headers: MD
+      assert_includes response.body, "did not collect their token"
+    end
+  end
 end

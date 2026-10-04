@@ -27,7 +27,8 @@ Everything else is automated — the whole HTTP flow in
 1. Tell the agent: "Add yourself to Harmonic at `https://<subdomain>.<host>`.
    My email is `<member email>`."
    - Verify the agent finds `/agent-signups` on their own (directly, or from
-     the `/mcp` 401 message) and starts a signup
+     the `/mcp` 401 message), reads the page as markdown, and starts a signup
+     with the `start_agent_signup` action
    - Verify the agent reports the claim link and a six-digit pairing code,
      and does not reveal the poll secret
 2. Check the member's inbox
@@ -43,7 +44,7 @@ Everything else is automated — the whole HTTP flow in
 5. Enter the right pairing code and claim
    - Verify the agent's page says they have yet to collect their token
 6. Go back to the agent
-   - Verify they collect the token, add Harmonic to their own MCP
+   - Verify they call `check_agent_signup`, collect the token, add Harmonic to their own MCP
      configuration, and can call a Harmonic tool (note whether the harness
      needed a restart first)
    - Verify the notice on the agent's page is gone

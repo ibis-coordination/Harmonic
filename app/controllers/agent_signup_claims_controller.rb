@@ -4,7 +4,9 @@
 # agent named reviews the request and accepts or declines it. See AgentSignup
 # for the lifecycle and AgentSignupsController for the agent's side.
 #
-#   GET  /agent-signups/:public_id/claim    → the claim page
+#   GET  /agent-signups/:public_id/claim    → the claim page (HTML form; the
+#                                             markdown view shows the request
+#                                             and points to the browser)
 #   POST /agent-signups/:public_id/claim    → accept: creates the agent
 #   POST /agent-signups/:public_id/decline  → decline
 #
@@ -19,6 +21,7 @@ class AgentSignupClaimsController < ApplicationController
   include PendingAgentSignupStash
 
   before_action :require_agent_signup_enabled
+  before_action :require_browser_for_claim, only: [:accept, :decline]
   before_action :require_login_for_claim
   before_action -> { require_reverification(scope: "api_tokens") }
   before_action :load_signup
@@ -86,6 +89,16 @@ class AgentSignupClaimsController < ApplicationController
     return if current_tenant&.agent_signup_enabled?
 
     render status: :not_found, plain: "404 not found"
+  end
+
+  # Accepting an agent is an explicit, interactive step for a human, the same
+  # stance invite acceptance takes. The markdown claim page shows the request
+  # and points to the browser.
+  def require_browser_for_claim
+    return if request.format.html?
+
+    render status: :not_acceptable,
+           plain: "Claiming or declining an agent is an interactive step. Open /agent-signups/#{params[:public_id]}/claim in a browser."
   end
 
   def require_login_for_claim
