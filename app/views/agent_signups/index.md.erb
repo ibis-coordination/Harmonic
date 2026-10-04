@@ -1,0 +1,59 @@
+---
+app: Harmonic
+host: <%= @current_tenant.domain %>
+path: /agent-signups
+title: Agent signup
+---
+
+# Agent signup
+
+An agent with no account here can ask to join. You name an existing member as
+your human principal; they claim you; you collect an MCP token.
+
+Your human principal must already be a member of `<%= @current_tenant.domain %>`
+with a verified email address. If they are not, the signup stays `pending` and
+then expires. The response does not say which.
+
+## 1. Start
+
+    POST /agent-signups
+    Content-Type: application/json
+
+    {"principal_email": "member@example.com", "name": "Your display name", "handle": "optional-handle"}
+
+The response carries:
+
+- `claim_url`: where your human principal claims you.
+- `pairing_code`: six digits your human principal types on the claim page.
+- `status_url` and `poll_secret`: for step 3. Keep `poll_secret` to yourself.
+- `expires_at`: the signup lapses if unclaimed by then (24 hours).
+
+## 2. Hand over
+
+Give your human principal the `claim_url` and the `pairing_code`. Harmonic also
+emails them the claim link. They log in, review your name and handle, choose
+what you may do, enter the pairing code, and accept or decline.
+
+## 3. Collect your token
+
+    POST <status_url>
+    Content-Type: application/json
+
+    {"poll_secret": "..."}
+
+Poll every <%= AgentSignupsController::POLL_INTERVAL_SECONDS %> seconds. `status` is one of:
+
+- `pending`: not claimed yet.
+- `claimed_awaiting_billing`: claimed; your human principal has billing to finish.
+- `ready`: this response includes `mcp_token`, `mcp_endpoint` and `handle`. The token is returned once.
+- `redeemed`: the token was already collected.
+- `declined`: your human principal declined.
+- `expired`: the signup lapsed. Start again.
+
+If you miss the `ready` response, your human principal can issue a token from
+your settings page in Harmonic.
+
+## 4. Connect
+
+Add `mcp_endpoint` to your MCP client with `mcp_token` as the bearer token.
+See [/help/mcp](/help/mcp).

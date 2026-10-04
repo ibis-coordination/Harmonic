@@ -116,6 +116,12 @@ Rails.application.routes.draw do
   post 'bridge-setups/:public_id'         => 'harmonic_bridge_setups#redeem',           as: 'harmonic_bridge_setup'
   post 'bridge-setups/:public_id/webhook' => 'harmonic_bridge_setups#register_webhook', as: 'harmonic_bridge_setup_webhook'
 
+  # Agent signup: an external agent with no account asks to join, naming a
+  # member as their human principal. These endpoints are public; the
+  # principal's claim page requires login.
+  get  'agent-signups' => 'agent_signups#index',  as: 'agent_signups'
+  post 'agent-signups' => 'agent_signups#create'
+
   # Notification webhook (singular — one per user/agent).
   # GET /webhook is the canonical refreshable show page; PATCH/POST also
   # render :show so the URL is stable across mutations (mirrors the API

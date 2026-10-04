@@ -101,6 +101,19 @@ class Rack::Attack
     req.ip if req.path == '/invite-required/accept' && req.post?
   end
 
+  # Agent signup start. Unauthenticated, creates a row per call, and can send
+  # an email to a member, so it gets a much tighter cap than writes/ip. The
+  # per-email cap lives in AgentSignupsController.
+  throttle('agent_signups/ip', limit: 10, period: 1.hour) do |req|
+    req.ip if req.path == '/agent-signups' && req.post?
+  end
+
+  # Agent signup status polling. Agents poll every few seconds while waiting
+  # to be claimed; this allows that and no more.
+  throttle('agent_signup_status/ip', limit: 30, period: 1.minute) do |req|
+    req.ip if req.post? && req.path.match?(%r{\A/agent-signups/[^/]+/status\z})
+  end
+
   # Identity registration. The generic writes/ip throttle (60/min) is the only
   # existing protection on this endpoint; 5/hour is a much tighter cap on
   # mass-account-creation attempts.

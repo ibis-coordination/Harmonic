@@ -123,6 +123,16 @@ class AgentSignup < ApplicationRecord
     tenant_scoped_only(tenant.id).where(id: surplus_ids).update_all(expires_at: Time.current)
   end
 
+  sig { returns(String) }
+  def claim_url
+    "#{T.must(tenant).url}/agent-signups/#{public_id}/claim"
+  end
+
+  sig { returns(String) }
+  def status_url
+    "#{T.must(tenant).url}/agent-signups/#{public_id}/status"
+  end
+
   sig { returns(T::Boolean) }
   def expired?
     expires_at <= Time.current

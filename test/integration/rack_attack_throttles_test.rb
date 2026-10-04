@@ -21,6 +21,18 @@ class RackAttackThrottlesTest < ActiveSupport::TestCase
     assert_nil matches?("invite_required/ip", path: "/something-else", method: "POST")
   end
 
+  test "agent_signups/ip throttle matches POST /agent-signups only" do
+    assert_equal "1.2.3.4", matches?("agent_signups/ip", path: "/agent-signups", method: "POST")
+    assert_nil matches?("agent_signups/ip", path: "/agent-signups", method: "GET")
+    assert_nil matches?("agent_signups/ip", path: "/agent-signups/abc/status", method: "POST")
+  end
+
+  test "agent_signup_status/ip throttle matches POST /agent-signups/:public_id/status" do
+    assert_equal "1.2.3.4", matches?("agent_signup_status/ip", path: "/agent-signups/abc123/status", method: "POST")
+    assert_nil matches?("agent_signup_status/ip", path: "/agent-signups/abc123/status", method: "GET")
+    assert_nil matches?("agent_signup_status/ip", path: "/agent-signups", method: "POST")
+  end
+
   test "invite_required/user throttle pulls user_id from session for POST /invite-required" do
     rule = Rack::Attack.throttles["invite_required/user"]
     refute_nil rule, "expected throttle 'invite_required/user' to be registered"
