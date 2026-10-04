@@ -313,6 +313,12 @@ class Tenant < ApplicationRecord
     FeatureFlagService.tenant_enabled?(self, "external_ai_agents")
   end
 
+  # Agent signup creates external agents, so it is only on where they are.
+  sig { returns(T::Boolean) }
+  def agent_signup_enabled?
+    external_ai_agents_enabled? && FeatureFlagService.tenant_enabled?(self, "agent_signup")
+  end
+
   sig { returns(T::Boolean) }
   def any_ai_agents_enabled?
     internal_ai_agents_enabled? || external_ai_agents_enabled?

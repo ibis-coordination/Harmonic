@@ -175,6 +175,32 @@ CREATE TABLE public.agent_session_steps (
 
 
 --
+-- Name: agent_signups; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.agent_signups (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_id uuid NOT NULL,
+    principal_user_id uuid,
+    ai_agent_user_id uuid,
+    api_token_id uuid,
+    public_id character varying NOT NULL,
+    poll_secret_digest character varying NOT NULL,
+    pairing_code_digest character varying NOT NULL,
+    failed_pairing_attempts integer DEFAULT 0 NOT NULL,
+    proposed_name character varying NOT NULL,
+    proposed_handle character varying,
+    state character varying DEFAULT 'pending'::character varying NOT NULL,
+    expires_at timestamp(6) without time zone NOT NULL,
+    claimed_at timestamp(6) without time zone,
+    redeemed_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    CONSTRAINT agent_signups_state_check CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'claimed'::character varying, 'redeemed'::character varying, 'declined'::character varying])::text[])))
+);
+
+
+--
 -- Name: ai_agent_task_run_resources; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2687,6 +2713,14 @@ ALTER TABLE ONLY public.agent_session_steps
 
 
 --
+-- Name: agent_signups agent_signups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_signups
+    ADD CONSTRAINT agent_signups_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: api_tokens api_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3475,6 +3509,13 @@ CREATE UNIQUE INDEX idx_on_previous_email_confirmation_token_2a46803db5 ON publi
 
 
 --
+-- Name: idx_on_tenant_id_principal_user_id_state_d2924b5fb6; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_on_tenant_id_principal_user_id_state_d2924b5fb6 ON public.agent_signups USING btree (tenant_id, principal_user_id, state);
+
+
+--
 -- Name: idx_rep_events_context; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3703,6 +3744,34 @@ CREATE UNIQUE INDEX index_agent_session_steps_on_ai_agent_task_run_id_and_positi
 --
 
 CREATE INDEX index_agent_session_steps_on_sender_id ON public.agent_session_steps USING btree (sender_id);
+
+
+--
+-- Name: index_agent_signups_on_ai_agent_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_signups_on_ai_agent_user_id ON public.agent_signups USING btree (ai_agent_user_id);
+
+
+--
+-- Name: index_agent_signups_on_api_token_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_signups_on_api_token_id ON public.agent_signups USING btree (api_token_id);
+
+
+--
+-- Name: index_agent_signups_on_expires_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_agent_signups_on_expires_at ON public.agent_signups USING btree (expires_at);
+
+
+--
+-- Name: index_agent_signups_on_tenant_id_and_public_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_agent_signups_on_tenant_id_and_public_id ON public.agent_signups USING btree (tenant_id, public_id);
 
 
 --
@@ -9658,6 +9727,14 @@ ALTER TABLE ONLY public.collective_members
 
 
 --
+-- Name: agent_signups fk_rails_55ee19138a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_signups
+    ADD CONSTRAINT fk_rails_55ee19138a FOREIGN KEY (api_token_id) REFERENCES public.api_tokens(id) ON DELETE SET NULL;
+
+
+--
 -- Name: chat_sessions fk_rails_5655d34ac5; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10031,6 +10108,14 @@ ALTER TABLE ONLY public.llm_usage_records
 
 ALTER TABLE ONLY public.user_blocks
     ADD CONSTRAINT fk_rails_9457ce6a10 FOREIGN KEY (blocked_id) REFERENCES public.users(id);
+
+
+--
+-- Name: agent_signups fk_rails_97a6f2c3f2; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_signups
+    ADD CONSTRAINT fk_rails_97a6f2c3f2 FOREIGN KEY (ai_agent_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --
@@ -10570,6 +10655,14 @@ ALTER TABLE ONLY public.notes
 
 
 --
+-- Name: agent_signups fk_rails_f13c257cf4; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_signups
+    ADD CONSTRAINT fk_rails_f13c257cf4 FOREIGN KEY (principal_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: api_tokens fk_rails_f16b5e0447; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10623,6 +10716,14 @@ ALTER TABLE ONLY public.decision_participants
 
 ALTER TABLE ONLY public.agent_session_steps
     ADD CONSTRAINT fk_rails_fa323452dc FOREIGN KEY (ai_agent_task_run_id) REFERENCES public.ai_agent_task_runs(id);
+
+
+--
+-- Name: agent_signups fk_rails_fb77149fd7; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_signups
+    ADD CONSTRAINT fk_rails_fb77149fd7 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -10680,6 +10781,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261004220000'),
 ('20260915162410'),
 ('20260731183016'),
 ('20260731072222'),
