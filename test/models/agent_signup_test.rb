@@ -329,7 +329,8 @@ class AgentSignupTest < ActiveSupport::TestCase
       assert_no_difference -> { ApiToken.where(user_id: agent.id).count } do
         assert_nil signup.pick_up!
       end
-      assert_equal "expired", signup.agent_status
+      # Not "expired": the agent exists, so starting again would make a duplicate.
+      assert_equal "pickup_window_closed", signup.agent_status
     end
   end
 

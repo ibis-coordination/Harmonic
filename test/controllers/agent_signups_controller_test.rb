@@ -321,8 +321,14 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
       assert_no_difference -> { tokens_for(agent).count } do
         poll(signup)
       end
-      assert_equal({ "status" => "expired" }, response.parsed_body)
+      assert_equal({ "status" => "pickup_window_closed" }, response.parsed_body)
     end
+  end
+
+  test "the discovery page tells a claimed agent who missed pickup not to start again" do
+    get "/agent-signups", headers: { "Accept" => "text/markdown" }
+
+    assert_includes response.body, "pickup_window_closed"
   end
   # ---------- discovery from help and /mcp ----------
 

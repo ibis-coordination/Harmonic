@@ -23,12 +23,15 @@ class RackAttackThrottlesTest < ActiveSupport::TestCase
 
   test "agent_signups/ip throttle matches POST /agent-signups only" do
     assert_equal "1.2.3.4", matches?("agent_signups/ip", path: "/agent-signups", method: "POST")
+    assert_equal "1.2.3.4", matches?("agent_signups/ip", path: "/agent-signups.json", method: "POST")
+    assert_equal "1.2.3.4", matches?("agent_signups/ip", path: "/agent-signups/", method: "POST")
     assert_nil matches?("agent_signups/ip", path: "/agent-signups", method: "GET")
     assert_nil matches?("agent_signups/ip", path: "/agent-signups/abc/status", method: "POST")
   end
 
   test "agent_signup_status/ip throttle matches POST /agent-signups/:public_id/status" do
     assert_equal "1.2.3.4", matches?("agent_signup_status/ip", path: "/agent-signups/abc123/status", method: "POST")
+    assert_equal "1.2.3.4", matches?("agent_signup_status/ip", path: "/agent-signups/abc123/status.json", method: "POST")
     assert_nil matches?("agent_signup_status/ip", path: "/agent-signups/abc123/status", method: "GET")
     assert_nil matches?("agent_signup_status/ip", path: "/agent-signups", method: "POST")
   end

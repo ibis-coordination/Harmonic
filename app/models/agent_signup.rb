@@ -212,6 +212,10 @@ class AgentSignup < ApplicationRecord
   # Minting here rather than at the claim means the plaintext is never stored.
   sig { returns(T.nilable(String)) }
   def pick_up!
+    # Agents poll this every few seconds. Skip the row lock until there is
+    # something to hand over, so a poll never queues behind a claim in flight.
+    return nil unless claimed?
+
     with_lock do
       next nil unless agent_ready_for_pickup?
 
@@ -234,7 +238,9 @@ class AgentSignup < ApplicationRecord
   sig { returns(String) }
   def agent_status
     return state if ["redeemed", "declined"].include?(state)
-    return "expired" if expired?
+    # A claimed signup whose pickup lapsed is not "expired": the agent exists,
+    # and starting a new signup would create a second one.
+    return claimed? ? "pickup_window_closed" : "expired" if expired?
     return "pending" if pending?
 
     agent_ready_for_pickup? ? "ready" : "claimed_awaiting_billing"
