@@ -91,7 +91,7 @@ class AgentRunnerDispatchService
     if tenant.feature_enabled?("stripe_billing") && !collective_principaled && !pool_funded
       # (a) The agent's identity must be paid for before we run a task — the
       # norm, unchanged. An agent's billing_customer is its principal's Stripe
-      # customer (see AiAgentsController#assign_billing_customer!), so an active
+      # customer (see AiAgentCreationService#settle_billing!), so an active
       # billing_customer means the principal holds an active per-identity
       # subscription.
       #

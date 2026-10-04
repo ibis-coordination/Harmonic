@@ -463,7 +463,10 @@ class AiAgentsController < ApplicationController
       })
     end
 
-    if current_user.requires_stripe_billing?(current_tenant)
+    result = AiAgentCreationService.call(api_helper: api_helper, billing_confirmed: params[:confirm_billing] == "1")
+
+    case result.status
+    when :billing_setup_required
       respond_to do |format|
         format.md do
           return render_action_error({
@@ -478,15 +481,7 @@ class AiAgentsController < ApplicationController
           return redirect_to "/billing"
         end
       end
-    end
-
-    # Require billing confirmation when stripe_billing is enabled.
-    # Admins (sys_admin / app_admin) are billing-exempt — they never see the
-    # confirm-billing checkbox in the UI, so don't reject them for not
-    # checking it.
-    if current_tenant.feature_enabled?("stripe_billing") &&
-       !current_user.app_admin? && !current_user.sys_admin? &&
-       params[:confirm_billing] != "1"
+    when :billing_confirmation_required
       respond_to do |format|
         format.md do
           return render_action_error({
@@ -500,18 +495,7 @@ class AiAgentsController < ApplicationController
           return redirect_to new_ai_agent_path
         end
       end
-    end
-
-    begin
-      @ai_agent = api_helper.create_ai_agent
-    rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => e
-      # An explicitly-chosen handle that's already taken (or reserved) fails:
-      # the uniqueness validation raises RecordInvalid, with the DB index as
-      # the race backstop (RecordNotUnique). A blank handle auto-generates and
-      # never reaches here. Re-raise any unrelated validation failure rather
-      # than mislabeling it as a handle problem.
-      raise if e.is_a?(ActiveRecord::RecordInvalid) && !e.record.errors.key?(:handle)
-
+    when :handle_taken
       msg = "That handle is already taken. Please choose a different one."
       respond_to do |format|
         format.md do
@@ -527,31 +511,14 @@ class AiAgentsController < ApplicationController
         end
       end
     end
+
+    @ai_agent = result.ai_agent
     # Seed the new agent's notification preferences when the create form carries
     # them (signalled by the notifications_present marker). Markdown/API creation
     # omits the marker, so those callers keep the defaults.
     apply_agent_notification_preferences_from_form(@ai_agent)
 
-    charged_cents = nil
-    if current_tenant.feature_enabled?("stripe_billing")
-      assign_billing_customer!(@ai_agent)
-      # Decide whether the new agent needs to wait for billing setup.
-      # Use requires_stripe_billing? rather than stripe_customer.active?
-      # so admins (who are billing-exempt — billable_quantity is always 0)
-      # don't get their agents spuriously pending-flagged.
-      if current_user.requires_stripe_billing?(current_tenant)
-        @ai_agent.update!(pending_billing_setup: true)
-      elsif current_user.stripe_customer&.active?
-        result = StripeService.sync_subscription_quantity!(current_user)
-        if result.success
-          charged_cents = result.charged_cents
-        else
-          # Sync failed — mark agent pending so it doesn't run unbilled
-          @ai_agent.update!(pending_billing_setup: true)
-        end
-      end
-      # Else: user doesn't need billing (admin / fully exempt) — leave the agent active.
-    end
+    charged_cents = result.charged_cents
     # Only generate token for external AI agents (not for pending agents)
     if !@ai_agent.pending_billing_setup? && @ai_agent.external_ai_agent? && [true, "true", "1"].include?(params[:generate_token])
       @token = api_helper.generate_token(@ai_agent, token_type: extract_token_type_for_generated_token)
@@ -809,11 +776,6 @@ class AiAgentsController < ApplicationController
     return nil unless member&.can_manage_automations?
 
     agent
-  end
-
-  def assign_billing_customer!(ai_agent)
-    stripe_customer = current_user.stripe_customer
-    ai_agent.update!(stripe_customer_id: stripe_customer.id) if stripe_customer
   end
 
   def serialize_result(result)

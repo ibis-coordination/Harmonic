@@ -886,7 +886,7 @@ class User < ApplicationRecord
   # The Stripe customer that pays for this agent's own (non-pool) usage: the
   # stamped billing customer, else the principal's. Agents created before
   # their principal had a Stripe customer are never stamped
-  # (assign_billing_customer! is a no-op and the subscription checkout
+  # (AiAgentCreationService#settle_billing! stamps nothing and the subscription checkout
   # webhook only touches pending-flagged agents), so the principal's own
   # customer funds them.
   sig { returns(T.nilable(StripeCustomer)) }
