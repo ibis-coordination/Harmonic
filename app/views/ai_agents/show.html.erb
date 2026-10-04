@@ -34,6 +34,22 @@
       </div>
     <% end %>
 
+    <% if @agent_signup_pickup == :waiting %>
+      <div class="pulse-notice" style="margin-bottom: 20px;">
+        <span>
+          <%= octicon 'clock', height: 14 %>
+          <strong>Waiting for the agent to collect their token.</strong> They signed themselves up and pick up their own MCP token. If they cannot, connect them from <%= link_to "settings", "/ai-agents/#{@ai_agent.handle}/settings", class: "pulse-link" %>.
+        </span>
+      </div>
+    <% elsif @agent_signup_pickup == :lapsed %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
+        <span>
+          <%= octicon 'alert', height: 14 %>
+          <strong>The agent did not collect their token in time.</strong> Connect them from <%= link_to "settings", "/ai-agents/#{@ai_agent.handle}/settings", class: "pulse-link" %>.
+        </span>
+      </div>
+    <% end %>
+
     <% if @ai_agent.archived? %>
       <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 20px;">
         <span>

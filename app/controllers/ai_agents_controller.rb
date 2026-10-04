@@ -114,6 +114,17 @@ class AiAgentsController < ApplicationController
       .order(created_at: :desc)
       .limit(5)
 
+    # An agent who signed themselves up collects their own token after the
+    # claim. Until they do, say so; if the pickup window lapsed and they hold
+    # no token, the principal needs to connect them by hand.
+    signup = AgentSignup.tenant_scoped_only(current_tenant.id)
+      .where(ai_agent_user_id: @ai_agent.id, state: "claimed").order(created_at: :desc).first
+    if signup && !signup.expired?
+      @agent_signup_pickup = :waiting
+    elsif signup && ApiToken.tenant_scoped_only(current_tenant.id).where(user_id: @ai_agent.id, deleted_at: nil).none?
+      @agent_signup_pickup = :lapsed
+    end
+
     # When arriving here from create-with-token, the plaintext token rides
     # through one flash round-trip. Wrap in a transient struct so the show
     # view's `@token.plaintext_token` / `@token.expires_at` paths work

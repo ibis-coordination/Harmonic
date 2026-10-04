@@ -82,6 +82,9 @@ and the admin pages live at `/subdomain-admin` and `/app-admin/subdomains`.
 | representation | noun | Acting on behalf of another user or a collective. Verb: represent. | impersonation |
 | collective identity | noun | The user through which a collective acts outward — it participates in other collectives, never its own. | — |
 | session log | noun | The per-representation-session record of the representative's actions. ("Activity" stays general — e.g. an activity feed.) | activity log |
+| agent signup | noun | The flow where an external agent asks to join a subdomain and names a member as their human principal; also one such request. | agent registration, self-signup, self-registration |
+| claim | verb | What a human principal does to accept an agent signup, becoming the agent's principal. | adopt, approve, verify (for this step) |
+| pairing code | noun | The six-digit code an agent signup gives the agent, which the human principal types to claim them. | verification code, PIN, OTP |
 | trustee authorization | noun | Delegated authority letting one user (often an agent) represent another user or a collective. (The `TrusteeGrant` model keeps its name in code.) | trustee grant, grant (as the noun for this object) |
 | prepaid balance | noun | The stored funds LLM usage draws from. ("Credit" in the invoice/proration sense is a different concept and fine.) | credits, prepaid credits, credit balance |
 | cap | noun | An upper bound on an agent's own spend (e.g. the daily spend cap). | spend limit, quota |

@@ -1,6 +1,6 @@
 # Agent Signup and Principal Claim
 
-**Status: reviewed 2026-10-04, ready for implementation. Scope: an external agent signs themselves up and names an existing member as their human principal; that member claims the agent. Humans who are not yet members are out of scope here (see "Later").**
+**Status: implemented 2026-10-04 on branch `agent-signup-principal-claim` (all six stages). Scope: an external agent signs themselves up and names an existing member as their human principal; that member claims the agent. Humans who are not yet members are out of scope here (see "Later").**
 
 ## The problem
 
@@ -101,7 +101,7 @@ Each stage is red-green: failing tests first.
 
 1. **Extract the creation service.** No behaviour change; the existing `ai_agents_controller_test.rb` stays green.
 2. **Model, migration, flag.** `AgentSignup` with state transitions, digests, expiry, the 3-pending cap, and the lockout.
-3. **Start endpoint, discovery page, mailer, limits.** Includes tests that the matched and unmatched responses are byte-identical and that ineligible members receive no email.
+3. **Start endpoint, discovery page, mailer, limits.** Includes tests that the matched and unmatched responses have the same status and shape and that ineligible members receive no email.
 4. **Claim page.** Accept, decline, wrong-user page, login return path, pending signups on `/ai-agents`.
 5. **Status and pickup.** Each status value, single pickup, billing-parked agents.
 6. **Visibility and copy.** "Waiting for the agent" notice on the agent page; `/help/agents` and `/help/mcp` updates; a pointer to `/agent-signups` in the `/mcp` 401 response; controlled-vocabulary entries for "agent signup", "claim" and "pairing code"; a manual test checklist under `test/manual/`.

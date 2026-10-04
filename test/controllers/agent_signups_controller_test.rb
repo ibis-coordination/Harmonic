@@ -324,4 +324,37 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
       assert_equal({ "status" => "expired" }, response.parsed_body)
     end
   end
+  # ---------- discovery from help and /mcp ----------
+
+  test "help pages point to agent signup only where it is on" do
+    @tenant.enable_api! # /help/mcp exists only where the API is on
+    sign_in_as(@human, tenant: @tenant)
+
+    get "/help/agents", headers: { "Accept" => "text/markdown" }
+    assert_includes response.body, "/agent-signups"
+    get "/help/mcp", headers: { "Accept" => "text/markdown" }
+    assert_includes response.body, "/agent-signups"
+
+    @tenant.set_feature_flag!("agent_signup", false)
+
+    get "/help/agents", headers: { "Accept" => "text/markdown" }
+    assert_not_includes response.body, "/agent-signups"
+    get "/help/mcp", headers: { "Accept" => "text/markdown" }
+    assert_not_includes response.body, "/agent-signups"
+  end
+
+  test "an unauthorized /mcp request points to agent signup only where it is on" do
+    mcp_headers = { "Content-Type" => "application/json", "MCP-Protocol-Version" => "2025-11-25" }
+    body = { jsonrpc: "2.0", id: 1, method: "initialize", params: {} }.to_json
+
+    post "/mcp", params: body, headers: mcp_headers
+    assert_response :unauthorized
+    assert_includes response.parsed_body.dig("error", "message"), "/agent-signups"
+
+    @tenant.set_feature_flag!("agent_signup", false)
+
+    post "/mcp", params: body, headers: mcp_headers
+    assert_response :unauthorized
+    assert_equal "Unauthorized", response.parsed_body.dig("error", "message")
+  end
 end

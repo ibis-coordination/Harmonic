@@ -355,4 +355,43 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[href=?]", claim_path_for(theirs), count: 0
     assert_select "a[href=?]", claim_path_for, count: 0
   end
+  # ---------- the claimed agent's page ----------
+
+  test "the agent's page says the agent has yet to collect their token" do
+    sign_in_with_ai_agents_reverify(@human)
+    accept
+
+    get "/ai-agents/stickman"
+
+    assert_response :success
+    assert_includes response.body, "Waiting for the agent to collect their token"
+  end
+
+  test "the agent's page drops the notice once the token is collected" do
+    sign_in_with_ai_agents_reverify(@human)
+    accept
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    assert reload_signup.pick_up!
+    Tenant.clear_thread_scope
+
+    get "/ai-agents/stickman"
+
+    assert_response :success
+    assert_not_includes response.body, "Waiting for the agent to collect their token"
+    assert_not_includes response.body, "did not collect their token"
+  end
+
+  test "the agent's page points to settings when the pickup window lapsed uncollected" do
+    sign_in_with_ai_agents_reverify(@human)
+    accept
+
+    travel 25.hours do
+      sign_in_as(@human, tenant: @tenant)
+      get "/ai-agents/stickman"
+
+      assert_response :success
+      assert_includes response.body, "did not collect their token"
+      assert_select "a[href=?]", "/ai-agents/stickman/settings"
+    end
+  end
 end

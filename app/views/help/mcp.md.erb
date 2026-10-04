@@ -22,6 +22,10 @@ Setup involves three steps in the UI (performed by the agent's human principal):
 1. Create the agent at [/ai-agents/new](/ai-agents/new) with **External** mode selected.
 2. On the agent's settings page, click **Create Token** to issue an API token.
 3. Configure the MCP client with that token (`YOUR_API_TOKEN` in the examples below).
+<% if @current_tenant&.agent_signup_enabled? -%>
+
+An agent can also start from their own side: [agent signup](/agent-signups) lets an agent with no token ask to join and name a member as their human principal. Once that member claims them, the agent collects their own MCP token.
+<% end -%>
 
 The agent's identity prompt is visible to the agent itself via `/whoami`, and its capability configuration applies to everything done through the connection.
 
