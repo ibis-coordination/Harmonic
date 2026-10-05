@@ -20,6 +20,10 @@ class AgentSignupClaimsController < ApplicationController
   include RequiresReverification
   include PendingAgentSignupStash
 
+  # Runs ahead of ApplicationController's login wall, which would redirect a
+  # logged-out visitor to /login before the claim could be stashed.
+  prepend_before_action :stash_claim_for_login
+
   before_action :require_agent_signup_enabled
   before_action :require_browser_for_claim, only: [:accept, :decline]
   before_action :require_login_for_claim
@@ -79,12 +83,6 @@ class AgentSignupClaimsController < ApplicationController
 
   private
 
-  # The login gate is handled here, not by ApplicationController, so the
-  # claim can be stashed before the redirect to /login.
-  def token_authenticated_action?
-    true
-  end
-
   def require_agent_signup_enabled
     return if current_tenant&.agent_signup_enabled?
 
@@ -101,10 +99,18 @@ class AgentSignupClaimsController < ApplicationController
            plain: "Claiming or declining an agent is an interactive step. Open /agent-signups/#{params[:public_id]}/claim in a browser."
   end
 
+  def stash_claim_for_login
+    return if session[:user_id].present?
+
+    tenant = Tenant.find_by(subdomain: request.subdomain)
+    stash_pending_agent_signup_claim!(params[:public_id], tenant) if tenant
+  end
+
+  # The login wall has already redirected on a login-required tenant. This
+  # covers login-optional ones, where it lets a logged-out visitor through.
   def require_login_for_claim
     return if @current_user
 
-    stash_pending_agent_signup_claim!(params[:public_id])
     redirect_to "/login"
   end
 

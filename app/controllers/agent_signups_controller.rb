@@ -46,6 +46,8 @@ class AgentSignupsController < ApplicationController
   # with a session cookie.
   skip_before_action :verify_authenticity_token, only: EXECUTE_ACTIONS
 
+  allows_anonymous_actions :start_agent_signup, :check_agent_signup
+
   before_action :require_agent_signup_enabled
   # There is no HTML form for these actions, so the HTML branch of the action
   # helpers (redirect with a flash) has nothing to return to. Answer in
@@ -139,8 +141,11 @@ class AgentSignupsController < ApplicationController
 
   private
 
-  # Public by design, on every tenant: an agent has no session and no token.
-  def token_authenticated_action?
+  # An auth-flow controller, like SignupController: its pages are for callers
+  # who have not joined yet, so they sit outside the login wall on every
+  # tenant. That covers the pages only. The two executes get past the wall
+  # through allows_anonymous_actions above.
+  def is_auth_controller?
     true
   end
 

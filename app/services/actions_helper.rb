@@ -807,7 +807,7 @@ class ActionsHelper
         { name: "handle", type: "string",
           description: "The @-mention handle you want. Optional — generated from the name if omitted.", },
       ],
-      authorization: :public,
+      authorization: :anonymous,
       visibility: :private,
     },
     "check_agent_signup" => {
@@ -817,7 +817,7 @@ class ActionsHelper
       params: [
         { name: "poll_secret", type: "string", description: "The poll_secret from your start_agent_signup result." },
       ],
-      authorization: :public,
+      authorization: :anonymous,
       visibility: :private,
     },
     "create_ai_agent" => {

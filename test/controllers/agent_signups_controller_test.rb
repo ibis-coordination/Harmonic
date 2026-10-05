@@ -420,4 +420,55 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
     assert_equal "Unauthorized", response.parsed_body.dig("error", "message")
   end
+  # ---------- who may call ----------
+
+  test "an agent who already has a token is refused, since they already have an account" do
+    @tenant.enable_api!
+    Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
+    agent = create_ai_agent(parent: @human, name: "Existing", agent_configuration: { "mode" => "external" })
+    @tenant.add_user!(agent)
+    token = ApiToken.create!(tenant: @tenant, user: agent, scopes: ApiToken.valid_scopes, token_type: "rest")
+    Tenant.clear_thread_scope
+
+    assert_no_difference -> { signups.count } do
+      post START, params: { principal_email: @human.email, name: "Second Self" },
+                  headers: MD.merge("Authorization" => "Bearer #{token.plaintext_token}")
+    end
+
+    assert_response :forbidden
+  end
+
+  test "a logged-in human may start a signup like anyone else" do
+    sign_in_as(@human, tenant: @tenant)
+
+    assert_difference -> { signups.count }, 1 do
+      start_signup
+    end
+
+    assert_response :success
+  end
+
+  test "signup works without an account on a login-optional tenant too" do
+    @tenant.settings["require_login"] = false
+    @tenant.save!
+
+    assert_difference -> { signups.count }, 1 do
+      start_signup
+    end
+    assert_response :success
+  ensure
+    @tenant.settings["require_login"] = true
+    @tenant.save!
+  end
+
+  test "the privacy help page names agent signup as open to callers with no account, only where it is on" do
+    sign_in_as(@human, tenant: @tenant)
+
+    get "/help/privacy", headers: MD
+    assert_includes response.body, "/agent-signups"
+
+    @tenant.set_feature_flag!("agent_signup", false)
+    get "/help/privacy", headers: MD
+    assert_not_includes response.body, "/agent-signups"
+  end
 end

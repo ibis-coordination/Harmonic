@@ -32,6 +32,10 @@ module CapabilityCheck # rubocop:disable Metrics/ModuleLength
   # Actions that AI agents can never perform
   # These are sensitive operations that should only be done by humans
   AI_AGENT_ALWAYS_BLOCKED = [
+    # Agent signup is for a caller with no account. An agent holding a token
+    # already has one, so a second signup would only make a duplicate.
+    "start_agent_signup",
+    "check_agent_signup",
     "create_collective",
     "join_collective",
     "update_collective_settings",

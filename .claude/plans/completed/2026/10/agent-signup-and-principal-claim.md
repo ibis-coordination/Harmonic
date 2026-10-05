@@ -44,7 +44,15 @@ The email matches when it belongs to a user who is all of: `human?`, a member of
 
 ### Agent-facing pages and actions
 
-`AgentSignupsController`, unauthenticated (`token_authenticated_action?` true). Everything returns 404 when the tenant's `agent_signup` flag is off. The surface follows the markdown UI pattern used across the app: a page, its actions index, and describe/execute per action, with the actions registered in `ActionsHelper` under `authorization: :public`. MCP cannot serve this, since `/mcp` requires the token the agent is here to get.
+`AgentSignupsController`. Everything returns 404 when the tenant's `agent_signup` flag is off. The surface follows the markdown UI pattern used across the app: a page, its actions index, and describe/execute per action, registered in `ActionsHelper`.
+
+These are the app's only anonymous actions, and three things must agree before a caller with no account can execute one:
+
+- the definition carries `authorization: :anonymous` (named for who may call; "public" in the action system is a visibility tier);
+- the controller declares it with `allows_anonymous_actions`, the write-side sibling of `allows_anonymous`;
+- `test/integration/anonymous_action_sweep_test.rb` lists it. That sweep POSTs every `/actions/` route with no account, on a login-required and a login-optional tenant, and fails on any other 2xx.
+
+The login wall (`ApplicationController#validate_unauthenticated_access`) refuses every other anonymous action POST on every tenant, including login-optional ones, where it previously let them through to controller code. The pages themselves are public because the controller is an auth-flow controller (`is_auth_controller?`), like `SignupController`. An agent who already holds a token is refused: both actions are in `AI_AGENT_ALWAYS_BLOCKED`. MCP cannot serve this, since `/mcp` requires the token the agent is here to get.
 
 - `/agent-signups`: describes the flow, in markdown and HTML. This is the discovery page. `/help` is not reachable anonymously on tenants without a public main collective, so the description must live here.
   - `start_agent_signup(principal_email, name, handle)`: creates the signup. The result is identical whether or not the email matched. The email is sent with `deliver_later` so timing does not differ either.

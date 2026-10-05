@@ -49,8 +49,11 @@ module ActionAuthorization
   # are PERMISSIVE when no context is provided (for /actions listing) - they allow any authenticated
   # user to see the action. When context IS provided (for execution), they do strict checks.
   AUTHORIZATION_CHECKS = T.let({
-    # Public/authenticated
-    public: ->(_user, _context) { true },
+    # Anonymous/authenticated. :anonymous admits a caller with no account. It
+    # is named for who may call, not for what they may see: "public" in the
+    # action system is a visibility tier. A controller must also declare the
+    # action with `allows_anonymous_actions`, or the login wall refuses it.
+    anonymous: ->(_user, _context) { true },
     authenticated: ->(user, _context) { user.present? },
 
     # Admin levels (independent, not hierarchical)
@@ -167,8 +170,8 @@ module ActionAuthorization
     # Check base authorization first
     return false unless check_authorization(auth, user, context)
 
-    # A caller with no account can only have passed a :public rule. The checks
-    # below restrict what a particular user may do, so none applies.
+    # A caller with no account can only have passed an :anonymous rule. The
+    # checks below restrict what a particular user may do, so none applies.
     return true if user.nil?
 
     # Then check capability restrictions for AI agents
