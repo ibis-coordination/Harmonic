@@ -846,7 +846,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_with_ai_agents_reverify(@user)
 
     post "/ai-agents/new/actions/create_ai_agent",
-         params: { name: "Notif Agent", mode: "internal", notifications_present: "1",
+         params: { confirm_responsibility: "1", name: "Notif Agent", mode: "internal", notifications_present: "1",
                    notifications: { comment: { in_app: "true" } }, }
 
     assert_response :redirect
@@ -917,7 +917,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_with_ai_agents_reverify(@user)
 
     assert_no_difference "User.where(user_type: 'ai_agent').count" do
-      post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal" }
+      post "/ai-agents/new/actions/create_ai_agent", params: { confirm_responsibility: "1", name: "New Agent", mode: "internal" }
     end
 
     assert_response :redirect
@@ -929,7 +929,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_with_ai_agents_reverify(@user)
 
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
-      post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal" }
+      post "/ai-agents/new/actions/create_ai_agent", params: { confirm_responsibility: "1", name: "New Agent", mode: "internal" }
     end
 
     assert_response :redirect
@@ -941,7 +941,8 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_with_ai_agents_reverify(@user)
 
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
-      post "/ai-agents/new/actions/create_ai_agent", params: { name: "New Agent", mode: "internal", confirm_billing: "1" }
+      post "/ai-agents/new/actions/create_ai_agent",
+           params: { confirm_responsibility: "1", name: "New Agent", mode: "internal", confirm_billing: "1" }
     end
 
     assert_response :redirect
@@ -952,7 +953,8 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sc = StripeCustomer.create!(billable: @user, stripe_id: "cus_#{SecureRandom.hex(8)}", active: true)
     sign_in_with_ai_agents_reverify(@user)
 
-    post "/ai-agents/new/actions/create_ai_agent", params: { name: "Billing Agent", mode: "internal", confirm_billing: "1" }
+    post "/ai-agents/new/actions/create_ai_agent",
+         params: { confirm_responsibility: "1", name: "Billing Agent", mode: "internal", confirm_billing: "1" }
 
     new_agent = User.where(user_type: "ai_agent").order(:created_at).last
     assert_equal sc.id, new_agent.stripe_customer_id
@@ -964,7 +966,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference "User.where(user_type: 'ai_agent').count" do
       post "/ai-agents/new/actions/create_ai_agent",
-           params: { name: "New Agent", mode: "internal" },
+           params: { confirm_responsibility: "1", name: "New Agent", mode: "internal" },
            headers: { "Accept" => "text/markdown" }
     end
 
@@ -979,7 +981,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference "User.where(user_type: 'ai_agent').count" do
       post "/ai-agents/new/actions/create_ai_agent",
-           params: { name: "New Agent", mode: "internal" },
+           params: { confirm_responsibility: "1", name: "New Agent", mode: "internal" },
            headers: { "Accept" => "application/json" }
     end
 
@@ -1305,11 +1307,52 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_with_ai_agents_reverify(@user)
 
     assert_no_difference "User.where(user_type: 'ai_agent').count" do
-      post "/ai-agents/new/actions/create_ai_agent", params: { name: "No Confirm Agent", mode: "internal" }
+      post "/ai-agents/new/actions/create_ai_agent", params: { confirm_responsibility: "1", name: "No Confirm Agent", mode: "internal" }
     end
 
     assert_response :redirect
     assert_match %r{/ai-agents/new}, response.location
+  end
+
+  test "create rejects an agent until the principal confirms responsibility" do
+    sign_in_with_ai_agents_reverify(@user)
+
+    assert_no_difference "User.where(user_type: 'ai_agent').count" do
+      post "/ai-agents/new/actions/create_ai_agent", params: { name: "Unowned Agent", mode: "internal" }
+    end
+
+    assert_redirected_to "/ai-agents/new"
+    assert_match(/responsib/i, flash[:alert])
+  end
+
+  test "create via markdown names the responsibility confirmation when it is missing" do
+    sign_in_with_ai_agents_reverify(@user)
+
+    assert_no_difference "User.where(user_type: 'ai_agent').count" do
+      post "/ai-agents/new/actions/create_ai_agent",
+           params: { name: "Unowned Md Agent", mode: "internal" },
+           headers: { "Accept" => "text/markdown" }
+    end
+
+    assert_response :unprocessable_entity
+    assert_match(/confirm_responsibility/, response.body)
+  end
+
+  test "create records when the principal confirmed responsibility" do
+    sign_in_with_ai_agents_reverify(@user)
+
+    post "/ai-agents/new/actions/create_ai_agent", params: { confirm_responsibility: "1", name: "Owned Agent", mode: "internal" }
+
+    agent = User.find_by!(name: "Owned Agent", user_type: "ai_agent")
+    assert_in_delta Time.current, agent.principal_responsibility_confirmed_at, 5.seconds
+  end
+
+  test "new-agent form carries the responsibility confirmation" do
+    sign_in_with_ai_agents_reverify(@user)
+
+    get "/ai-agents/new"
+
+    assert_select "input[type=checkbox][name=confirm_responsibility][required]"
   end
 
   test "create does NOT require billing confirmation for app_admin (billing-exempt)" do
@@ -1320,7 +1363,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     # No confirm_billing param — admin should still be allowed through because
     # the billing UI is hidden from them and no Stripe charges apply.
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
-      post "/ai-agents/new/actions/create_ai_agent", params: { name: "Admin Agent", mode: "internal" }
+      post "/ai-agents/new/actions/create_ai_agent", params: { confirm_responsibility: "1", name: "Admin Agent", mode: "internal" }
     end
     assert_response :redirect
     assert_no_match %r{/ai-agents/new\z}, response.location, "should not bounce back to the new form"
@@ -1338,7 +1381,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_difference -> { User.where(user_type: "ai_agent").count }, 1 do
       post "/ai-agents/new/actions/create_ai_agent",
-           params: { name: "Sneaky Agent", mode: "external", system_role: "cadence" }
+           params: { confirm_responsibility: "1", name: "Sneaky Agent", mode: "external", system_role: "cadence" }
     end
 
     created = User.where(user_type: "ai_agent").order(created_at: :desc).first
@@ -1452,6 +1495,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("internal_ai_agents")
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "Blocked Internal Agent",
       mode: "internal",
       confirm_billing: "1",
@@ -1463,6 +1507,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("external_ai_agents")
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "Blocked External Agent",
       mode: "external",
       confirm_billing: "1",
@@ -1474,6 +1519,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("external_ai_agents")
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "Blocked Default-mode Agent",
       confirm_billing: "1",
     }
@@ -1603,6 +1649,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_difference -> { User.where(user_type: "ai_agent").count }, 1 do
       post "/ai-agents/new/actions/create_ai_agent", params: {
+        confirm_responsibility: "1",
         name: "Collision Target", # same name → same base handle, left blank
         mode: "external",
         confirm_billing: "1",
@@ -1623,6 +1670,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference -> { User.where(user_type: "ai_agent").count } do
       post "/ai-agents/new/actions/create_ai_agent", params: {
+        confirm_responsibility: "1",
         name: "A Totally Different Display Name",
         handle: existing_handle,
         mode: "external",
@@ -1645,6 +1693,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_difference -> { User.where(user_type: "ai_agent").count }, 1 do
       post "/ai-agents/new/actions/create_ai_agent", params: {
+        confirm_responsibility: "1",
         name: "My Helper Bot",
         handle: chosen,
         mode: "external",
@@ -1664,7 +1713,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_no_difference -> { User.where(user_type: "ai_agent").count } do
       post "/ai-agents/new/actions/create_ai_agent",
-           params: { name: "New Md Agent", handle: existing_handle, mode: "external", confirm_billing: "1" },
+           params: { confirm_responsibility: "1", name: "New Md Agent", handle: existing_handle, mode: "external", confirm_billing: "1" },
            headers: { "Accept" => "text/markdown" }
     end
 
@@ -1695,6 +1744,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "Admin External Agent",
       mode: "external",
       generate_token: "1",
@@ -1719,6 +1769,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "Regular User External Agent",
       mode: "external",
       generate_token: "1",
@@ -1735,6 +1786,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("internal_ai_agents")
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "External Agent With Token",
       mode: "external",
       generate_token: "1",
@@ -1771,6 +1823,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("internal_ai_agents")
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "MCP-only Default Agent",
       mode: "external",
       generate_token: "1",
@@ -1788,6 +1841,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("internal_ai_agents")
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "Direct-REST Agent",
       mode: "external",
       generate_token: "1",
@@ -1806,6 +1860,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("internal_ai_agents")
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "External Agent No Token",
       mode: "external",
       confirm_billing: "1",
@@ -1821,6 +1876,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_with_ai_agents_reverify(@user)
     assert_difference -> { @user.ai_agents.where(tenant_users: { tenant_id: @tenant.id }).joins(:tenant_users).count }, 1 do
       post "/ai-agents/new/actions/create_ai_agent", params: {
+        confirm_responsibility: "1",
         name: "External Only Agent",
         mode: "external",
         confirm_billing: "1",
@@ -1835,6 +1891,7 @@ class AiAgentsControllerTest < ActionDispatch::IntegrationTest
     @tenant.disable_feature_flag!("internal_ai_agents")
     sign_in_with_ai_agents_reverify(@user)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "Default Mode Agent",
       confirm_billing: "1",
     }

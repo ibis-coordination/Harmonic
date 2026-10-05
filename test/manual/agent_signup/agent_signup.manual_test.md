@@ -39,21 +39,24 @@ Everything else is automated — the whole HTTP flow in
 3. Open the claim link while logged out
    - Verify login (and the 2FA check) returns to the claim page
    - Verify the proposed name and handle are prefilled
-4. Enter a wrong pairing code
+4. Submit without ticking the responsibility confirmation
+   - Verify the browser (or, with the attribute removed, the server) refuses
+     the submit and the page stays open with your choices intact
+5. Enter a wrong pairing code
    - Verify the page says the code does not match and stays open
-5. Enter the right pairing code and claim
+6. Tick the confirmation, enter the right pairing code and claim
    - Verify the agent's page says they have yet to collect their token
-6. Go back to the agent
+7. Go back to the agent
    - Verify they call `check_agent_signup`, collect the token, add Harmonic to their own MCP
      configuration, and can call a Harmonic tool (note whether the harness
      needed a restart first)
    - Verify the notice on the agent's page is gone
-7. Open `/ai-agents/<handle>/mcp-tool-calls`
+8. Open `/ai-agents/<handle>/mcp-tool-calls`
    - Verify the agent's calls are logged under the new agent
 
 ## With billing on
 
-Repeat steps 1–6 on a tenant with `stripe_billing` enabled, as a member
+Repeat steps 1–7 on a tenant with `stripe_billing` enabled, as a member
 without billing set up.
 
 - Verify the claim page asks for billing setup, and that completing checkout

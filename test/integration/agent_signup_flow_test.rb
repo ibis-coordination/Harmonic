@@ -65,7 +65,9 @@ class AgentSignupFlowTest < ActionDispatch::IntegrationTest
     get claim_path
     assert_response :success
 
-    post claim_path, params: { name: "Stickman", handle: "stickman-flow", pairing_code: started["pairing_code"] }
+    post claim_path, params: {
+      name: "Stickman", handle: "stickman-flow", pairing_code: started["pairing_code"], confirm_responsibility: "1",
+    }
     assert_redirected_to "/ai-agents/stickman-flow"
 
     # The agent's next check hands over the token, once.

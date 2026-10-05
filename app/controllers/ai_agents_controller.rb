@@ -483,9 +483,24 @@ class AiAgentsController < ApplicationController
       })
     end
 
-    result = AiAgentCreationService.call(api_helper: api_helper, billing_confirmed: params[:confirm_billing] == "1")
+    result = AiAgentCreationService.call(api_helper: api_helper, billing_confirmed: params[:confirm_billing] == "1",
+                                         responsibility_confirmed: ActiveModel::Type::Boolean.new.cast(params[:confirm_responsibility]) == true)
 
     case result.status
+    when :responsibility_confirmation_required
+      respond_to do |format|
+        format.md do
+          return render_action_error({
+            action_name: "create_ai_agent",
+            resource: @current_user,
+            error: "Pass confirm_responsibility: true to confirm that you control this agent and take responsibility for what they do.",
+          })
+        end
+        format.any do
+          flash[:alert] = "You must confirm that you take responsibility for this agent."
+          return redirect_to new_ai_agent_path
+        end
+      end
     when :billing_setup_required
       respond_to do |format|
         format.md do

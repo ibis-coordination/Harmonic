@@ -46,6 +46,10 @@ class AgentSignupClaimsController < ApplicationController
       flash.now[:alert] = "Enter a name for the agent."
       return render_claim_form(status: :unprocessable_entity)
     end
+    unless ActiveModel::Type::Boolean.new.cast(params[:confirm_responsibility]) == true
+      flash.now[:alert] = "You must confirm that you take responsibility for this agent."
+      return render_claim_form(status: :unprocessable_entity)
+    end
 
     outcome, result = accept_under_lock
     SecurityAuditLog.log_agent_signup_pairing_lockout(signup: @signup, ip: request.remote_ip) if outcome == :wrong_code && @signup.expired?
@@ -147,7 +151,8 @@ class AgentSignupClaimsController < ApplicationController
       else
         result = AiAgentCreationService.call(
           api_helper: api_helper(params: creation_params),
-          billing_confirmed: params[:confirm_billing] == "1"
+          billing_confirmed: params[:confirm_billing] == "1",
+          responsibility_confirmed: true # checked before the lock, in accept
         )
         outcome = result.status
         @signup.claim!(ai_agent: result.ai_agent) if result.created?

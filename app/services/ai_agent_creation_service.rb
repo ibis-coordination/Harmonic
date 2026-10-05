@@ -10,6 +10,10 @@
 #                                     when the subscription sync charged a
 #                                     proration. The agent may still be
 #                                     pending_billing_setup.
+#   :responsibility_confirmation_required
+#                                   — the principal has not confirmed that
+#                                     they control the agent and answer for
+#                                     what it does.
 #   :billing_setup_required         — the principal must set up billing first.
 #   :billing_confirmation_required  — billing is on and the principal has not
 #                                     confirmed the per-agent charge.
@@ -29,21 +33,26 @@ class AiAgentCreationService
     end
   end
 
-  sig { params(api_helper: ApiHelper, billing_confirmed: T::Boolean).returns(Result) }
-  def self.call(api_helper:, billing_confirmed:)
-    new(api_helper: api_helper, billing_confirmed: billing_confirmed).call
+  sig { params(api_helper: ApiHelper, billing_confirmed: T::Boolean, responsibility_confirmed: T::Boolean).returns(Result) }
+  def self.call(api_helper:, billing_confirmed:, responsibility_confirmed:)
+    new(api_helper: api_helper, billing_confirmed: billing_confirmed, responsibility_confirmed: responsibility_confirmed).call
   end
 
-  sig { params(api_helper: ApiHelper, billing_confirmed: T::Boolean).void }
-  def initialize(api_helper:, billing_confirmed:)
+  sig { params(api_helper: ApiHelper, billing_confirmed: T::Boolean, responsibility_confirmed: T::Boolean).void }
+  def initialize(api_helper:, billing_confirmed:, responsibility_confirmed:)
     @api_helper = api_helper
     @principal = T.let(api_helper.current_user, User)
     @tenant = T.let(api_helper.current_tenant, Tenant)
     @billing_confirmed = billing_confirmed
+    @responsibility_confirmed = responsibility_confirmed
   end
 
   sig { returns(Result) }
   def call
+    # Every principal confirms, admins included: the accountability rule has
+    # no exemptions. Checked first, so a principal who has not confirmed is
+    # not sent off to set up billing for an agent they have not yet owned.
+    return Result.new(status: :responsibility_confirmation_required) unless @responsibility_confirmed
     return Result.new(status: :billing_setup_required) if @principal.requires_stripe_billing?(@tenant)
     return Result.new(status: :billing_confirmation_required) if billing_confirmation_missing?
 
@@ -51,7 +60,9 @@ class AiAgentCreationService
       # requires_new: a failed handle must roll back the half-built agent even
       # when the caller has its own transaction open. Without the savepoint
       # the user row would survive in the caller's transaction.
-      ai_agent = ActiveRecord::Base.transaction(requires_new: true) { @api_helper.create_ai_agent }
+      ai_agent = ActiveRecord::Base.transaction(requires_new: true) do
+        @api_helper.create_ai_agent.tap { |agent| agent.update!(principal_responsibility_confirmed_at: Time.current) }
+      end
     rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => e
       # An explicitly-chosen handle that's already taken (or reserved) fails:
       # the uniqueness validation raises RecordInvalid, with the DB index as

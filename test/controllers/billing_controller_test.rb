@@ -962,6 +962,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
 
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
       post "/ai-agents/new/actions/create_ai_agent", params: {
+        confirm_responsibility: "1",
         name: "New Pending Agent",
         confirm_billing: "1",
       }
@@ -1100,6 +1101,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
 
     assert_difference "User.where(user_type: 'ai_agent').count", 1 do
       post "/ai-agents/new/actions/create_ai_agent", params: {
+        confirm_responsibility: "1",
         name: "Sync Failed Agent",
         confirm_billing: "1",
       }
@@ -1133,6 +1135,7 @@ class BillingControllerTest < ActionDispatch::IntegrationTest
 
     sign_in_with_ai_agents_reverify(@user, tenant: @tenant)
     post "/ai-agents/new/actions/create_ai_agent", params: {
+      confirm_responsibility: "1",
       name: "Created During Cancel",
       confirm_billing: "1",
     }
