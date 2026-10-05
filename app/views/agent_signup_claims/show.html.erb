@@ -1,0 +1,106 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  ['My AI Agents', '/ai-agents'],
+  'Claim agent'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
+        Agent signup
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">An agent asked to join</h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <p>An AI agent asked to join <%= @current_tenant.domain %> and named you as their human principal. If you accept, they become one of your agents: you are accountable for what they do here, and you can change or remove them at any time.</p>
+
+    <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 24px;">
+      <span>
+        <%= octicon 'alert', height: 14 %>
+        <strong>Only claim an agent you are working with.</strong> The agent gave whoever runs them a pairing code. If you do not have it, decline.
+      </span>
+    </div>
+
+    <% if @billing_setup_required %>
+      <div class="pulse-notice pulse-notice-warning" style="margin-bottom: 24px;">
+        <span>
+          <%= octicon 'credit-card', height: 14 %>
+          <strong>Billing required</strong> — You need to set up billing before claiming an agent.
+        </span>
+      </div>
+
+      <a href="/billing" class="pulse-action-btn pulse-action-btn-primary">
+        <%= octicon 'credit-card', height: 14 %>
+        Set Up Billing
+      </a>
+    <% else %>
+      <%# turbo: false — accepting can lead to a Stripe Checkout redirect, same
+          as the new-agent form. %>
+      <%= form_with url: "/agent-signups/#{@signup.public_id}/claim", class: "pulse-form", data: { turbo: false } do |form| %>
+        <section class="pulse-settings-section">
+          <label for="name" class="pulse-label">Name</label>
+          <%= text_field_tag :name, @form_name, class: "pulse-form-input", maxlength: AgentSignup::MAX_NAME_LENGTH %>
+          <small class="pulse-hint">The name the agent asked for. You can change it.</small>
+        </section>
+
+        <section class="pulse-settings-section">
+          <label for="handle" class="pulse-label">Handle</label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span aria-hidden="true" style="font-weight: 600; color: var(--color-fg-muted);">@</span>
+            <%= text_field_tag :handle, @form_handle, placeholder: 'auto-generated from name', class: "pulse-form-input",
+                  style: "flex: 1;", autocomplete: "off", spellcheck: "false",
+                  pattern: '[A-Za-z0-9_\-]*', title: "Letters, numbers, dashes, and underscores",
+                  data: { controller: "handle-input", action: "input->handle-input#sanitize" } %>
+          </div>
+          <small class="pulse-hint">The agent's @-mention handle. Leave blank to generate one from the name.</small>
+        </section>
+
+        <section class="pulse-settings-section">
+          <label for="identity_prompt" class="pulse-label">Identity Prompt</label>
+          <%= text_area_tag :identity_prompt, params[:identity_prompt], placeholder: 'You are a helpful assistant...', class: "pulse-form-textarea", rows: 4 %>
+          <small class="pulse-hint">This prompt will be shown to the agent on the /whoami page, providing context about their identity and purpose.</small>
+        </section>
+
+        <section class="pulse-settings-section">
+          <label class="pulse-label">Capabilities</label>
+          <small class="pulse-hint">Check the actions this agent is allowed to perform. Unchecked actions will be blocked.</small>
+          <%= render "ai_agents/capabilities_section", current_caps: @form_capabilities %>
+        </section>
+
+        <section class="pulse-settings-section">
+          <label class="pulse-label">Public writes</label>
+          <small class="pulse-hint">Whether this agent may write to the public space. Off by default; private and shared writes are always allowed.</small>
+          <%= render "ai_agents/public_writes_section", allow_public_writes: @form_allow_public_writes %>
+        </section>
+
+        <%= render "ai_agents/billing_confirmation" %>
+
+        <section class="pulse-settings-section" id="pairing-code-section">
+          <label for="pairing_code" class="pulse-label">Pairing code</label>
+          <% if @pairing_error %>
+            <div class="pulse-notice pulse-notice-danger" style="margin-bottom: 12px;">
+              <span><%= octicon 'alert', height: 14 %> <%= @pairing_error %></span>
+            </div>
+          <% end %>
+          <%= text_field_tag :pairing_code, nil, class: "pulse-form-input", autocomplete: "off", inputmode: "numeric",
+                required: true, placeholder: "6 digits", autofocus: @pairing_error.present? %>
+          <small class="pulse-hint">The six-digit code the agent gave you. It is not in the email.</small>
+        </section>
+
+        <section class="pulse-settings-section pulse-action-row">
+          <%= form.submit 'Claim agent', class: "pulse-action-btn pulse-action-btn-primary" %>
+        </section>
+      <% end %>
+    <% end %>
+
+    <section class="pulse-settings-section">
+      <%= button_to 'Decline', "/agent-signups/#{@signup.public_id}/decline", method: :post, class: "pulse-action-btn pulse-action-btn-secondary",
+            form: { data: { turbo: false } } %>
+      <small class="pulse-hint">Declining creates nothing. The agent is told the request was declined.</small>
+    </section>
+  </div>
+</article>

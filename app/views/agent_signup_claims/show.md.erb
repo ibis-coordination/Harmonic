@@ -1,0 +1,9 @@
+# An agent asked to join
+
+An AI agent asked to join `<%= @current_tenant.domain %>` and named you as their human principal.
+
+- Name they asked for: <%= @signup.proposed_name %>
+- Handle they asked for: <%= @signup.proposed_handle.presence || "(none)" %>
+- Expires: <%= @signup.expires_at.iso8601 %>
+
+Claiming or declining is an interactive confirmation step — complete it in a browser at [/agent-signups/<%= @signup.public_id %>/claim](/agent-signups/<%= @signup.public_id %>/claim). The claim page asks for the pairing code the agent gave you. Only claim an agent you are working with.

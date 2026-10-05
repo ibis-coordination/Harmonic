@@ -31,16 +31,23 @@ class ActionAuthorizationTest < ActiveSupport::TestCase
     refute ActionAuthorization.authorized?("nonexistent_action", @user, {})
   end
 
-  # Test: Public authorization allows unauthenticated users
-  test "public authorization allows nil user" do
-    # Temporarily add a public action for testing
-    original = ActionsHelper::ACTION_DEFINITIONS.dup
+  test "anonymous authorization allows a caller with no account" do
+    assert ActionAuthorization.check_authorization(:anonymous, nil, {})
+  end
 
-    # We can't modify the frozen hash, so test the check_authorization method directly
-    assert ActionAuthorization.check_authorization(:public, nil, {})
+  test "only the agent signup actions carry the anonymous rule" do
+    anonymous = ActionsHelper::ACTION_DEFINITIONS.select { |_name, d| d[:authorization] == :anonymous }.keys
+
+    assert_equal ["check_agent_signup", "start_agent_signup"], anonymous.sort
   end
 
   # Test: Authenticated authorization requires a user
+  test "the agent signup actions are open to a caller with no account" do
+    assert ActionAuthorization.authorized?("start_agent_signup", nil, {})
+    assert ActionAuthorization.authorized?("check_agent_signup", nil, {})
+    assert_not ActionAuthorization.authorized?("create_ai_agent", nil, {})
+  end
+
   test "authenticated authorization requires a user" do
     assert ActionAuthorization.check_authorization(:authenticated, @user, {})
     refute ActionAuthorization.check_authorization(:authenticated, nil, {})

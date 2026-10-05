@@ -16,6 +16,13 @@ Model: `<%= @ai_agent.agent_configuration&.dig("model") || "default" %>`
 **Status: Active** — $3/month. [Manage billing](/billing)
 <% end %>
 
+<% if @agent_signup_pickup == :waiting %>
+**Waiting for the agent to collect their token.** They signed themselves up and pick up their own MCP token. If they cannot, connect them from [settings](/ai-agents/<%= @ai_agent.handle %>/settings).
+
+<% elsif @agent_signup_pickup == :lapsed %>
+**The agent did not collect their token in time.** Connect them from [settings](/ai-agents/<%= @ai_agent.handle %>/settings).
+
+<% end %>
 <% if @token && @token.plaintext_token.present? %>
 ## API Token
 

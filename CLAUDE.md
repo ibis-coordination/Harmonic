@@ -79,13 +79,15 @@ Configured via `AUTH_MODE` env var: `oauth` (production) or `honor_system` (deve
 | `Commitment` | Action pledges with critical mass | | `AutomationRule` (+`Run`) | Event/schedule/webhook-triggered automation |
 | `Notification` (+`Recipient`) | In-app/push/webhook delivery | | `FundingPool` (+`Enrollment`) | Pooled credits funding collective agents |
 | `ApiToken` | Token auth, one type each | | `LlmUsageRecord` | LLM gateway usage ledger |
-| `TrusteeGrant` | Delegated authority for agents | | | |
+| `TrusteeGrant` | Delegated authority for agents | | `AgentSignup` | An agent's own request to join, claimed by a member |
 
 Shared concerns: `HasTruncatedId`, `Linkable`, `Pinnable`, `Attachable`, `Commentable`, `SoftDeletable`/`HasDeletedAt`
 
 ### Interfaces
 
 The app serves HTML for humans and Markdown + API actions for LLMs (same routes, `Accept: text/markdown`). RESTful JSON API at `/api/v1/` with token-based auth (scopes: `read`, `write`).
+
+**Anonymous actions are declared, never implied.** A caller with no account can execute an action only when its `ACTION_DEFINITIONS` entry has `authorization: :anonymous` and its controller lists it in `allows_anonymous_actions`; `test/integration/anonymous_action_sweep_test.rb` fails on any other. Today that is agent signup only (see docs/ARCHITECTURE.md, "Anonymous Access").
 
 **MCP is the primary agent interface**: hosted endpoint at `POST /mcp` (`app/controllers/mcp/`) with tools `execute_action`, `fetch_page`, `get_help`, `search`; connect guides at `/help/mcp`. The markdown UI and REST API are lower-level data access for automated systems. Every `ApiToken` is locked to exactly one type — `rest`, `mcp`, or `llm_gateway` (the latter two are agent-only).
 

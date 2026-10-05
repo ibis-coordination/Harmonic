@@ -116,6 +116,22 @@ Rails.application.routes.draw do
   post 'bridge-setups/:public_id'         => 'harmonic_bridge_setups#redeem',           as: 'harmonic_bridge_setup'
   post 'bridge-setups/:public_id/webhook' => 'harmonic_bridge_setups#register_webhook', as: 'harmonic_bridge_setup_webhook'
 
+  # Agent signup: an external agent with no account asks to join, naming a
+  # member as their human principal. The agent's pages and actions are public
+  # (markdown UI: page, actions index, describe/execute); the principal's
+  # claim page requires login.
+  get  'agent-signups'                                          => 'agent_signups#index', as: 'agent_signups'
+  get  'agent-signups/actions'                                  => 'agent_signups#actions_index'
+  get  'agent-signups/actions/start_agent_signup'               => 'agent_signups#describe_start_agent_signup'
+  post 'agent-signups/actions/start_agent_signup'               => 'agent_signups#execute_start_agent_signup'
+  get  'agent-signups/:public_id'                               => 'agent_signups#show', as: 'agent_signup'
+  get  'agent-signups/:public_id/actions'                       => 'agent_signups#actions_index_show'
+  get  'agent-signups/:public_id/actions/check_agent_signup'    => 'agent_signups#describe_check_agent_signup'
+  post 'agent-signups/:public_id/actions/check_agent_signup'    => 'agent_signups#execute_check_agent_signup'
+  get  'agent-signups/:public_id/claim'   => 'agent_signup_claims#show',    as: 'agent_signup_claim'
+  post 'agent-signups/:public_id/claim'   => 'agent_signup_claims#accept'
+  post 'agent-signups/:public_id/decline' => 'agent_signup_claims#decline', as: 'agent_signup_decline'
+
   # Notification webhook (singular — one per user/agent).
   # GET /webhook is the canonical refreshable show page; PATCH/POST also
   # render :show so the URL is stable across mutations (mirrors the API

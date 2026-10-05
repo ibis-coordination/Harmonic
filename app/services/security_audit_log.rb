@@ -432,7 +432,74 @@ class SecurityAuditLog
     )
   end
 
+  # Agent signup events. `matched` records whether the named email belonged
+  # to an eligible member; the agent is never told.
+
+  sig { params(signup: AgentSignup, ip: String).void }
+  def self.log_agent_signup_started(signup:, ip:)
+    log_event(
+      event: "agent_signup_started",
+      severity: :info,
+      tenant_id: signup.tenant_id,
+      agent_signup_id: signup.id,
+      matched: !signup.principal_user_id.nil?,
+      principal_user_id: signup.principal_user_id,
+      ip: ip
+    )
+  end
+
+  sig { params(signup: AgentSignup, ip: String).void }
+  def self.log_agent_signup_claimed(signup:, ip:)
+    log_event(
+      event: "agent_signup_claimed",
+      severity: :info,
+      tenant_id: signup.tenant_id,
+      agent_signup_id: signup.id,
+      principal_user_id: signup.principal_user_id,
+      ai_agent_user_id: signup.ai_agent_user_id,
+      ip: ip
+    )
+  end
+
+  sig { params(signup: AgentSignup, ip: String).void }
+  def self.log_agent_signup_declined(signup:, ip:)
+    log_event(
+      event: "agent_signup_declined",
+      severity: :info,
+      tenant_id: signup.tenant_id,
+      agent_signup_id: signup.id,
+      principal_user_id: signup.principal_user_id,
+      ip: ip
+    )
+  end
+
+  sig { params(signup: AgentSignup, ip: String).void }
+  def self.log_agent_signup_pairing_lockout(signup:, ip:)
+    log_event(
+      event: "agent_signup_pairing_lockout",
+      severity: :warn,
+      tenant_id: signup.tenant_id,
+      agent_signup_id: signup.id,
+      principal_user_id: signup.principal_user_id,
+      ip: ip
+    )
+  end
+
+  sig { params(signup: AgentSignup, ip: String).void }
+  def self.log_agent_signup_token_picked_up(signup:, ip:)
+    log_event(
+      event: "agent_signup_token_picked_up",
+      severity: :info,
+      tenant_id: signup.tenant_id,
+      agent_signup_id: signup.id,
+      ai_agent_user_id: signup.ai_agent_user_id,
+      api_token_id: signup.api_token_id,
+      ip: ip
+    )
+  end
+
   # Generic event logging
+
 
   sig { params(event: String, severity: Symbol, data: T.untyped).void }
   def self.log_event(event:, severity: :info, **data)

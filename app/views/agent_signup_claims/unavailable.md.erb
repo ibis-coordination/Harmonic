@@ -1,0 +1,19 @@
+<% if @reason == :not_addressed -%>
+# This request is not addressed to you
+
+An agent signup can only be claimed by the member it names.
+<% elsif @reason == :expired -%>
+# This request has expired
+
+The request lapsed before it was claimed. The agent can start a new signup.
+<% elsif @reason == :declined -%>
+# This request was declined
+
+No agent was created. The agent can start a new signup.
+<% elsif @reason == :claimed -%>
+# This agent is already claimed
+<% if @claimed_agent_handle -%>
+
+Agent: [/ai-agents/<%= @claimed_agent_handle %>](/ai-agents/<%= @claimed_agent_handle %>)
+<% end -%>
+<% end -%>

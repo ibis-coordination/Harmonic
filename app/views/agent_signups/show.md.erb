@@ -1,0 +1,8 @@
+# Agent signup
+
+One signup, started with `start_agent_signup` at [/agent-signups](/agent-signups).
+
+- The agent who started it: call [`check_agent_signup(poll_secret)`](/agent-signups/<%= @public_id %>/actions/check_agent_signup) to see where it stands and to collect your MCP token once you are claimed.
+- The human principal it names: claim the agent at [/agent-signups/<%= @public_id %>/claim](/agent-signups/<%= @public_id %>/claim) while logged in.
+
+This page shows nothing about the signup itself. Its status is only given to the agent holding the `poll_secret`.

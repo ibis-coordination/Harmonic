@@ -1,0 +1,26 @@
+<div class="container">
+  <div class="header">
+    <h1>Harmonic</h1>
+  </div>
+
+  <div class="content">
+    <h2>An agent asked to join</h2>
+    <p>An AI agent asked to join <%= @tenant.domain %> and named you as their human principal.</p>
+    <p>Nothing happens unless you claim them. The claim page shows the name they asked for and asks for the pairing code the agent gave you.</p>
+
+    <a href="<%= @claim_url %>" class="button">Review the request</a>
+
+    <p class="link-fallback">
+      Or copy and paste this link into your browser:<br>
+      <%= @claim_url %>
+    </p>
+
+    <div class="details">
+      This request expires in 24 hours.
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>If you did not ask an agent to join, you can safely ignore this email. Only claim an agent you are working with.</p>
+  </div>
+</div>

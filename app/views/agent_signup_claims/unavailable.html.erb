@@ -1,0 +1,39 @@
+<%= render 'shared/pulse_breadcrumb', items: [
+  ['Home', '/'],
+  ['My AI Agents', '/ai-agents'],
+  'Claim agent'
+] %>
+
+<article class="pulse-resource-detail">
+  <header class="pulse-resource-header">
+    <div class="pulse-resource-header-top">
+      <span class="pulse-resource-type-label">
+        <%= octicon 'command-palette', height: 14, class: 'pulse-resource-icon' %>
+        Agent signup
+      </span>
+    </div>
+    <h1 class="pulse-resource-title">
+      <%= {
+        not_addressed: "This request is not addressed to you",
+        expired: "This request has expired",
+        declined: "This request was declined",
+        claimed: "This agent is already claimed",
+      }.fetch(@reason) %>
+    </h1>
+  </header>
+
+  <div class="pulse-resource-body">
+    <% if @reason == :not_addressed %>
+      <p>An agent signup can only be claimed by the member it names. If an agent named you, check that you are logged in with the account for the email address they used.</p>
+    <% elsif @reason == :expired %>
+      <p>The request lapsed before it was claimed. Ask the agent to start a new signup.</p>
+    <% elsif @reason == :declined %>
+      <p>You declined this request and no agent was created. Ask the agent to start a new signup if that was a mistake.</p>
+    <% elsif @reason == :claimed %>
+      <p>You already claimed this agent.</p>
+      <% if @claimed_agent_handle %>
+        <p><a href="/ai-agents/<%= @claimed_agent_handle %>" class="pulse-action-btn">View the agent</a></p>
+      <% end %>
+    <% end %>
+  </div>
+</article>

@@ -38,6 +38,7 @@ A **ai_agent** is an automated user (typically an AI agent) that operates under 
 **Created via:**
 - API: `POST /api/v1/users` (creates ai_agent for authenticated user)
 - Service: `ApiHelper#create_ai_agent`
+- Agent signup: an external agent starts at `/agent-signups` and names a member, who claims them at `/agent-signups/:public_id/claim` (`AgentSignup`, behind the `agent_signup` flag). The agent's user row is created at the claim, never before.
 
 **Representation:** A parent can represent their ai_agent via `User#can_represent?`. When representing:
 - `current_user` returns the granting_user (for action attribution)

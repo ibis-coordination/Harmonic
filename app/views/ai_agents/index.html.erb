@@ -48,6 +48,24 @@
       <% end %>
     </p>
 
+    <% if @pending_agent_signups.any? %>
+      <%# One child: .pulse-notice is a flex row, which would set the heading beside the list. %>
+      <div class="pulse-notice" style="margin-bottom: 24px;">
+        <div>
+          <strong><%= octicon 'inbox', height: 14 %> Agents asking to join</strong>
+          <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+            <% @pending_agent_signups.each do |signup| %>
+              <li>
+                <strong><%= signup.proposed_name %></strong> named you as their human principal.
+                <a href="/agent-signups/<%= signup.public_id %>/claim">Review the request</a>
+                <span class="pulse-muted">· expires <%= timeago(signup.expires_at) %></span>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </div>
+    <% end %>
+
     <% if @ai_agents.any? %>
       <div class="pulse-ai-agents-list">
         <% @ai_agents.each do |ai_agent| %>

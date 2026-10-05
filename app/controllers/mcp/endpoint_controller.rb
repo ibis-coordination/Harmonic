@@ -383,7 +383,14 @@ module Mcp
         "WWW-Authenticate",
         %(Bearer realm="Harmonic", resource_metadata="#{resource_metadata_url}")
       )
-      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, "Unauthorized"), status: :unauthorized
+      # An agent with no token has nowhere else to learn that they can sign
+      # themselves up, so the rejection says where.
+      message = if current_tenant&.agent_signup_enabled?
+                  "Unauthorized. An agent without a token can sign up at /agent-signups."
+                else
+                  "Unauthorized"
+                end
+      render json: jsonrpc_error_envelope(nil, INVALID_REQUEST, message), status: :unauthorized
     end
 
     def render_mcp_non_agent_forbidden(user)

@@ -81,6 +81,22 @@ class ApplicationController < ActionController::Base
     @anonymous_actions.include?(action.to_sym)
   end
 
+  # Declares the actions (by ACTION_DEFINITIONS name) that a caller with no
+  # account may execute in this controller. Writes, where allows_anonymous
+  # covers reads. The login wall admits an anonymous /actions/<name> POST only
+  # when the action is declared here AND its definition carries
+  # `authorization: :anonymous`; either alone is not enough.
+  def self.allows_anonymous_actions(*names)
+    @anonymous_action_names ||= Set.new
+    @anonymous_action_names.merge(names.map(&:to_s))
+  end
+
+  def self.allows_anonymous_action?(name)
+    return false unless @anonymous_action_names
+
+    @anonymous_action_names.include?(name.to_s)
+  end
+
   def check_auth_subdomain
     return if single_tenant_mode?
 
@@ -606,9 +622,18 @@ class ApplicationController < ActionController::Base
   end
 
   def validate_unauthenticated_access
-    return if @current_user || !@current_tenant.require_login? || is_auth_controller?
-    return if token_authenticated_action?
-    return if anonymous_main_collective_read_allowed?
+    return if @current_user
+
+    # An undeclared anonymous action POST is refused on every tenant and in
+    # every controller, including login-optional tenants and auth-flow
+    # controllers. Without this, the per-action gates (which all skip callers
+    # with no account) would leave such a POST to whatever the controller
+    # happens to do with a nil user.
+    unless undeclared_anonymous_action_post?
+      return if !@current_tenant.require_login? || is_auth_controller?
+      return if token_authenticated_action?
+      return if anonymous_main_collective_read_allowed?
+    end
 
     if request.path.include?("/api/") || request.headers["Accept"] == "application/json"
       return render status: :unauthorized,
@@ -623,6 +648,17 @@ class ApplicationController < ActionController::Base
       query_string = "?code=#{params[:code]}"
     end
     redirect_to "/login#{query_string || ""}"
+  end
+
+  # True for a POST to /actions/<name> that no declaration admits for a
+  # caller with no account. See allows_anonymous_actions.
+  def undeclared_anonymous_action_post?
+    return false unless request.post? && request.path.match?(%r{/actions/[^/]+/?(\.\w+)?\z})
+
+    name = extract_action_name_from_path.to_s.sub(/\.\w+\z/, "")
+    declared = self.class.allows_anonymous_action?(name) &&
+               ActionsHelper::ACTION_DEFINITIONS.dig(name, :authorization) == :anonymous
+    !declared
   end
 
   # All 6 conditions for anonymous read access to the main collective. Any
@@ -908,7 +944,8 @@ class ApplicationController < ActionController::Base
 
   CONTROLLERS_WITHOUT_RESOURCE_MODEL = ["home", "trio", "search", "two_factor_auth", "reverification", "collectives", "help",
                                         "collective_data_transfers", "user_data_exports", "signup", "activation", "email_confirmations", "direct_uploads",
-                                        "ai_agent_connect", "application", "devices", "collective_agents", "account_deletions",].freeze
+                                        "ai_agent_connect", "application", "devices", "collective_agents", "account_deletions",
+                                        "agent_signups", "agent_signup_claims",].freeze
 
   def resource_model?
     return false if CONTROLLERS_WITHOUT_RESOURCE_MODEL.include?(controller_name)
