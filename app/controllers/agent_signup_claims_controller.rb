@@ -24,13 +24,14 @@ class AgentSignupClaimsController < ApplicationController
   # logged-out visitor to /login before the claim could be stashed.
   prepend_before_action :stash_claim_for_login
 
+  # First, so the pages the guards below render carry the title too.
+  before_action :set_page_chrome
   before_action :require_agent_signup_enabled
   before_action :require_browser_for_claim, only: [:accept, :decline]
   before_action :require_login_for_claim
   before_action -> { require_reverification(scope: "api_tokens") }
   before_action :load_signup
   before_action :require_addressee
-  before_action :set_page_chrome
 
   def show
     return render_unavailable unless @signup.claimable_by?(current_user)
@@ -55,7 +56,9 @@ class AgentSignupClaimsController < ApplicationController
     when :wrong_code
       return render_unavailable if @signup.expired?
 
-      flash.now[:alert] = "That pairing code does not match. Check the code the agent gave you."
+      # Shown at the field, not in the flash: the form is long and the field
+      # is at the bottom, where the principal just was.
+      @pairing_error = "That pairing code does not match. Check the code the agent gave you."
       render_claim_form(status: :unprocessable_entity)
     when :billing_setup_required
       session[:billing_return_to] = claim_path
@@ -168,13 +171,18 @@ class AgentSignupClaimsController < ApplicationController
     end
 
     handle = ai_agent.tenant_users.find_by(tenant_id: current_tenant.id)&.handle
-    flash[:notice] = "#{ai_agent.display_name} is claimed. They can now collect their token."
+    # Short: the agent's page carries its own "waiting to collect" notice.
+    flash[:notice] = "#{ai_agent.display_name} is claimed."
     redirect_to ai_agent_path(handle)
   end
 
   def render_claim_form(status: :ok)
     @form_name = params[:name] || @signup.proposed_name
     @form_handle = params[:handle] || @signup.proposed_handle.to_s.parameterize(preserve_case: true)
+    # On a re-render, keep what the principal chose. nil means "not submitted
+    # yet", which the partials read as their defaults.
+    @form_capabilities = Array(params[:capabilities]).compact_blank if params.key?(:capabilities)
+    @form_allow_public_writes = ActiveModel::Type::Boolean.new.cast(params[:allow_public_writes]) if params.key?(:allow_public_writes)
     @billing_setup_required = current_user.requires_stripe_billing?(current_tenant)
     if @billing_setup_required
       session[:billing_return_to] = claim_path

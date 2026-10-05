@@ -45,6 +45,8 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "pairing_code"
     frontmatter = YAML.safe_load(response.body.split("---")[1], permitted_classes: [Time])
     assert_equal(["start_agent_signup"], frontmatter["actions"].map { |a| a["name"] })
+    required = frontmatter["actions"].first["params"].to_h { |param| [param["name"], param["required"]] }
+    assert_equal({ "principal_email" => true, "name" => true, "handle" => false }, required)
   end
 
   test "GET /agent-signups renders an HTML page without a session" do

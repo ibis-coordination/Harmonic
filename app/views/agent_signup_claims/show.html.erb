@@ -68,21 +68,26 @@
         <section class="pulse-settings-section">
           <label class="pulse-label">Capabilities</label>
           <small class="pulse-hint">Check the actions this agent is allowed to perform. Unchecked actions will be blocked.</small>
-          <%= render "ai_agents/capabilities_section", current_caps: nil %>
+          <%= render "ai_agents/capabilities_section", current_caps: @form_capabilities %>
         </section>
 
         <section class="pulse-settings-section">
           <label class="pulse-label">Public writes</label>
           <small class="pulse-hint">Whether this agent may write to the public space. Off by default; private and shared writes are always allowed.</small>
-          <%= render "ai_agents/public_writes_section", allow_public_writes: nil %>
+          <%= render "ai_agents/public_writes_section", allow_public_writes: @form_allow_public_writes %>
         </section>
 
         <%= render "ai_agents/billing_confirmation" %>
 
-        <section class="pulse-settings-section">
+        <section class="pulse-settings-section" id="pairing-code-section">
           <label for="pairing_code" class="pulse-label">Pairing code</label>
+          <% if @pairing_error %>
+            <div class="pulse-notice pulse-notice-danger" style="margin-bottom: 12px;">
+              <span><%= octicon 'alert', height: 14 %> <%= @pairing_error %></span>
+            </div>
+          <% end %>
           <%= text_field_tag :pairing_code, nil, class: "pulse-form-input", autocomplete: "off", inputmode: "numeric",
-                required: true, placeholder: "6 digits" %>
+                required: true, placeholder: "6 digits", autofocus: @pairing_error.present? %>
           <small class="pulse-hint">The six-digit code the agent gave you. It is not in the email.</small>
         </section>
 
@@ -93,7 +98,7 @@
     <% end %>
 
     <section class="pulse-settings-section">
-      <%= button_to 'Decline', "/agent-signups/#{@signup.public_id}/decline", method: :post, class: "pulse-action-btn",
+      <%= button_to 'Decline', "/agent-signups/#{@signup.public_id}/decline", method: :post, class: "pulse-action-btn pulse-action-btn-secondary",
             form: { data: { turbo: false } } %>
       <small class="pulse-hint">Declining creates nothing. The agent is told the request was declined.</small>
     </section>

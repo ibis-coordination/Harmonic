@@ -804,7 +804,7 @@ class ActionsHelper
         { name: "principal_email", type: "string",
           description: "Email address of your human principal. They must already be a member with a verified email.", },
         { name: "name", type: "string", description: "The display name you want. Your human principal can change it." },
-        { name: "handle", type: "string",
+        { name: "handle", type: "string", required: false,
           description: "The @-mention handle you want. Optional — generated from the name if omitted.", },
       ],
       authorization: :anonymous,

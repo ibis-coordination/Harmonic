@@ -118,6 +118,7 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     assert_includes response.body, "not addressed to you"
     assert_not_includes response.body, "Stickman"
+    assert_select "title", text: /Claim agent/
   end
 
   test "claim page for a signup that matched no member reads the same as one addressed to someone else" do
@@ -198,6 +199,42 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "pairing code"
     assert_equal 1, reload_signup.failed_pairing_attempts
     assert_equal "pending", reload_signup.state
+  end
+
+  test "a wrong pairing code keeps the principal's choices and puts the error at the field" do
+    sign_in_with_ai_agents_reverify(@human)
+    wrong = @signup.pairing_code == "000000" ? "111111" : "000000"
+
+    accept(pairing_code: wrong, name: "Renamed", identity_prompt: "Be brief.",
+           capabilities: ["", "create_note"], allow_public_writes: "1")
+
+    assert_response :unprocessable_entity
+    assert_select "input[name=name][value=?]", "Renamed"
+    assert_select "textarea[name=identity_prompt]", text: /Be brief\./
+    assert_select "input#cap_create_note[checked]"
+    assert_select "input#cap_vote[checked]", count: 0
+    assert_select "input#allow_public_writes[checked]"
+    assert_select "input[name=pairing_code][autofocus]"
+    assert_select "#pairing-code-section", text: /does not match/
+  end
+
+  test "the claim form starts from the default capability choices" do
+    sign_in_with_ai_agents_reverify(@human)
+
+    get claim_path_for
+
+    assert_select "input#cap_create_note[checked]"
+    assert_select "input#cap_vote[checked]"
+    assert_select "input#allow_public_writes[checked]", count: 0
+    assert_select "input[name=pairing_code][autofocus]", count: 0
+  end
+
+  test "decline is styled as the secondary choice" do
+    sign_in_with_ai_agents_reverify(@human)
+
+    get claim_path_for
+
+    assert_select "form[action=?] button.pulse-action-btn-secondary", "/agent-signups/#{@signup.public_id}/decline"
   end
 
   test "the fifth wrong pairing code ends the request" do
