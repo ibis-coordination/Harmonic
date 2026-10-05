@@ -12,9 +12,8 @@ class AiAgentsController < ApplicationController
   MCP_TOOL_CALLS_PER_PAGE = 100
 
   before_action :set_sidebar_mode,
-                only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :mcp_tool_calls, :show_mcp_tool_call, :create,
-                       :execute_create_ai_agent, :deactivate,
-                       :reactivate,]
+                only: [:new, :index, :show, :settings, :run_task, :execute_task, :runs, :show_run, :cancel_run, :mcp_tool_calls, :show_mcp_tool_call,
+                       :execute_create_ai_agent,]
   before_action :require_any_ai_agents_enabled, only: [
     :index, :show, :settings, :update_settings,
     :describe_update_ai_agent, :execute_update_ai_agent, :settings_actions_index,
@@ -22,7 +21,7 @@ class AiAgentsController < ApplicationController
     :mcp_tool_calls, :show_mcp_tool_call,
   ]
   before_action :require_internal_ai_agents_enabled, only: [:run_task, :execute_task, :runs, :show_run, :cancel_run]
-  before_action :require_flag_for_create_mode, only: [:new, :create, :execute_create_ai_agent]
+  before_action :require_flag_for_create_mode, only: [:new, :execute_create_ai_agent]
   before_action :require_billing_for_creation, only: [:new]
   before_action :load_credit_balance_for_agents, only: [:index, :new, :run_task]
   # Token creation is the sensitive action gated here: execute_create_ai_agent
@@ -31,15 +30,14 @@ class AiAgentsController < ApplicationController
   # ApiTokensController and AiAgentConnectController use, so a single
   # reverification covers the whole create-and-mint flow.
   before_action -> { require_reverification(scope: "api_tokens") },
-                only: [:new, :create, :execute_create_ai_agent]
+                only: [:new, :execute_create_ai_agent]
   before_action :set_ai_agent,
-                only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent, :deactivate,
-                       :reactivate, :describe_update_notification_preferences,
+                only: [:show, :settings, :update_settings, :settings_actions_index, :describe_update_ai_agent, :execute_update_ai_agent,
+                       :describe_update_notification_preferences,
                        :execute_update_notification_preferences,]
   before_action :authorize_parent_or_self, only: [:show, :settings, :settings_actions_index, :describe_update_notification_preferences]
   before_action :authorize_parent, only: [
     :update_settings, :describe_update_ai_agent, :execute_update_ai_agent,
-    :deactivate, :reactivate,
     :execute_update_notification_preferences,
   ]
 
@@ -439,25 +437,6 @@ class AiAgentsController < ApplicationController
     end
   end
 
-  # NOTE: This action has no route. Agent creation goes through execute_create_ai_agent.
-  def create
-    return render status: :forbidden, plain: "403 Unauthorized - Only human accounts can create AI agents" unless current_user&.human?
-
-    @ai_agent = api_helper.create_ai_agent
-    # Only generate token for external AI agents
-    if @ai_agent.external_ai_agent? && ["true", "1"].include?(params[:generate_token])
-      @token = api_helper.generate_token(@ai_agent, token_type: extract_token_type_for_generated_token)
-    end
-    flash.now[:notice] = "AI Agent #{@ai_agent.display_name} created successfully."
-
-    # Redirect to new agent show page
-    redirect_to ai_agent_path(@ai_agent.handle)
-  end
-
-  def update; end
-
-  def destroy; end
-
   # Markdown API actions
 
   def actions_index
@@ -483,9 +462,24 @@ class AiAgentsController < ApplicationController
       })
     end
 
-    result = AiAgentCreationService.call(api_helper: api_helper, billing_confirmed: params[:confirm_billing] == "1")
+    result = AiAgentCreationService.call(api_helper: api_helper, billing_confirmed: params[:confirm_billing] == "1",
+                                         responsibility_confirmed: ActiveModel::Type::Boolean.new.cast(params[:confirm_responsibility]) == true)
 
     case result.status
+    when :responsibility_confirmation_required
+      respond_to do |format|
+        format.md do
+          return render_action_error({
+            action_name: "create_ai_agent",
+            resource: @current_user,
+            error: "Pass confirm_responsibility: true to confirm that you control this agent and take responsibility for what they do.",
+          })
+        end
+        format.any do
+          flash[:alert] = "You must confirm that you take responsibility for this agent."
+          return redirect_to new_ai_agent_path
+        end
+      end
     when :billing_setup_required
       respond_to do |format|
         format.md do

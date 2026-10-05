@@ -2381,7 +2381,8 @@ CREATE TABLE public.users (
     funding_pool_id uuid,
     deletion_requested_at timestamp(6) without time zone,
     scrubbed_at timestamp(6) without time zone,
-    deletion_reminder_sent_at timestamp(6) without time zone
+    deletion_reminder_sent_at timestamp(6) without time zone,
+    principal_responsibility_confirmed_at timestamp(6) without time zone
 );
 
 
@@ -10781,6 +10782,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261005180000'),
 ('20261004220000'),
 ('20260915162410'),
 ('20260731183016'),

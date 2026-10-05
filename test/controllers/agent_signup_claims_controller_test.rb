@@ -30,6 +30,7 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
       name: signup.proposed_name,
       handle: signup.proposed_handle,
       pairing_code: signup.pairing_code,
+      confirm_responsibility: "1",
     }.merge(overrides)
   end
 
@@ -162,7 +163,21 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
     assert agent.external_ai_agent?
     assert_equal "Stickman", agent.name
     assert_equal "stickman", agent.tenant_users.find_by(tenant_id: @tenant.id).handle
+    assert_in_delta Time.current, agent.principal_responsibility_confirmed_at, 5.seconds
     assert_redirected_to "/ai-agents/stickman"
+  end
+
+  test "accept requires the principal to confirm responsibility for the agent" do
+    sign_in_with_ai_agents_reverify(@human)
+
+    assert_no_difference -> { agents_of(@human).count } do
+      accept(confirm_responsibility: nil)
+    end
+
+    assert_response :unprocessable_entity
+    assert_select "input[type=checkbox][name=confirm_responsibility][required]"
+    assert_equal "pending", reload_signup.state
+    assert_equal 0, reload_signup.failed_pairing_attempts, "the pairing code must not be checked before the confirmation"
   end
 
   test "accept uses the name and handle the principal submitted, not the proposed ones" do
@@ -213,6 +228,7 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
     assert_select "textarea[name=identity_prompt]", text: /Be brief\./
     assert_select "input#cap_create_note[checked]"
     assert_select "input#cap_vote[checked]", count: 0
+    assert_select "input#confirm_responsibility[checked]"
     assert_select "input#allow_public_writes[checked]"
     assert_select "input[name=pairing_code][autofocus]"
     assert_select "#pairing-code-section", text: /does not match/

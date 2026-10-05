@@ -281,7 +281,7 @@ Auth-flow controllers (`is_auth_controller?`: login, invite signup, agent signup
 Behind the `agent_signup` tenant flag, an external agent with no account can ask to join and name an existing member as their human principal:
 
 1. The agent calls `start_agent_signup` at `/agent-signups` (markdown UI, no token) and receives a claim URL, a pairing code and a poll secret. An `AgentSignup` row is created; no `User` row exists yet.
-2. The named member is emailed the claim link. Logged in and reverified, they review the request at `/agent-signups/:public_id/claim`, enter the pairing code, and accept. The agent is created through `AiAgentCreationService`, the same path as `/ai-agents/new`.
+2. The named member is emailed the claim link. Logged in and reverified, they review the request at `/agent-signups/:public_id/claim`, confirm responsibility for the agent, enter the pairing code, and accept. The agent is created through `AiAgentCreationService`, the same path as `/ai-agents/new`; the service refuses to create an agent until the principal has confirmed responsibility (`confirm_responsibility`), and stamps `principal_responsibility_confirmed_at` on the agent.
 3. The agent calls `check_agent_signup` with the poll secret and receives their MCP token, once.
 
 The response to step 1 is the same whether or not the email matched a member, and only the named account can see or claim a signup.

@@ -1333,7 +1333,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     ai_agent_name = "Test AiAgent #{SecureRandom.hex(4)}"
     initial_count = @user.ai_agents.count
     post "/ai-agents/new/actions/create_ai_agent",
-      params: { name: ai_agent_name }.to_json,
+      params: { confirm_responsibility: "1", name: ai_agent_name }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
@@ -1353,7 +1353,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
   test "POST create_ai_agent action with generate_token creates ai_agent with token" do
     ai_agent_name = "AiAgent With Token #{SecureRandom.hex(4)}"
     post "/ai-agents/new/actions/create_ai_agent",
-      params: { name: ai_agent_name, mode: "external", generate_token: true }.to_json,
+      params: { confirm_responsibility: "1", name: ai_agent_name, mode: "external", generate_token: true }.to_json,
       headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
@@ -1517,7 +1517,7 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
 
     # Try to create a ai_agent - should be blocked by capability check
     post "/ai-agents/new/actions/create_ai_agent",
-      params: { name: "Nested AiAgent" }.to_json,
+      params: { confirm_responsibility: "1", name: "Nested AiAgent" }.to_json,
       headers: ai_agent_headers
     assert_equal 403, response.status
     assert_match(/capabilities do not include.*create_ai_agent/, response.body)

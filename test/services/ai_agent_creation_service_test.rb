@@ -21,14 +21,15 @@ class AiAgentCreationServiceTest < ActiveSupport::TestCase
     tenant.enable_feature_flag!("stripe_billing")
   end
 
-  def create_with(params, billing_confirmed: false, principal: @user)
+  def create_with(params, billing_confirmed: false, responsibility_confirmed: true, principal: @user)
     helper = ApiHelper.new(
       current_user: principal,
       current_collective: @collective,
       current_tenant: @tenant,
       params: ActionController::Parameters.new(params)
     )
-    AiAgentCreationService.call(api_helper: helper, billing_confirmed: billing_confirmed)
+    AiAgentCreationService.call(api_helper: helper, billing_confirmed: billing_confirmed,
+                                responsibility_confirmed: responsibility_confirmed)
   end
 
   test "creates an agent whose principal is the api helper's user" do
@@ -38,8 +39,27 @@ class AiAgentCreationServiceTest < ActiveSupport::TestCase
     assert_equal :created, result.status
     assert_equal @user.id, result.ai_agent.parent_id
     assert result.ai_agent.external_ai_agent?
+    assert_in_delta Time.current, result.ai_agent.principal_responsibility_confirmed_at, 5.seconds
     assert_not result.ai_agent.pending_billing_setup?
     assert_nil result.charged_cents
+  end
+
+  test "reports responsibility_confirmation_required and creates nothing until the principal confirms" do
+    assert_no_difference "User.where(user_type: 'ai_agent').count" do
+      result = create_with({ name: "Unowned Agent", mode: "external" }, responsibility_confirmed: false)
+      assert_equal :responsibility_confirmation_required, result.status
+    end
+  end
+
+  test "admins confirm responsibility like everyone else" do
+    @user.update!(app_admin: true)
+
+    assert_no_difference "User.where(user_type: 'ai_agent').count" do
+      result = create_with({ name: "Admin Agent", mode: "external" }, responsibility_confirmed: false)
+      assert_equal :responsibility_confirmation_required, result.status
+    end
+  ensure
+    @user.update!(app_admin: false)
   end
 
   test "reports billing_setup_required and creates nothing when the principal has no billing" do

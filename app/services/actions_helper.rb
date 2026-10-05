@@ -822,7 +822,7 @@ class ActionsHelper
     },
     "create_ai_agent" => {
       description: "Create a new AI agent",
-      params_string: "(name, handle, identity_prompt, generate_token)",
+      params_string: "(name, handle, identity_prompt, generate_token, confirm_responsibility)",
       params: [
         { name: "name", type: "string", description: "The name of the AI agent" },
         { name: "handle", type: "string",
@@ -831,6 +831,8 @@ class ActionsHelper
         { name: "identity_prompt", type: "string",
           description: "A prompt shown to the agent on /whoami, providing context about their identity and purpose", },
         { name: "generate_token", type: "boolean", description: "Whether to generate an API token for the AI agent" },
+        { name: "confirm_responsibility", type: "boolean", required: true,
+          description: "Confirms that you control this agent and take responsibility for what they do. See /help/agents.", },
       ],
       authorization: HUMAN_SELF_OR_REPRESENTATIVE,
       visibility: :public,

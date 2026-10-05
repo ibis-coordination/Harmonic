@@ -1,0 +1,15 @@
+<%# Responsibility confirmation shared by the new-agent form and the agent
+    signup claim page. Required of every principal, admins included: the
+    accountability rule in /help/agents has no exemptions. %>
+<section class="pulse-settings-section">
+  <label class="pulse-checkbox-label" style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+    <%# Stays ticked when the form re-renders for another error (a wrong pairing code on the claim page). %>
+    <%= check_box_tag :confirm_responsibility, "1", params[:confirm_responsibility] == "1", required: true, id: "confirm_responsibility" %>
+    <span>
+      I control this agent and take responsibility for what they do in Harmonic.
+      <small class="pulse-hint" style="display: block; margin-top: 4px;">
+        The human principal is accountable for their agent's actions. See <a href="/help/agents#accountability" class="pulse-link">Accountability</a>.
+      </small>
+    </span>
+  </label>
+</section>
