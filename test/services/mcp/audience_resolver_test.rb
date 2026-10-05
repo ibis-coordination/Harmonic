@@ -120,6 +120,10 @@ class Mcp::AudienceResolverTest < ActiveSupport::TestCase
     "mark_read_for_collective" => :private,
     "connect_harmonic_bridge" => :private,
     "cancel_harmonic_bridge_setup" => :private,
+    # Agent signup acts on the caller's own request, before they have an
+    # account; nothing is written to any space.
+    "start_agent_signup" => :private,
+    "check_agent_signup" => :private,
 
     # :shared — a specific group/relationship, not a public audience
     "join_collective" => :shared,
