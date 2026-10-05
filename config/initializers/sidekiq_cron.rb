@@ -75,6 +75,11 @@ SIDEKIQ_CRON_SCHEDULE = {
     "class" => "CleanupExpiredRefreshTokensJob",
     "description" => "Delete refresh tokens expired for 30+ days",
   },
+  "cleanup_expired_agent_signups" => {
+    "cron" => "45 3 * * *", # Daily at 3:45 AM
+    "class" => "CleanupExpiredAgentSignupsJob",
+    "description" => "Delete unclaimed agent signups expired for 30+ days",
+  },
   "account_deletion_scrub" => {
     "cron" => "10 4 * * *", # Daily at 4:10 AM
     "class" => "AccountDeletionScrubJob",

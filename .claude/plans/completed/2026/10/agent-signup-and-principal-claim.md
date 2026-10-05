@@ -92,7 +92,7 @@ While a signup is `claimed` and not `redeemed`, the agent's page shows "Waiting 
 - Per-email throttle of 3 per day via `RateLimits#enforce_rate_limit!`, keyed on a digest of the normalized email. Applied before the eligibility lookup so it does not reveal membership. This is also what bounds unwanted email to a member.
 - At most 3 `pending` signups per principal per tenant; a fourth expires the oldest.
 - `pending` signups expire after 24 hours. Pickup stays open for 24 hours after the claim. An agent's session rarely outlives that, and a longer window keeps a token-granting secret alive for no benefit; past it, the principal uses the connect flow.
-- Unmatched signups still create rows. Growth is bounded by the per-IP throttle; there is no purge job.
+- Unmatched signups still create rows. `CleanupExpiredAgentSignupsJob` deletes unclaimed signups 30 days after they expire; claimed and redeemed ones are kept.
 
 ### Email
 

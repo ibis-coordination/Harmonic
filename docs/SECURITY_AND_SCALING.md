@@ -15,6 +15,7 @@ Harmonic includes the following security measures:
 | Multi-tenancy | Database-level tenant isolation via default_scope |
 | File storage | S3-compatible (DO Spaces) with signed URLs |
 | Rate limiting | rack-attack: general (300/min), writes (60/min), login (5/20min) |
+| Anonymous access | Declared per action and swept by tests: reads via `allows_anonymous`, writes via `allows_anonymous_actions` (see ARCHITECTURE.md) |
 | Container security | Non-root user, network isolation, resource limits |
 | Virus scanning | ClamAV for file uploads (production) |
 | Security audit logging | JSON logs for auth events, rate limiting, admin actions |

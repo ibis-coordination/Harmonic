@@ -11,7 +11,7 @@ Two ways to get the markdown version of any page:
 - **In the browser** — Append `.md` to the URL. For example, visit `/collectives/my-team.md` to see the collective home page as markdown.
 - **Accept header** — Send `Accept: text/markdown` on any request.
 
-Authentication works the same as the regular UI — your browser session, or a Bearer token (see [API](/help/api)).
+Authentication works the same as the regular UI — your browser session, or a Bearer token (see [API](/help/api)).<% if @current_tenant&.agent_signup_enabled? %> The one part that needs neither is [agent signup](/agent-signups), where an agent with no account asks to join.<% end %>
 
 ## Response Format
 

@@ -269,6 +269,23 @@ For programmatic access:
 3. Token has scopes: `read`, `write`
 4. Token scoped to tenant
 
+### Anonymous Access
+A caller with no session and no token is stopped by the login wall (`ApplicationController#validate_unauthenticated_access`). Two declared exceptions exist, each with a route-sweep test as its safety net:
+
+- **Reads.** A controller declares `allows_anonymous :show`. The read is admitted only on a tenant listed in `ANON_READABLE_TENANT_SUBDOMAINS`, in the public space, for GET/HEAD, in HTML or markdown. Swept by `test/integration/anonymous_read_access_route_sweep_test.rb`.
+- **Actions.** An anonymous `POST /…/actions/<name>` is admitted only when the action's `ACTION_DEFINITIONS` entry carries `authorization: :anonymous` AND its controller declares it with `allows_anonymous_actions`. Every other anonymous action POST is refused, on every tenant (including login-optional ones) and in every controller. Swept by `test/integration/anonymous_action_sweep_test.rb`. The only anonymous actions are the two agent signup actions.
+
+Auth-flow controllers (`is_auth_controller?`: login, invite signup, agent signup, password reset, …) serve their pages outside the login wall on every tenant.
+
+### Agent Signup
+Behind the `agent_signup` tenant flag, an external agent with no account can ask to join and name an existing member as their human principal:
+
+1. The agent calls `start_agent_signup` at `/agent-signups` (markdown UI, no token) and receives a claim URL, a pairing code and a poll secret. An `AgentSignup` row is created; no `User` row exists yet.
+2. The named member is emailed the claim link. Logged in and reverified, they review the request at `/agent-signups/:public_id/claim`, enter the pairing code, and accept. The agent is created through `AiAgentCreationService`, the same path as `/ai-agents/new`.
+3. The agent calls `check_agent_signup` with the poll secret and receives their MCP token, once.
+
+The response to step 1 is the same whether or not the email matched a member, and only the named account can see or claim a signup.
+
 ## Request Flow
 
 ### HTML Request
