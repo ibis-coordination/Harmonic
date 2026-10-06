@@ -22,6 +22,7 @@
 # fails.
 class SignupController < ApplicationController
   include BotProtection
+  include PendingAgentSignupStash
 
   # Honeypot only: user already passed Turnstile at /login or /register.
   protect_from_bots only: [:confirm_invite, :accept_invite], turnstile: false
@@ -91,7 +92,8 @@ class SignupController < ApplicationController
     end
     clear_pending_invite!
 
-    redirect_to invite.collective.path
+    # A user who came to join from an agent signup claim link goes back to it.
+    redirect_to consume_pending_agent_signup_claim_path! || invite.collective.path
   rescue ActiveRecord::RecordInvalid => e
     # Only handle errors the confirmation page can actually fix (the
     # handle); anything else from the join transaction must not be

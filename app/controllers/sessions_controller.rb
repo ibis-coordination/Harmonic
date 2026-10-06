@@ -281,8 +281,9 @@ class SessionsController < ApplicationController
       # Joining is explicit: the confirmation page performs the tenant +
       # collective join when the user accepts.
       redirect_to invite_required_path(code: invite.code)
-    elsif member && (claim_path = consume_pending_agent_signup_claim_path!)
-      # The user followed an agent signup claim link while logged out.
+    elsif (claim_path = consume_pending_agent_signup_claim_path!)
+      # The user followed an agent signup claim link while logged out. A
+      # non-member goes there too: the claim page knows what they still need.
       redirect_to claim_path
     else
       redirect_to root_path

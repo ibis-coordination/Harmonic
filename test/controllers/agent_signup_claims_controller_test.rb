@@ -14,9 +14,9 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
     @signup = start_signup
   end
 
-  def start_signup(email: @human.email, name: "Stickman", handle: "stickman")
+  def start_signup(email: @human.email, name: "Stickman", handle: "stickman", invite: nil)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    AgentSignup.start!(tenant: @tenant, principal_email: email, name: name, handle: handle)
+    AgentSignup.start!(tenant: @tenant, principal_email: email, name: name, handle: handle, invite: invite)
   ensure
     Tenant.clear_thread_scope
   end
@@ -122,7 +122,7 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
     assert_select "title", text: /Claim agent/
   end
 
-  test "claim page for a signup that matched no member reads the same as one addressed to someone else" do
+  test "claim page for a signup naming a stranger reads the same as one addressed to someone else" do
     unmatched = start_signup(email: "nobody-#{SecureRandom.hex(4)}@example.com")
     sign_in_with_ai_agents_reverify(@human)
 
@@ -130,6 +130,138 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     assert_includes response.body, "not addressed to you"
+  end
+
+  # ---------- principals who are not members yet ----------
+
+  def set_require_invite!(value)
+    @tenant.update!(settings: @tenant.settings.merge("require_invite" => value))
+  end
+
+  def create_invite(expires_at: 1.week.from_now)
+    Invite.create!(tenant: @tenant, collective: @collective, created_by: @human, code: SecureRandom.hex(8), expires_at: expires_at)
+  end
+
+  # A verified human with 2FA who is not a member of this tenant, as a user
+  # of another tenant or a freshly registered stranger would be.
+  def newcomer(email: "newcomer-#{SecureRandom.hex(4)}@example.com")
+    user = create_user(email: email, name: "Newcomer")
+    mark_activated!(user)
+    user
+  end
+
+  test "an open tenant adds the addressee as a member when they open the claim link" do
+    set_require_invite!(false)
+    user = newcomer
+    signup = start_signup(email: user.email)
+    sign_in_as(user, tenant: @tenant, add_to_tenant: false)
+
+    get claim_path_for(signup)
+    get response.location while response.redirect? && URI.parse(response.location).path != "/reverify"
+
+    assert @tenant.tenant_users.exists?(user: user), "the addressee should be a member now"
+    assert_equal "/reverify", URI.parse(response.location).path
+  end
+
+  test "an invite-only tenant sends a non-member addressee to the invite page with the signup's invite, then back" do
+    set_require_invite!(true)
+    invite = create_invite
+    user = newcomer
+    signup = start_signup(email: user.email, invite: invite)
+    sign_in_as(user, tenant: @tenant, add_to_tenant: false)
+
+    get claim_path_for(signup)
+    assert_redirected_to "/invite-required"
+
+    get "/invite-required"
+    assert_response :success
+    assert_select "form[action=?]", "/invite-required/accept"
+    assert_select "input[name=code][value=?]", invite.code
+
+    post "/invite-required/accept", params: { code: invite.code }
+    assert_redirected_to claim_path_for(signup)
+    assert @tenant.tenant_users.exists?(user: user)
+  end
+
+  test "an invite-only tenant leaves a non-member addressee without an invite at the invite page" do
+    set_require_invite!(true)
+    user = newcomer
+    signup = start_signup(email: user.email)
+    sign_in_as(user, tenant: @tenant, add_to_tenant: false)
+
+    get claim_path_for(signup)
+    assert_redirected_to "/invite-required"
+
+    get "/invite-required"
+    assert_response :success
+    assert_select "input[name=code][value]", count: 0
+    assert_not @tenant.tenant_users.exists?(user: user)
+  end
+
+  test "the claim stash survives logging in as a non-member and is consumed after joining" do
+    set_require_invite!(true)
+    invite = create_invite
+    user = newcomer
+    signup = start_signup(email: user.email, invite: invite)
+
+    get claim_path_for(signup)
+    assert_redirected_to "/login"
+
+    sign_in_as(user, tenant: @tenant, add_to_tenant: false)
+    follow_redirect! while response.redirect?
+    assert_equal "/invite-required", request.path
+    assert_select "input[name=code][value=?]", invite.code
+
+    post "/invite-required/accept", params: { code: invite.code }
+    assert_redirected_to claim_path_for(signup)
+  end
+
+  test "an unactivated addressee is sent through activation and returned to the claim" do
+    set_require_invite!(false)
+    user = create_user(email: "fresh-#{SecureRandom.hex(4)}@example.com", name: "Fresh")
+    signup = start_signup(email: user.email)
+    sign_in_as(user, tenant: @tenant, add_to_tenant: false, activate: false)
+
+    get claim_path_for(signup)
+    assert_redirected_to "/activate"
+
+    mark_activated!(user)
+    get "/activate"
+    assert_redirected_to claim_path_for(signup)
+  end
+
+  test "an addressee whose email is unverified is asked to verify even where the tenant does not require it" do
+    set_require_invite!(false)
+    @tenant.update!(settings: @tenant.settings.merge("require_verified_email" => false))
+    user = create_user(email: "fresh-#{SecureRandom.hex(4)}@example.com", name: "Fresh")
+    identity = user.find_or_create_omni_auth_identity!
+    identity.generate_otp_secret!
+    identity.enable_otp!
+    signup = start_signup(email: user.email)
+    sign_in_as(user, tenant: @tenant, activate: false)
+
+    get claim_path_for(signup)
+
+    assert_response :forbidden
+    assert_includes response.body, "Verify your email"
+    assert_select "form[action=?]", "/activate/send-confirmation"
+    assert_not_includes response.body, "Stickman"
+  end
+
+  test "a verified user from another tenant claims after joining an open tenant" do
+    set_require_invite!(false)
+    user = newcomer
+    signup = start_signup(email: user.email)
+    sign_in_with_reverification(user, tenant: @tenant, path: claim_path_for(signup))
+
+    get claim_path_for(signup)
+    assert_response :success
+    assert_includes response.body, "Stickman"
+
+    accept(signup)
+
+    assert_equal "claimed", reload_signup(signup).state
+    assert_equal user.id, reload_signup(signup).principal_user_id
   end
 
   test "claim page reports an expired request" do
@@ -368,6 +500,7 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_equal "declined", reload_signup.state
+    assert_equal @human.id, reload_signup.principal_user_id
     assert_redirected_to "/ai-agents"
 
     get claim_path_for
@@ -398,7 +531,7 @@ class AgentSignupClaimsControllerTest < ActionDispatch::IntegrationTest
   test "the agents page does not list another member's requests or closed ones" do
     theirs = start_signup(email: other_member.email, name: "Theirs", handle: nil)
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    @signup.decline!
+    @signup.decline!(by: @human)
     Tenant.clear_thread_scope
     sign_in_as(@human, tenant: @tenant)
 

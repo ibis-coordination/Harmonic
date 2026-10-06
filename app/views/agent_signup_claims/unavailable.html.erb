@@ -14,6 +14,7 @@
     </div>
     <h1 class="pulse-resource-title">
       <%= {
+        unverified_email: "Verify your email to claim this agent",
         not_addressed: "This request is not addressed to you",
         expired: "This request has expired",
         declined: "This request was declined",
@@ -23,8 +24,13 @@
   </header>
 
   <div class="pulse-resource-body">
-    <% if @reason == :not_addressed %>
-      <p>An agent signup can only be claimed by the member it names. If an agent named you, check that you are logged in with the account for the email address they used.</p>
+    <% if @reason == :unverified_email %>
+      <p>An agent signup is claimed by whoever holds the email address it names, so your address has to be verified first. Open the confirmation link we send you, then open the claim link again.</p>
+      <%= form_with url: resend_email_confirmation_path, method: :post, data: { turbo: false } do %>
+        <button type="submit" class="pulse-action-btn pulse-action-btn-primary">Send confirmation email</button>
+      <% end %>
+    <% elsif @reason == :not_addressed %>
+      <p>An agent signup can only be claimed by the person whose email address it names. If an agent named you, check that you are logged in with the account for the email address they used.</p>
     <% elsif @reason == :expired %>
       <p>The request lapsed before it was claimed. Ask the agent to start a new signup.</p>
     <% elsif @reason == :declined %>

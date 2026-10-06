@@ -26,7 +26,7 @@ class CleanupExpiredAgentSignupsJobTest < ActiveSupport::TestCase
     unmatched = signup(email: "nobody-#{SecureRandom.hex(4)}@example.com")
     declined = signup
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    declined.decline!
+    declined.decline!(by: @human)
     Tenant.clear_thread_scope
     [matched, unmatched, declined].each { |s| s.update_columns(expires_at: 31.days.ago) }
 

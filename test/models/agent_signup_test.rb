@@ -2,7 +2,7 @@ require "test_helper"
 
 class AgentSignupTest < ActiveSupport::TestCase
   def setup
-    @tenant, _collective, @human = create_tenant_collective_user
+    @tenant, @collective, @human = create_tenant_collective_user
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
     mark_activated!(@human)
   end
@@ -11,18 +11,32 @@ class AgentSignupTest < ActiveSupport::TestCase
     Tenant.clear_thread_scope
   end
 
-  def start(email: @human.email, name: "Stickman", handle: nil)
-    AgentSignup.start!(tenant: @tenant, principal_email: email, name: name, handle: handle)
+  def start(email: @human.email, name: "Stickman", handle: nil, invite: nil)
+    AgentSignup.start!(tenant: @tenant, principal_email: email, name: name, handle: handle, invite: invite)
+  end
+
+  def stranger_email
+    "nobody-#{SecureRandom.hex(4)}@example.com"
+  end
+
+  def create_invite(invited_user: nil, expires_at: 1.week.from_now)
+    Invite.create!(tenant: @tenant, collective: @collective, created_by: @human, invited_user: invited_user,
+                   code: SecureRandom.hex(8), expires_at: expires_at)
+  end
+
+  def deliverable?(email, invite: nil)
+    AgentSignup.claim_email_deliverable?(tenant: @tenant, email: email, invite: invite)
   end
 
   # ---------- start! ----------
 
-  test "start!: creates a pending signup addressed to an eligible member" do
+  test "start!: creates a pending signup addressed to the named email, resolving no user yet" do
     signup = start
 
     assert signup.persisted?
     assert_equal "pending", signup.state
-    assert_equal @human.id, signup.principal_user_id
+    assert_nil signup.principal_user_id
+    assert_equal AgentSignup.principal_email_digest_for(@human.email), signup.principal_email_digest
     assert_equal "Stickman", signup.proposed_name
     assert signup.public_id.length >= 30, "public_id should be high-entropy"
     assert_in_delta 24.hours.from_now, signup.expires_at, 5.seconds
@@ -42,58 +56,21 @@ class AgentSignupTest < ActiveSupport::TestCase
     assert_nil reloaded.pairing_code
   end
 
-  test "start!: does not store the principal email" do
-    signup = start(email: "stranger@example.com")
+  test "start!: stores a keyed digest of the email, never the email" do
+    email = "Stranger@Example.com"
+    signup = start(email: email)
 
     assert_not_includes AgentSignup.column_names, "principal_email"
-    assert_not_includes signup.attributes.values.map(&:to_s), "stranger@example.com"
+    assert_not_includes signup.attributes.values.map(&:to_s).map(&:downcase), email.downcase
+    assert_not_equal Digest::SHA256.hexdigest(email.downcase), signup.principal_email_digest
+    assert_equal AgentSignup.principal_email_digest_for(" stranger@example.com "), signup.principal_email_digest
   end
 
-  test "start!: matches the member's email case-insensitively and ignores whitespace" do
-    signup = start(email: "  #{@human.email.upcase} ")
+  test "start!: records the invite it carries" do
+    invite = create_invite
 
-    assert_equal @human.id, signup.principal_user_id
-  end
-
-  test "start!: leaves the principal nil for an unknown email" do
-    signup = start(email: "nobody-#{SecureRandom.hex(4)}@example.com")
-
-    assert signup.persisted?
-    assert_nil signup.principal_user_id
-    assert_equal "pending", signup.state
-  end
-
-  test "start!: leaves the principal nil for a user who is not a member of this tenant" do
-    outsider = create_user
-    mark_activated!(outsider)
-
-    assert_nil start(email: outsider.email).principal_user_id
-  end
-
-  test "start!: leaves the principal nil for a member with an unverified email" do
-    member = create_user
-    @tenant.add_user!(member)
-
-    assert_nil start(email: member.email).principal_user_id
-  end
-
-  test "start!: leaves the principal nil for a suspended member" do
-    @human.update!(suspended_at: Time.current)
-
-    assert_nil start.principal_user_id
-  end
-
-  test "start!: leaves the principal nil for a member pending deletion" do
-    @human.update!(deletion_requested_at: Time.current)
-
-    assert_nil start.principal_user_id
-  end
-
-  test "start!: leaves the principal nil for a non-human user" do
-    agent = create_ai_agent(parent: @human, name: "Existing Agent")
-    @tenant.add_user!(agent)
-
-    assert_nil start(email: agent.email).principal_user_id
+    assert_equal invite.id, start(email: stranger_email, invite: invite).invite_id
+    assert_nil start(email: stranger_email).invite_id
   end
 
   test "start!: requires a name and caps name and handle length" do
@@ -102,26 +79,124 @@ class AgentSignupTest < ActiveSupport::TestCase
     assert_raises(ActiveRecord::RecordInvalid) { start(handle: "h" * (AgentSignup::MAX_HANDLE_LENGTH + 1)) }
   end
 
-  test "start!: a fourth pending signup for the same principal expires the oldest" do
-    oldest = start
-    travel 1.minute
-    second = start
-    travel 1.minute
-    third = start
-    travel 1.minute
-    fourth = start
+  test "start!: a fourth pending signup for the same email expires the oldest, member or not" do
+    [@human.email, stranger_email].each do |email|
+      oldest = start(email: email)
+      travel 1.minute
+      second = start(email: email)
+      travel 1.minute
+      third = start(email: email)
+      travel 1.minute
+      fourth = start(email: email)
 
-    assert oldest.reload.expired?
-    assert_not second.reload.expired?
-    assert_not third.reload.expired?
-    assert_not fourth.reload.expired?
+      assert oldest.reload.expired?
+      assert_not second.reload.expired?
+      assert_not third.reload.expired?
+      assert_not fourth.reload.expired?
+    end
   end
 
-  test "start!: unmatched signups do not count against any principal's cap" do
+  test "start!: signups for other emails do not count against the cap" do
     mine = start
-    4.times { start(email: "nobody-#{SecureRandom.hex(4)}@example.com") }
+    4.times { start(email: stranger_email) }
 
     assert_not mine.reload.expired?
+  end
+
+  # ---------- claim_email_deliverable? ----------
+
+  test "deliverable: an eligible member is emailed on any tenant" do
+    @tenant.update!(settings: @tenant.settings.merge("require_invite" => true))
+
+    assert deliverable?(@human.email)
+    assert deliverable?("  #{@human.email.upcase} ")
+  end
+
+  test "deliverable: a member with an unverified email is emailed; the claim page sends them to verify" do
+    member = create_user
+    @tenant.add_user!(member)
+
+    assert deliverable?(member.email)
+  end
+
+  test "deliverable: never for a suspended, deleting, or non-human account, or an ambiguous email" do
+    @human.update!(suspended_at: Time.current)
+    assert_not deliverable?(@human.email)
+    @human.update!(suspended_at: nil, deletion_requested_at: Time.current)
+    assert_not deliverable?(@human.email)
+    @human.update!(deletion_requested_at: nil)
+
+    agent = create_ai_agent(parent: @human, name: "Existing Agent")
+    @tenant.add_user!(agent)
+    assert_not deliverable?(agent.email)
+
+    twin_email = "Twin-#{SecureRandom.hex(4)}@example.com"
+    create_user(email: twin_email)
+    create_user(email: twin_email.downcase)
+    assert_not deliverable?(twin_email)
+  end
+
+  test "deliverable: on an open tenant, a stranger and a user from another tenant are emailed" do
+    @tenant.update!(settings: @tenant.settings.merge("require_invite" => false))
+    outsider = create_user
+
+    assert deliverable?(stranger_email)
+    assert deliverable?(outsider.email)
+  end
+
+  test "deliverable: on an invite-only tenant, non-members are emailed only when the signup carries an invite" do
+    @tenant.update!(settings: @tenant.settings.merge("require_invite" => true))
+    outsider = create_user
+
+    assert_not deliverable?(stranger_email)
+    assert_not deliverable?(outsider.email)
+    assert deliverable?(stranger_email, invite: create_invite)
+    assert deliverable?(outsider.email, invite: create_invite)
+  end
+
+  # ---------- usable_invite ----------
+
+  test "usable_invite: a live, shareable invite on this tenant; nothing else" do
+    invite = create_invite
+
+    assert_equal invite, AgentSignup.usable_invite(tenant: @tenant, code: " #{invite.code} ")
+    assert_nil AgentSignup.usable_invite(tenant: @tenant, code: "")
+    assert_nil AgentSignup.usable_invite(tenant: @tenant, code: "not-a-code")
+    assert_nil AgentSignup.usable_invite(tenant: @tenant, code: create_invite(expires_at: 1.hour.ago).code)
+    assert_nil AgentSignup.usable_invite(tenant: @tenant, code: create_invite(invited_user: create_user).code),
+               "a user-specific invite cannot be carried by a signup"
+  end
+
+  # ---------- addressed_to? ----------
+
+  test "addressed_to?: whoever holds the named email with a verified account, member or not" do
+    email = stranger_email
+    signup = start(email: email)
+    assert_not signup.addressed_to?(@human), "a different address is not the addressee"
+
+    holder = create_user(email: email)
+    mark_activated!(holder)
+    assert signup.addressed_to?(holder), "membership is not required to be the addressee"
+    assert_not signup.addressed_to?(nil)
+  end
+
+  test "addressed_to?: requires a verified email, whatever the tenant requires" do
+    unverified = create_user
+    @tenant.update!(settings: @tenant.settings.merge("require_verified_email" => false))
+    signup = start(email: unverified.email)
+
+    assert_not signup.addressed_to?(unverified)
+    mark_activated!(unverified)
+    assert signup.addressed_to?(unverified)
+  end
+
+  test "addressed_to?: matches the email case-insensitively and never a non-human" do
+    agent = create_ai_agent(parent: @human, name: "Existing Agent")
+    signup = start(email: agent.email)
+    assert_not signup.addressed_to?(agent)
+
+    @human.update!(email: @human.email.upcase)
+    assert start(email: @human.email.downcase).addressed_to?(@human.reload)
   end
 
   # ---------- poll secret ----------
@@ -174,10 +249,11 @@ class AgentSignupTest < ActiveSupport::TestCase
 
   # ---------- claim ----------
 
-  test "claimable_by?: only the named principal, only while pending and unexpired" do
+  test "claimable_by?: only the addressee, only while pending and unexpired" do
     signup = start
     other = create_user
     @tenant.add_user!(other)
+    mark_activated!(other)
 
     assert signup.claimable_by?(@human)
     assert_not signup.claimable_by?(other)
@@ -188,13 +264,7 @@ class AgentSignupTest < ActiveSupport::TestCase
     end
   end
 
-  test "claimable_by?: never true for an unmatched signup" do
-    signup = start(email: "nobody-#{SecureRandom.hex(4)}@example.com")
-
-    assert_not signup.claimable_by?(@human)
-  end
-
-  test "claim!: records the agent and restarts the expiry clock for pickup" do
+  test "claim!: records the agent and the principal, and restarts the expiry clock for pickup" do
     signup = start
     agent = create_ai_agent(parent: @human, name: "Stickman", agent_configuration: { "mode" => "external" })
 
@@ -203,6 +273,7 @@ class AgentSignupTest < ActiveSupport::TestCase
 
       assert_equal "claimed", signup.state
       assert_equal agent.id, signup.ai_agent_user_id
+      assert_equal @human.id, signup.principal_user_id
       assert_in_delta Time.current, signup.claimed_at, 5.seconds
       assert_in_delta 24.hours.from_now, signup.expires_at, 5.seconds
       assert_not signup.claimable_by?(@human)
@@ -212,25 +283,28 @@ class AgentSignupTest < ActiveSupport::TestCase
   test "claim!: refuses a signup that is not pending" do
     signup = start
     agent = create_ai_agent(parent: @human, name: "Stickman", agent_configuration: { "mode" => "external" })
-    signup.decline!
+    signup.decline!(by: @human)
 
     assert_raises(AgentSignup::NotClaimable) { signup.claim!(ai_agent: agent) }
   end
 
-  test "claim!: refuses an agent whose principal is not the named principal" do
+  test "claim!: refuses an agent whose principal is not the addressee" do
     signup = start
     other = create_user
     @tenant.add_user!(other)
+    mark_activated!(other)
     agent = create_ai_agent(parent: other, name: "Someone Else's", agent_configuration: { "mode" => "external" })
 
     assert_raises(AgentSignup::NotClaimable) { signup.claim!(ai_agent: agent) }
+    assert_nil signup.reload.principal_user_id
   end
 
-  test "decline!: marks a pending signup declined" do
+  test "decline!: marks a pending signup declined and records who declined" do
     signup = start
-    signup.decline!
+    signup.decline!(by: @human)
 
     assert_equal "declined", signup.state
+    assert_equal @human.id, signup.principal_user_id
     assert_not signup.claimable_by?(@human)
   end
 
@@ -245,7 +319,7 @@ class AgentSignupTest < ActiveSupport::TestCase
     end
 
     declined = start
-    declined.decline!
+    declined.decline!(by: @human)
     assert_equal "declined", declined.agent_status
   end
 

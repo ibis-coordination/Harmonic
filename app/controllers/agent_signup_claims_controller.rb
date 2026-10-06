@@ -1,6 +1,6 @@
 # typed: false
 
-# The human principal's side of agent signup: the page where the member an
+# The human principal's side of agent signup: the page where the person an
 # agent named reviews the request and accepts or declines it. See AgentSignup
 # for the lifecycle and AgentSignupsController for the agent's side.
 #
@@ -10,9 +10,17 @@
 #   POST /agent-signups/:public_id/claim    → accept: creates the agent
 #   POST /agent-signups/:public_id/decline  → decline
 #
-# Only the account the signup names can claim. Everyone else — and every
-# visitor to a signup whose email matched no member — sees the same "not
-# addressed to you" page, so the page reveals nothing about who was named.
+# Only the holder of the email the signup names can claim: a human whose
+# verified email matches. Everyone else sees the same "not addressed to you"
+# page, so the page reveals nothing about who was named.
+#
+# The addressee need not be a member yet. The claim link is the one
+# destination; the app's gates are detours that return to it: the login wall
+# (the claim path is stashed in the session and consumed after login, or
+# after accepting an invite), the membership gate (open tenants add the
+# user; invite-only tenants send them to /invite-required, where the invite
+# the signup carries is waiting), and the activation gate (/activate returns
+# here). Two guards below cover what the gates leave to the controller.
 #
 # Accepting mints a token later (at the agent's pickup), so the page sits
 # behind the same "api_tokens" reverification as agent creation.
@@ -20,15 +28,17 @@ class AgentSignupClaimsController < ApplicationController
   include RequiresReverification
   include PendingAgentSignupStash
 
-  # Runs ahead of ApplicationController's login wall, which would redirect a
-  # logged-out visitor to /login before the claim could be stashed.
-  prepend_before_action :stash_claim_for_login
+  # Runs ahead of ApplicationController's login and membership gates, which
+  # would redirect before the claim could be stashed.
+  prepend_before_action :stash_claim_for_return
 
   # First, so the pages the guards below render carry the title too.
   before_action :set_page_chrome
   before_action :require_agent_signup_enabled
   before_action :require_browser_for_claim, only: [:accept, :decline]
   before_action :require_login_for_claim
+  before_action :require_membership_for_claim
+  before_action :require_verified_email_for_claim
   before_action -> { require_reverification(scope: "api_tokens") }
   before_action :load_signup
   before_action :require_addressee
@@ -80,7 +90,7 @@ class AgentSignupClaimsController < ApplicationController
   end
 
   def decline
-    @signup.decline!
+    @signup.decline!(by: current_user)
     SecurityAuditLog.log_agent_signup_declined(signup: @signup, ip: request.remote_ip)
     flash[:notice] = "Request declined. No agent was created."
     redirect_to ai_agents_path
@@ -106,11 +116,21 @@ class AgentSignupClaimsController < ApplicationController
            plain: "Claiming or declining an agent is an interactive step. Open /agent-signups/#{params[:public_id]}/claim in a browser."
   end
 
-  def stash_claim_for_login
-    return if session[:user_id].present?
-
+  # For a visitor who is logged out, not a member yet, or not activated yet:
+  # stash the claim path so login, registration, invite acceptance or the
+  # activation checklist can come back to it, and the invite the signup
+  # carries so /invite-required finds it. (The activation gate's own return
+  # path does not survive an emailed confirmation link; the stash does.)
+  def stash_claim_for_return
     tenant = Tenant.find_by(subdomain: request.subdomain)
-    stash_pending_agent_signup_claim!(params[:public_id], tenant) if tenant
+    return if tenant.nil?
+
+    user = User.find_by(id: session[:user_id]) if session[:user_id].present?
+    return if user&.fully_activated_for?(tenant)
+
+    stash_pending_agent_signup_claim!(params[:public_id], tenant)
+    invite = AgentSignup.tenant_scoped_only(tenant.id).find_by(public_id: params[:public_id].to_s)&.invite
+    stash_pending_invite!(invite) if invite && !invite.expired?
   end
 
   # The login wall has already redirected on a login-required tenant. This
@@ -121,15 +141,40 @@ class AgentSignupClaimsController < ApplicationController
     redirect_to "/login"
   end
 
+  # The membership gate has already acted on a login-required tenant, and on
+  # a login-optional one the activation gate turns a non-member away before
+  # this runs; only operators, exempt from activation, reach it as
+  # non-members. The rule is the membership gate's
+  # (ApplicationController#validate_authenticated_access): an open tenant
+  # adds anyone who logs in, an invite-only one needs an invite.
+  def require_membership_for_claim
+    return if current_tenant.tenant_users.exists?(user: current_user)
+
+    if current_tenant.require_invite?
+      redirect_to invite_required_path
+    else
+      current_tenant.add_user!(current_user)
+    end
+  end
+
+  # The verified email is how the addressee is identified, so the claim needs
+  # it even on a tenant whose activation checklist does not.
+  def require_verified_email_for_claim
+    return if current_user.email_verified?
+
+    @signup = nil
+    render_unavailable(:unverified_email)
+  end
+
   def load_signup
     @signup = AgentSignup.tenant_scoped_only(current_tenant.id).find_by(public_id: params[:public_id].to_s)
     render status: :not_found, plain: "404 not found" if @signup.nil?
   end
 
   # Checked before any state, so a signup's state is never shown to anyone
-  # but its named principal.
+  # but its addressee.
   def require_addressee
-    return if current_user.human? && @signup.principal_user_id.present? && @signup.principal_user_id == current_user.id
+    return if @signup.addressed_to?(current_user)
 
     render_unavailable(:not_addressed)
   end
@@ -200,12 +245,13 @@ class AgentSignupClaimsController < ApplicationController
   def render_unavailable(reason = nil)
     @reason = reason || unavailable_reason
     status = {
+      unverified_email: :forbidden,
       not_addressed: :forbidden,
       expired: :gone,
       declined: :gone,
       claimed: request.get? ? :ok : :conflict,
     }.fetch(@reason)
-    @claimed_agent_handle = @signup.ai_agent_user&.tenant_users&.find_by(tenant_id: current_tenant.id)&.handle if @reason == :claimed
+    @claimed_agent_handle = @signup&.ai_agent_user&.tenant_users&.find_by(tenant_id: current_tenant.id)&.handle if @reason == :claimed
     render :unavailable, status: status
   end
 

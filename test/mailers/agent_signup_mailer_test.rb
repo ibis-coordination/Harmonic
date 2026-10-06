@@ -19,21 +19,24 @@ class AgentSignupMailerTest < ActiveSupport::TestCase
     Tenant.clear_thread_scope
   end
 
-  test "claim email goes to the named principal" do
-    email = AgentSignupMailer.claim(@human, @signup.public_id, @tenant)
-
+  test "claim email goes to the named address, account or not" do
+    email = AgentSignupMailer.claim(@human.email, @signup.public_id, @tenant)
     assert_equal [@human.email], email.to
     assert_match(/agent/i, email.subject)
+
+    stranger = AgentSignupMailer.claim("stranger@example.com", @signup.public_id, @tenant)
+    assert_equal ["stranger@example.com"], stranger.to
+    assert_includes stranger.body.encoded, "do not have an account"
   end
 
   test "claim email links to the claim page on the signup's tenant" do
-    body = AgentSignupMailer.claim(@human, @signup.public_id, @tenant).body.encoded
+    body = AgentSignupMailer.claim(@human.email, @signup.public_id, @tenant).body.encoded
 
     assert_includes body, "https://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/agent-signups/#{@signup.public_id}/claim"
   end
 
   test "claim email carries no agent-supplied text" do
-    email = AgentSignupMailer.claim(@human, @signup.public_id, @tenant)
+    email = AgentSignupMailer.claim(@human.email, @signup.public_id, @tenant)
 
     [email.subject, email.body.encoded].each do |text|
       assert_not_includes text, "evil.example"
@@ -42,7 +45,7 @@ class AgentSignupMailerTest < ActiveSupport::TestCase
   end
 
   test "claim email carries neither the pairing code nor the poll secret" do
-    body = AgentSignupMailer.claim(@human, @signup.public_id, @tenant).body.encoded
+    body = AgentSignupMailer.claim(@human.email, @signup.public_id, @tenant).body.encoded
 
     assert_not_includes body, @signup.pairing_code
     assert_not_includes body, @signup.poll_secret

@@ -278,13 +278,13 @@ A caller with no session and no token is stopped by the login wall (`Application
 Auth-flow controllers (`is_auth_controller?`: login, invite signup, agent signup, password reset, …) serve their pages outside the login wall on every tenant.
 
 ### Agent Signup
-Behind the `agent_signup` tenant flag, an external agent with no account can ask to join and name an existing member as their human principal:
+Behind the `agent_signup` tenant flag, an external agent with no account can ask to join and name their human principal by email:
 
-1. The agent calls `start_agent_signup` at `/agent-signups` (markdown UI, no token) and receives a claim URL, a pairing code and a poll secret. An `AgentSignup` row is created; no `User` row exists yet.
-2. The named member is emailed the claim link. Logged in and reverified, they review the request at `/agent-signups/:public_id/claim`, confirm responsibility for the agent, enter the pairing code, and accept. The agent is created through `AiAgentCreationService`, the same path as `/ai-agents/new`; the service refuses to create an agent until the principal has confirmed responsibility (`confirm_responsibility`), and stamps `principal_responsibility_confirmed_at` on the agent.
+1. The agent calls `start_agent_signup` at `/agent-signups` (markdown UI, no token) and receives a claim URL, a pairing code and a poll secret. An `AgentSignup` row is created, holding a keyed digest of the email (`principal_email_digest`) and the invite it carries, if any; no `User` row exists yet.
+2. The named address is emailed the claim link when its holder could claim after at most registering, verifying and joining (`AgentSignup.claim_email_deliverable?`): a member on any tenant; a non-member on an open tenant, or on an invite-only tenant when the signup carries a usable `invite_code`. A signup is never itself an invite. The addressee is whoever proves control of the email (a human whose verified email matches the digest, `AgentSignup#addressed_to?`), member or not; `principal_user_id` records who claimed or declined. Logged in and reverified, they review the request at `/agent-signups/:public_id/claim`, confirm responsibility for the agent, enter the pairing code, and accept. The agent is created through `AiAgentCreationService`, the same path as `/ai-agents/new`; the service refuses to create an agent until the principal has confirmed responsibility (`confirm_responsibility`), and stamps `principal_responsibility_confirmed_at` on the agent.
 3. The agent calls `check_agent_signup` with the poll secret and receives their MCP token, once.
 
-The response to step 1 is the same whether or not the email matched a member, and only the named account can see or claim a signup.
+The response to step 1 is the same whether or not the email matched a member, and only the addressee can see or claim a signup. A non-member addressee reaches the claim through the app's gates, each of which returns to it: the claim path is stashed in the session (`PendingAgentSignupStash`) and consumed by the login callback, by invite acceptance and by the activation checklist; the invite a signup carries is stashed as the pending invite so `/invite-required` finds it. Throttles: 3 signups per email per day across all tenants, 100 per tenant per day, plus the per-IP Rack::Attack limits.
 
 ## Request Flow
 

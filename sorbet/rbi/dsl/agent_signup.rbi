@@ -1029,6 +1029,51 @@ class AgentSignup
     sig { void }
     def id_will_change!; end
 
+    sig { returns(T.nilable(::String)) }
+    def invite_id; end
+
+    sig { params(value: T.nilable(::String)).returns(T.nilable(::String)) }
+    def invite_id=(value); end
+
+    sig { returns(T::Boolean) }
+    def invite_id?; end
+
+    sig { returns(T.nilable(::String)) }
+    def invite_id_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def invite_id_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def invite_id_came_from_user?; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def invite_id_change; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def invite_id_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def invite_id_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def invite_id_in_database; end
+
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def invite_id_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def invite_id_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def invite_id_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def invite_id_was; end
+
+    sig { void }
+    def invite_id_will_change!; end
+
     sig { returns(::String) }
     def pairing_code_digest; end
 
@@ -1118,6 +1163,51 @@ class AgentSignup
 
     sig { void }
     def poll_secret_digest_will_change!; end
+
+    sig { returns(::String) }
+    def principal_email_digest; end
+
+    sig { params(value: ::String).returns(::String) }
+    def principal_email_digest=(value); end
+
+    sig { returns(T::Boolean) }
+    def principal_email_digest?; end
+
+    sig { returns(T.nilable(::String)) }
+    def principal_email_digest_before_last_save; end
+
+    sig { returns(T.untyped) }
+    def principal_email_digest_before_type_cast; end
+
+    sig { returns(T::Boolean) }
+    def principal_email_digest_came_from_user?; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def principal_email_digest_change; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def principal_email_digest_change_to_be_saved; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def principal_email_digest_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def principal_email_digest_in_database; end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def principal_email_digest_previous_change; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def principal_email_digest_previously_changed?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable(::String)) }
+    def principal_email_digest_previously_was; end
+
+    sig { returns(T.nilable(::String)) }
+    def principal_email_digest_was; end
+
+    sig { void }
+    def principal_email_digest_will_change!; end
 
     sig { returns(T.nilable(::String)) }
     def principal_user_id; end
@@ -1369,10 +1459,16 @@ class AgentSignup
     def restore_id_value!; end
 
     sig { void }
+    def restore_invite_id!; end
+
+    sig { void }
     def restore_pairing_code_digest!; end
 
     sig { void }
     def restore_poll_secret_digest!; end
+
+    sig { void }
+    def restore_principal_email_digest!; end
 
     sig { void }
     def restore_principal_user_id!; end
@@ -1446,6 +1542,12 @@ class AgentSignup
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
+    sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
+    def saved_change_to_invite_id; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_invite_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
     sig { returns(T.nilable([::String, ::String])) }
     def saved_change_to_pairing_code_digest; end
 
@@ -1457,6 +1559,12 @@ class AgentSignup
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def saved_change_to_poll_secret_digest?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { returns(T.nilable([::String, ::String])) }
+    def saved_change_to_principal_email_digest; end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def saved_change_to_principal_email_digest?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { returns(T.nilable([T.nilable(::String), T.nilable(::String)])) }
     def saved_change_to_principal_user_id; end
@@ -1666,10 +1774,16 @@ class AgentSignup
     def will_save_change_to_id_value?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_invite_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_pairing_code_digest?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_poll_secret_digest?(from: T.unsafe(nil), to: T.unsafe(nil)); end
+
+    sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
+    def will_save_change_to_principal_email_digest?(from: T.unsafe(nil), to: T.unsafe(nil)); end
 
     sig { params(from: T.untyped, to: T.untyped).returns(T::Boolean) }
     def will_save_change_to_principal_user_id?(from: T.unsafe(nil), to: T.unsafe(nil)); end

@@ -63,3 +63,52 @@ without billing set up.
   returns to the claim page
 - Verify the agent reads `claimed_awaiting_billing` while parked and
   receives the token once billing is active
+
+## A human with no account
+
+Needs an inbox whose address has no Harmonic account, and a second agent
+harness (or the same one, disconnected).
+
+### Invite-only tenant, with an invite
+
+1. As a member, create an invite link for a collective and give the agent
+   the code along with the instruction from step 1, naming the new address
+   as the principal
+   - Verify the agent passes it as `invite_code` and reports the claim link
+     and pairing code
+2. Check the new inbox
+   - Verify one email arrives, saying an account will be created at the link
+3. Open the claim link while logged out, and register with the named
+   address
+   - Verify the login callback lands on the invite confirmation with the
+     code already filled in, and that accepting returns to the claim page
+   - Verify the claim page sends you to `/activate`; confirm the email from
+     the second message in the inbox and set up 2FA
+   - Verify finishing the checklist returns to the claim page (after
+     reverification)
+4. Claim as in steps 4–6 above, with the address you registered
+   - Verify the agent collects the token and connects as in steps 7–8
+   - Verify the new human is a member of the tenant and of the invite's
+     collective
+
+### Invite-only tenant, without an invite
+
+5. Have the agent start a signup naming a second unused address, with no
+   `invite_code`
+   - Verify the agent's result says the tenant requires an invite, in the
+     same words as a signup that named a member
+   - Verify no email arrives
+
+### Open tenant
+
+6. On a tenant with `require_invite` off, repeat step 1 without an invite
+   code
+   - Verify the email arrives, and that logging in after registering lands
+     on the claim page (via `/activate`) with the human already a member
+
+### Wrong address
+
+7. Open a claim link while logged in as a verified user whose email is not
+   the one the agent named
+   - Verify the page says the request is not addressed to you and shows
+     nothing about the agent

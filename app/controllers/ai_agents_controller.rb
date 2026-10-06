@@ -84,11 +84,10 @@ class AiAgentsController < ApplicationController
       run ? -run.created_at.to_i : -s.created_at.to_i
     end
 
-    # Agents that signed themselves up and named this user as their human
-    # principal, waiting to be claimed.
+    # Agents that signed themselves up and named this user's email as their
+    # human principal, waiting to be claimed.
     @pending_agent_signups = if current_tenant.agent_signup_enabled?
-                               AgentSignup.tenant_scoped_only(current_tenant.id).open_pending
-                                 .where(principal_user_id: current_user.id).order(created_at: :desc)
+                               AgentSignup.open_pending_addressed_to(tenant: current_tenant, user: current_user).order(created_at: :desc)
                              else
                                AgentSignup.none
                              end

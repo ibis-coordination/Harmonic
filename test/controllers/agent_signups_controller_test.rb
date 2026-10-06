@@ -21,8 +21,21 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
     mark_activated!(@human)
   end
 
-  def start_signup(email: @human.email, name: "Stickman", handle: nil, headers: MD)
-    post START, params: { principal_email: email, name: name, handle: handle }.compact, headers: headers
+  def start_signup(email: @human.email, name: "Stickman", handle: nil, invite_code: nil, headers: MD)
+    post START, params: { principal_email: email, name: name, handle: handle, invite_code: invite_code }.compact, headers: headers
+  end
+
+  def stranger_email
+    "nobody-#{SecureRandom.hex(4)}@example.com"
+  end
+
+  def set_require_invite!(value, tenant: @tenant)
+    tenant.update!(settings: tenant.settings.merge("require_invite" => value))
+  end
+
+  def create_invite(expires_at: 1.week.from_now, invited_user: nil)
+    Invite.create!(tenant: @tenant, collective: @global_collective, created_by: @global_user, invited_user: invited_user,
+                   code: SecureRandom.hex(8), expires_at: expires_at)
   end
 
   # The `- key: value` lines of an action result.
@@ -46,7 +59,7 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
     frontmatter = YAML.safe_load(response.body.split("---")[1], permitted_classes: [Time])
     assert_equal(["start_agent_signup"], frontmatter["actions"].map { |a| a["name"] })
     required = frontmatter["actions"].first["params"].to_h { |param| [param["name"], param["required"]] }
-    assert_equal({ "principal_email" => true, "name" => true, "handle" => false }, required)
+    assert_equal({ "principal_email" => true, "name" => true, "handle" => false, "invite_code" => false }, required)
   end
 
   test "GET /agent-signups renders an HTML page without a session" do
@@ -127,7 +140,7 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "https://#{@tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}/agent-signups/#{signup.public_id}/claim", fields["claim_url"]
     assert_equal "/agent-signups/#{signup.public_id}", fields["signup_page"]
     assert_equal signup.expires_at.iso8601, fields["expires_at"]
-    assert_equal @human.id, signup.principal_user_id
+    assert_equal AgentSignup.principal_email_digest_for(@human.email), signup.principal_email_digest
     assert_equal "Stickman", signup.proposed_name
   end
 
@@ -145,13 +158,79 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "start_agent_signup sends nothing when the email matches no eligible member" do
+  test "start_agent_signup sends nothing to a non-member on an invite-only tenant" do
+    set_require_invite!(true)
+    outsider = create_user(email: "outsider-#{SecureRandom.hex(4)}@example.com")
+
     assert_no_enqueued_emails do
-      start_signup(email: "nobody-#{SecureRandom.hex(4)}@example.com")
+      start_signup(email: stranger_email)
+      assert_response :success
+      start_signup(email: outsider.email)
+      assert_response :success
+    end
+  end
+
+  test "start_agent_signup emails a non-member on an open tenant" do
+    set_require_invite!(false)
+
+    assert_enqueued_emails 1 do
+      start_signup(email: stranger_email)
+    end
+    assert_response :success
+  end
+
+  test "start_agent_signup emails a non-member on an invite-only tenant when the signup carries an invite" do
+    set_require_invite!(true)
+    invite = create_invite
+
+    assert_enqueued_emails 1 do
+      start_signup(email: stranger_email, invite_code: invite.code)
     end
 
     assert_response :success
-    assert_nil signups.order(:created_at).last.principal_user_id
+    assert_equal invite.id, signups.order(:created_at).last.invite_id
+  end
+
+  test "start_agent_signup rejects an invite code that is not usable, in the words /invite-required uses" do
+    set_require_invite!(true)
+    expired = create_invite(expires_at: 1.hour.ago)
+
+    ["not-a-code", expired.code, create_invite(invited_user: @human).code].each do |code|
+      assert_no_difference -> { signups.count } do
+        start_signup(email: stranger_email, invite_code: code)
+      end
+      assert_response :unprocessable_entity
+      assert_includes response.body, "That invite code is not valid or has expired."
+      assert_includes response.body, "invite_code"
+    end
+  end
+
+  test "start_agent_signup's guidance names the invite policy unconditionally" do
+    set_require_invite!(true)
+    start_signup
+    assert_includes response.body, "requires an invite"
+    assert_includes response.body, "invite_code"
+    start_signup(email: stranger_email)
+    assert_includes response.body, "requires an invite"
+    start_signup(email: stranger_email, invite_code: create_invite.code)
+    assert_includes response.body, "your signup carries one"
+
+    set_require_invite!(false)
+    start_signup(email: stranger_email)
+    assert_not_includes response.body, "requires an invite"
+    assert_includes response.body, "creating one"
+  end
+
+  test "the signup page and the start action's description state the invite policy" do
+    set_require_invite!(true)
+    get "/agent-signups", headers: MD
+    assert_includes response.body, "requires an invite"
+    get "/agent-signups/actions/start_agent_signup", headers: MD
+    assert_includes response.body, "invite_code"
+
+    set_require_invite!(false)
+    get "/agent-signups", headers: MD
+    assert_not_includes response.body, "requires an invite"
   end
 
   test "start_agent_signup responds the same way whether or not the email matched" do
@@ -231,12 +310,43 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "start_agent_signup throttles unmatched emails the same way" do
-    email = "nobody-#{SecureRandom.hex(4)}@example.com"
+    email = stranger_email
     AgentSignupsController::SIGNUPS_PER_EMAIL_PER_DAY.times { start_signup(email: email) }
 
     start_signup(email: email)
 
     assert_response :too_many_requests
+  end
+
+  test "the per-email throttle counts across tenants" do
+    email = stranger_email
+    AgentSignupsController::SIGNUPS_PER_EMAIL_PER_DAY.times { start_signup(email: email) }
+
+    other_tenant, _collective, other_user = create_tenant_collective_user
+    other_tenant.create_main_collective!(created_by: other_user)
+    other_tenant.set_feature_flag!("external_ai_agents", true)
+    other_tenant.set_feature_flag!("agent_signup", true)
+    host! "#{other_tenant.subdomain}.#{ENV.fetch("HOSTNAME", nil)}"
+    start_signup(email: email)
+
+    assert_response :too_many_requests
+  end
+
+  test "a tenant takes only so many signups a day, whoever they name" do
+    AgentSignupsController.stub(:signups_per_tenant_per_day, 2) do
+      start_signup
+      start_signup(email: stranger_email)
+      assert_response :success
+
+      assert_no_difference -> { signups.count } do
+        start_signup(email: stranger_email)
+      end
+      assert_response :too_many_requests
+      assert_includes response.body, "This subdomain has taken all the agent signups it accepts today."
+
+      start_signup
+      assert_response :too_many_requests, "the cap applies to members' emails too, so it is not a membership oracle"
+    end
   end
 
   # ---------- check and pickup ----------
@@ -320,7 +430,7 @@ class AgentSignupsControllerTest < ActionDispatch::IntegrationTest
   test "check_agent_signup reports declined and expired" do
     declined = model_signup
     Tenant.scope_thread_to_tenant(subdomain: @tenant.subdomain)
-    declined.decline!
+    declined.decline!(by: @human)
     Tenant.clear_thread_scope
     check(declined)
     assert_equal "declined", result_fields["status"]

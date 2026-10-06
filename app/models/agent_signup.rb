@@ -1,8 +1,9 @@
 # typed: true
 
-# An external agent's request to join a tenant, naming the member who will be
-# their human principal. The agent starts the signup unauthenticated; the
-# named member claims it while logged in; the agent then collects an MCP
+# An external agent's request to join a tenant, naming the email of the human
+# who will be their principal. The agent starts the signup unauthenticated;
+# whoever proves control of that email claims it while logged in, joining
+# and activating first if they have to; the agent then collects an MCP
 # token. No User row exists for the agent until the claim.
 #
 # Three credentials, each with a different holder:
@@ -13,16 +14,17 @@
 #   * pairing code    — returned only to the agent at start. The principal
 #                       types it on the claim page, which ties the claim to
 #                       an agent the principal is actually in contact with.
-# Only digests of the last two are stored.
+# Only digests of the last two are stored. The named email is stored as a
+# keyed digest too: it identifies the addressee without keeping an address
+# an anonymous caller typed.
 #
 # Lifecycle:
-#   * `AgentSignup.start!` — creates a `pending` signup. `principal_user` is
-#     set only when the email belongs to an eligible member; otherwise the row
-#     is unclaimable, and exists so the agent-facing responses are identical
-#     either way.
-#   * `#claim!` — the principal accepted and the agent was created. Restarts
-#     the expiry clock for the pickup.
-#   * `#decline!` — the principal refused.
+#   * `AgentSignup.start!` — creates a `pending` signup. Whether the addressee
+#     is emailed is a separate decision (`claim_email_deliverable?`); the row
+#     and the agent-facing responses are the same either way.
+#   * `#claim!` — the addressee accepted and the agent was created; records
+#     them as `principal_user`. Restarts the expiry clock for the pickup.
+#   * `#decline!` — the addressee refused; recorded the same way.
 #   * `#pick_up!` — the agent collected their MCP token; the signup is
 #     `redeemed`.
 #
@@ -48,12 +50,13 @@ class AgentSignup < ApplicationRecord
   belongs_to :principal_user, class_name: "User", optional: true
   belongs_to :ai_agent_user, class_name: "User", optional: true
   belongs_to :api_token, optional: true
+  belongs_to :invite, optional: true
 
   # Plaintext credentials, available only on the instance `start!` returns.
   attr_accessor :poll_secret, :pairing_code
 
   validates :public_id, presence: true, uniqueness: { scope: :tenant_id }
-  validates :poll_secret_digest, :pairing_code_digest, :expires_at, presence: true
+  validates :poll_secret_digest, :pairing_code_digest, :principal_email_digest, :expires_at, presence: true
   validates :proposed_name, presence: true, length: { maximum: MAX_NAME_LENGTH }
   validates :proposed_handle, length: { maximum: MAX_HANDLE_LENGTH }
   validates :state, inclusion: { in: STATES }
@@ -68,41 +71,76 @@ class AgentSignup < ApplicationRecord
       tenant: Tenant,
       principal_email: T.nilable(String),
       name: T.nilable(String),
-      handle: T.nilable(String)
+      handle: T.nilable(String),
+      invite: T.nilable(Invite)
     ).returns(AgentSignup)
   end
-  def self.start!(tenant:, principal_email:, name:, handle: nil)
-    principal = eligible_principal(tenant: tenant, email: principal_email)
+  def self.start!(tenant:, principal_email:, name:, handle: nil, invite: nil)
+    digest = principal_email_digest_for(principal_email)
 
     transaction do
       signup = create!(
         tenant: tenant,
-        principal_user: principal,
+        principal_email_digest: digest,
+        invite: invite,
         proposed_name: name.to_s.strip,
         proposed_handle: handle.to_s.strip.presence
       )
-      expire_pending_beyond_cap!(tenant: tenant, principal: principal) if principal
+      expire_pending_beyond_cap!(tenant: tenant, principal_email_digest: digest)
       signup
     end
   end
 
-  # The member the email belongs to, if they can be a human principal on this
-  # tenant right now: a human, a member, with a verified email, not suspended
-  # and not on the way out.
-  sig { params(tenant: Tenant, email: T.nilable(String)).returns(T.nilable(User)) }
-  def self.eligible_principal(tenant:, email:)
-    normalized = email.to_s.strip.downcase
-    return nil if normalized.blank?
-
-    candidates = User.where("LOWER(email) = ?", normalized).limit(2).to_a
-    return nil unless candidates.size == 1
-
-    user = T.must(candidates.first)
-    return nil unless eligible_principal?(user, tenant: tenant)
-
-    user
+  # Deterministic, so a signup can be looked up by the email it names; keyed,
+  # so the column is not a rainbow table of every address agents have typed.
+  sig { params(email: T.nilable(String)).returns(String) }
+  def self.principal_email_digest_for(email)
+    key = Rails.application.key_generator.generate_key("agent_signup_principal_email")
+    OpenSSL::HMAC.hexdigest("SHA256", key, email.to_s.strip.downcase)
   end
 
+  # Whether the claim email goes to this address: whether its holder could
+  # claim after at most registering, verifying, and joining. A member can
+  # (today's rule, on any tenant). A non-member can when the tenant is open
+  # to anyone who logs in, or when the signup carries an invite a member
+  # issued. An account that cannot act (suspended, deleting, non-human) or an
+  # address two accounts share gets nothing. A signup is never an invite: on
+  # an invite-only tenant, no invite means no email.
+  sig { params(tenant: Tenant, email: T.nilable(String), invite: T.nilable(Invite)).returns(T::Boolean) }
+  def self.claim_email_deliverable?(tenant:, email:, invite:)
+    normalized = email.to_s.strip.downcase
+    return false if normalized.blank?
+
+    candidates = User.where("LOWER(email) = ?", normalized).limit(2).to_a
+    return false if candidates.size > 1
+
+    user = candidates.first
+    if user
+      return false unless user.human? && !user.suspended? && user.deletion_requested_at.nil?
+      return true if tenant.tenant_users.exists?(user: user)
+    end
+
+    !tenant.require_invite? || !invite.nil?
+  end
+
+  # An invite a signup may carry: live, on this tenant, for an invitable
+  # collective, and shareable. A user-specific invite names its holder and is
+  # accepted by logging in, not by a link an agent passes along.
+  sig { params(tenant: Tenant, code: T.nilable(String)).returns(T.nilable(Invite)) }
+  def self.usable_invite(tenant:, code:)
+    normalized = code.to_s.strip
+    return nil if normalized.blank?
+
+    invite = Invite.tenant_scoped_only(tenant.id).find_by(code: normalized)
+    return nil if invite.nil? || invite.expired? || !invite.collective_invitable? || invite.invited_user_id.present?
+
+    invite
+  end
+
+  # Whether this user may act as human principal on this tenant right now:
+  # a human, a member, with a verified email, not suspended, not on the way
+  # out. The claim page routes a non-member or unverified addressee through
+  # joining and activation first; this is the check once they are back.
   sig { params(user: User, tenant: Tenant).returns(T::Boolean) }
   def self.eligible_principal?(user, tenant:)
     user.human? &&
@@ -112,11 +150,17 @@ class AgentSignup < ApplicationRecord
       tenant.tenant_users.exists?(user: user)
   end
 
-  sig { params(tenant: Tenant, principal: User).void }
-  def self.expire_pending_beyond_cap!(tenant:, principal:)
+  # Open signups addressed to this user's email on this tenant.
+  sig { params(tenant: Tenant, user: User).returns(ActiveRecord::Relation) }
+  def self.open_pending_addressed_to(tenant:, user:)
+    tenant_scoped_only(tenant.id).open_pending.where(principal_email_digest: principal_email_digest_for(user.email))
+  end
+
+  sig { params(tenant: Tenant, principal_email_digest: String).void }
+  def self.expire_pending_beyond_cap!(tenant:, principal_email_digest:)
     surplus_ids = tenant_scoped_only(tenant.id)
       .open_pending
-      .where(principal_user_id: principal.id)
+      .where(principal_email_digest: principal_email_digest)
       .order(created_at: :desc)
       .offset(MAX_PENDING_PER_PRINCIPAL)
       .pluck(:id)
@@ -176,21 +220,31 @@ class AgentSignup < ApplicationRecord
     end
   end
 
+  # The addressee: a human who has proved control of the named email. The
+  # verified email is the proof, whatever the tenant requires of its members.
+  sig { params(user: T.nilable(User)).returns(T::Boolean) }
+  def addressed_to?(user)
+    return false if user.nil? || !user.human? || !user.email_verified?
+
+    ActiveSupport::SecurityUtils.secure_compare(self.class.principal_email_digest_for(user.email), principal_email_digest)
+  end
+
   sig { params(user: T.nilable(User)).returns(T::Boolean) }
   def claimable_by?(user)
-    return false if user.nil? || principal_user_id.nil?
-
-    pending? && !expired? && principal_user_id == user.id
+    pending? && !expired? && addressed_to?(user)
   end
 
   sig { params(ai_agent: User).void }
   def claim!(ai_agent:)
     with_lock do
       raise NotClaimable, "signup is #{expired? ? "expired" : state}" unless pending? && !expired?
-      raise NotClaimable, "agent's principal is not the named principal" unless ai_agent.parent_id == principal_user_id
+
+      principal = ai_agent.parent
+      raise NotClaimable, "agent's principal is not the addressee" unless addressed_to?(principal)
 
       update!(
         state: "claimed",
+        principal_user: principal,
         ai_agent_user: ai_agent,
         claimed_at: Time.current,
         expires_at: PICKUP_LIFETIME.from_now
@@ -198,12 +252,12 @@ class AgentSignup < ApplicationRecord
     end
   end
 
-  sig { void }
-  def decline!
+  sig { params(by: User).void }
+  def decline!(by:)
     with_lock do
       raise NotClaimable, "signup is #{expired? ? "expired" : state}" unless pending? && !expired?
 
-      update!(state: "declined")
+      update!(state: "declined", principal_user: by)
     end
   end
 

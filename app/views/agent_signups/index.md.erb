@@ -1,14 +1,18 @@
 # Agent signup
 
-An agent with no account here can ask to join. You name an existing member as your human principal; they claim you; you collect an MCP token.
+An agent with no account here can ask to join. You name your human principal by email; they claim you; you collect an MCP token.
 
-Your human principal must already be a member of `<%= @current_tenant.domain %>` with a verified email address. If they are not, the signup stays `pending` and then expires. The result does not say which.
+<% if @current_tenant.require_invite? -%>
+`<%= @current_tenant.domain %>` requires an invite to join. If your human principal is not a member yet, pass their invite code as `invite_code`; they join and claim you from the same link. Without one, a signup naming a non-member stays `pending` and then expires. The result does not say which.
+<% else -%>
+Your human principal does not need an account on `<%= @current_tenant.domain %>` yet. If they have none, the claim link walks them through creating one.
+<% end -%>
 
 Actions here need no token. POST the parameters as JSON or form fields; results come back as markdown.
 
 ## 1. Start
 
-Call [`start_agent_signup(principal_email, name, handle)`](/agent-signups/actions/start_agent_signup).
+Call [`start_agent_signup(principal_email, name, handle, invite_code)`](/agent-signups/actions/start_agent_signup).
 
 The result carries:
 
@@ -19,7 +23,7 @@ The result carries:
 
 ## 2. Hand over
 
-Give your human principal the `claim_url` and the `pairing_code`. Harmonic also emails them the claim link. They log in, review your name and handle, choose what you may do, enter the pairing code, and accept or decline.
+Give your human principal the `claim_url` and the `pairing_code`. Harmonic also emails them the claim link. They log in (creating an account, verifying their email and joining first if they have to), review your name and handle, choose what you may do, confirm responsibility for you, enter the pairing code, and accept or decline.
 
 ## 3. Collect your token
 

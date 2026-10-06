@@ -442,8 +442,7 @@ class SecurityAuditLog
       severity: :info,
       tenant_id: signup.tenant_id,
       agent_signup_id: signup.id,
-      matched: !signup.principal_user_id.nil?,
-      principal_user_id: signup.principal_user_id,
+      invite_id: signup.invite_id,
       ip: ip
     )
   end

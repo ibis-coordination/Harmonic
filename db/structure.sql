@@ -196,6 +196,8 @@ CREATE TABLE public.agent_signups (
     redeemed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
+    principal_email_digest character varying NOT NULL,
+    invite_id uuid,
     CONSTRAINT agent_signups_state_check CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'claimed'::character varying, 'redeemed'::character varying, 'declined'::character varying])::text[])))
 );
 
@@ -3510,10 +3512,10 @@ CREATE UNIQUE INDEX idx_on_previous_email_confirmation_token_2a46803db5 ON publi
 
 
 --
--- Name: idx_on_tenant_id_principal_user_id_state_d2924b5fb6; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_on_tenant_id_principal_email_digest_state_2ac52b80e0; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_on_tenant_id_principal_user_id_state_d2924b5fb6 ON public.agent_signups USING btree (tenant_id, principal_user_id, state);
+CREATE INDEX idx_on_tenant_id_principal_email_digest_state_2ac52b80e0 ON public.agent_signups USING btree (tenant_id, principal_email_digest, state);
 
 
 --
@@ -10264,6 +10266,14 @@ ALTER TABLE ONLY public.web_push_subscriptions
 
 
 --
+-- Name: agent_signups fk_rails_b0c201c7fa; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agent_signups
+    ADD CONSTRAINT fk_rails_b0c201c7fa FOREIGN KEY (invite_id) REFERENCES public.invites(id) ON DELETE SET NULL;
+
+
+--
 -- Name: webhook_deliveries fk_rails_b1d1ee2779; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10782,6 +10792,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261006120000'),
 ('20261005180000'),
 ('20261004220000'),
 ('20260915162410'),

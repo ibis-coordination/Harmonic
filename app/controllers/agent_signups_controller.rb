@@ -2,7 +2,7 @@
 
 # Agent-facing side of agent signup. An external agent with no account and no
 # token uses these pages and actions to ask to join the tenant, naming the
-# member who will be their human principal. See AgentSignup for the
+# email of the human who will be their principal. See AgentSignup for the
 # lifecycle; the principal's side lives in AgentSignupClaimsController.
 #
 # The surface follows the markdown UI pattern used everywhere else — a page,
@@ -11,7 +11,7 @@
 #   /agent-signups                     the flow, and where an agent discovers
 #                                      it (/help is not readable without a
 #                                      session on every tenant)
-#     start_agent_signup(principal_email, name, handle)
+#     start_agent_signup(principal_email, name, handle, invite_code)
 #   /agent-signups/:public_id          one signup
 #     check_agent_signup(poll_secret)  reports where the signup stands and,
 #                                      once the agent is claimed and active,
@@ -21,14 +21,25 @@
 # agent is here to get.
 #
 # Everything is unauthenticated by design. start_agent_signup responds the
-# same way whether or not the email belongs to an eligible member, and a
-# signup's page says nothing about the signup, so neither can be used to find
-# out who is a member.
+# same way whether or not the email belongs to a member, and a signup's page
+# says nothing about the signup, so neither can be used to find out who is a
+# member. Whether the claim email is sent does depend on the email (see
+# AgentSignup.claim_email_deliverable?); nothing the caller sees does.
 class AgentSignupsController < ApplicationController
   include RateLimits
 
+  # Per address, across every tenant: a stranger's inbox is the target here,
+  # and tenants are cheap.
   SIGNUPS_PER_EMAIL_PER_DAY = 3
+  # Per tenant, whoever is named: bounds how many addresses one tenant can
+  # have Harmonic write to in a day. Counting members' emails too keeps the
+  # cap from being a membership oracle.
+  SIGNUPS_PER_TENANT_PER_DAY = 100
   POLL_INTERVAL_SECONDS = 5
+
+  def self.signups_per_tenant_per_day
+    SIGNUPS_PER_TENANT_PER_DAY
+  end
 
   STATUS_GUIDANCE = {
     "pending" => "Not claimed yet. Check again in #{POLL_INTERVAL_SECONDS} seconds.",
@@ -89,33 +100,50 @@ class AgentSignupsController < ApplicationController
     name = params[:name].to_s.strip
     email = params[:principal_email].to_s.strip.downcase
     handle = params[:handle].to_s.strip.presence
+    invite_code = params[:invite_code].to_s.strip.presence
 
     error = start_param_error(name: name, email: email, handle: handle)
     return render_action_error({ action_name: "start_agent_signup", error: error }) if error
 
-    # Keyed on the email alone and checked before the membership lookup, so
-    # hitting the limit says nothing about whether the email is a member's.
+    invite = AgentSignup.usable_invite(tenant: current_tenant, code: invite_code) if invite_code
+    if invite_code && invite.nil?
+      return render_action_error({
+        action_name: "start_agent_signup",
+        error: "That invite code is not valid or has expired. Check invite_code with your human principal.",
+      })
+    end
+
+    # Both limits are checked before anything depends on the email, so
+    # hitting either says nothing about whether the email is a member's.
     enforce_rate_limit!(
       scope: "agent_signups",
-      key: [current_tenant.id, Digest::SHA256.hexdigest(email)],
+      key: [Digest::SHA256.hexdigest(email)],
       limit: SIGNUPS_PER_EMAIL_PER_DAY,
       period: 1.day
     )
+    enforce_rate_limit!(
+      scope: "agent_signups_tenant",
+      key: [current_tenant.id],
+      limit: self.class.signups_per_tenant_per_day,
+      period: 1.day
+    )
 
-    signup = AgentSignup.start!(tenant: current_tenant, principal_email: email, name: name, handle: handle)
-    principal = signup.principal_user
-    # deliver_later for matched signups keeps the response time independent of
-    # whether an email is sent.
-    AgentSignupMailer.claim(principal, signup.public_id, current_tenant).deliver_later if principal
+    signup = AgentSignup.start!(tenant: current_tenant, principal_email: email, name: name, handle: handle, invite: invite)
+    # deliver_later keeps the response time independent of whether an email
+    # is sent.
+    if AgentSignup.claim_email_deliverable?(tenant: current_tenant, email: email, invite: invite)
+      AgentSignupMailer.claim(email, signup.public_id, current_tenant).deliver_later
+    end
     SecurityAuditLog.log_agent_signup_started(signup: signup, ip: request.remote_ip)
 
     render_action_success({ action_name: "start_agent_signup", result: start_result(signup) })
-  rescue RateLimits::Exceeded
-    render_action_error({
-      action_name: "start_agent_signup",
-      error: "Too many signups have named this principal_email today. Try again tomorrow.",
-      status: :too_many_requests,
-    })
+  rescue RateLimits::Exceeded => e
+    error = if e.scope == "agent_signups_tenant"
+              "This subdomain has taken all the agent signups it accepts today. Try again tomorrow."
+            else
+              "Too many signups have named this principal_email today. Try again tomorrow."
+            end
+    render_action_error({ action_name: "start_agent_signup", error: error, status: :too_many_requests })
   end
 
   def execute_check_agent_signup
@@ -187,10 +215,25 @@ class AgentSignupsController < ApplicationController
       - poll_secret: #{signup.poll_secret}
       - expires_at: #{signup.expires_at.iso8601}
 
-      Give your human principal the claim_url and the pairing_code. They claim you while logged in as the member whose email you named. Keep the poll_secret to yourself.
+      Give your human principal the claim_url and the pairing_code. Harmonic also emails them the claim link. #{principal_account_guidance(signup)} Keep the poll_secret to yourself.
 
       Then call `check_agent_signup(poll_secret)` at [#{signup.path}](#{signup.path}) every #{POLL_INTERVAL_SECONDS} seconds until status is `ready`. That result carries your MCP token, once.
     RESULT
+  end
+
+  # Stated the same way whatever the email matched: the tenant's membership
+  # policy and the invite the caller passed are the caller's to know, the
+  # match is not.
+  def principal_account_guidance(signup)
+    if !current_tenant.require_invite?
+      "If they do not have an account here yet, the link walks them through creating one."
+    elsif signup.invite_id
+      "This subdomain requires an invite to join; your signup carries one, so your principal can join and claim you from " \
+        "the same link if they are not a member yet."
+    else
+      "This subdomain requires an invite to join. If your principal is not a member yet, they need an invite code; " \
+        "start again with it as invite_code so they can join and claim you from the same link."
+    end
   end
 
   def ready_result(signup, plaintext)

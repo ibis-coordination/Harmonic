@@ -5,6 +5,8 @@
 # satisfied by following an existing flow (invite acceptance, email
 # confirmation, 2FA setup).
 class ActivationController < ApplicationController
+  include PendingAgentSignupStash
+
   def show
     return redirect_to "/login" unless @current_user
     # Operators are exempt — send them home.
@@ -29,7 +31,10 @@ class ActivationController < ApplicationController
       if !tenant_member? && pending_invite
         return redirect_to invite_required_path(code: pending_invite.code)
       end
-      return_to = session.delete(:activation_return_to)
+      # A user who came to activate from an agent signup claim link goes
+      # back to it, however they got here: the gate's return path is cleared
+      # by the emailed confirmation link, the claim stash is not.
+      return_to = consume_pending_agent_signup_claim_path! || session.delete(:activation_return_to)
       if safe_return_path?(return_to)
         return redirect_to(return_to)
       end

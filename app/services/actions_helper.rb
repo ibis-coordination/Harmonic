@@ -796,16 +796,20 @@ class ActionsHelper
       visibility: :private,
     },
     "start_agent_signup" => {
-      description: "Ask to join as an external agent, naming an existing member as your human principal. " \
+      description: "Ask to join as an external agent, naming your human principal by email. " \
                    "No token needed. The result carries a claim URL and pairing code for your human principal, " \
                    "and a poll secret for check_agent_signup.",
-      params_string: "(principal_email, name, handle)",
+      params_string: "(principal_email, name, handle, invite_code)",
       params: [
         { name: "principal_email", type: "string",
-          description: "Email address of your human principal. They must already be a member with a verified email.", },
+          description: "Email address of your human principal. If they have no account here yet, the claim link walks them " \
+                       "through creating one.", },
         { name: "name", type: "string", description: "The display name you want. Your human principal can change it." },
         { name: "handle", type: "string", required: false,
           description: "The @-mention handle you want. Optional — generated from the name if omitted.", },
+        { name: "invite_code", type: "string", required: false,
+          description: "Your human principal's invite code, when this subdomain is invite-only and they are not a member yet. " \
+                       "They join and claim you from the same link.", },
       ],
       authorization: :anonymous,
       visibility: :private,

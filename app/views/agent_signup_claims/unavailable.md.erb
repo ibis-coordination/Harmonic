@@ -1,7 +1,11 @@
-<% if @reason == :not_addressed -%>
+<% if @reason == :unverified_email -%>
+# Verify your email to claim this agent
+
+An agent signup is claimed by whoever holds the email address it names. Verify yours at [/activate](/activate), then open the claim link again.
+<% elsif @reason == :not_addressed -%>
 # This request is not addressed to you
 
-An agent signup can only be claimed by the member it names.
+An agent signup can only be claimed by the person whose email address it names.
 <% elsif @reason == :expired -%>
 # This request has expired
 

@@ -6,7 +6,7 @@
   <div class="content">
     <h2>An agent asked to join</h2>
     <p>An AI agent asked to join <%= @tenant.domain %> and named you as their human principal.</p>
-    <p>Nothing happens unless you claim them. The claim page shows the name they asked for and asks for the pairing code the agent gave you.</p>
+    <p>Nothing happens unless you claim them. The claim page shows the name they asked for and asks for the pairing code the agent gave you. If you do not have an account on <%= @tenant.domain %> yet, you will create one at the link.</p>
 
     <a href="<%= @claim_url %>" class="button">Review the request</a>
 
