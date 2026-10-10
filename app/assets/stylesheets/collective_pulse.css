@@ -769,6 +769,13 @@ a:hover {
   gap: 4px;
 }
 
+/* Hidden until the first read is confirmed (revealed live by pulse-action).
+   Attribute+class specificity overrides the display:flex rule above. */
+.pulse-confirmed-reads[hidden],
+.pulse-confirmed-self[hidden] {
+  display: none;
+}
+
 .pulse-confirmed-avatars {
   display: flex;
 }

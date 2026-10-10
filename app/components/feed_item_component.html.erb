@@ -168,27 +168,47 @@
   <div class="pulse-feed-item-footer">
     <% case @type %>
     <% when 'Note' %>
-      <% if @current_user.nil? %>
-        <a href="/login" data-redirect-to-resource="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'sign-in' %> Log in to confirm reading</a>
-      <% elsif user_has_read? %>
-        <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'book' %> Confirmed</button>
-      <% else %>
+      <% if @current_user && !user_has_read? %>
+        <%# Unread: the pulse-action controller wraps the button and the count
+            block so a successful confirm updates the "N confirmed" figure live
+            (revealing it, and the viewer's avatar, on the first confirmation). %>
         <div data-controller="pulse-action" data-pulse-action-url-value="<%= @item.path %>/actions/confirm_read" data-pulse-action-loading-text-value="Confirming..." data-pulse-action-confirmed-text-value="Confirmed">
           <button type="button" class="pulse-feed-action-btn" data-pulse-action-target="button" data-action="click->pulse-action#performAction"><%= helpers.octicon 'book' %> Confirm read</button>
-        </div>
-      <% end %>
-      <% if read_count > 0 %>
-        <div class="pulse-confirmed-reads">
-          <div class="pulse-confirmed-avatars">
-            <% read_confirmations_scope.includes(:user).select(:user_id).distinct.limit(3).each do |event| %>
-              <%= render "shared/avatar", user: event.user, css_class: "pulse-confirmed-avatar" %>
-            <% end %>
-            <% if read_count > 3 %>
-              <div class="pulse-confirmed-avatar">+<%= read_count - 3 %></div>
-            <% end %>
+          <div class="pulse-confirmed-reads" data-pulse-action-target="readCount" <%= "hidden" if read_count.zero? %>>
+            <div class="pulse-confirmed-avatars">
+              <% if read_count.zero? %>
+                <span class="pulse-confirmed-self" data-pulse-action-target="selfAvatar" hidden><%= render "shared/avatar", user: @current_user, css_class: "pulse-confirmed-avatar" %></span>
+              <% end %>
+              <% read_confirmations_scope.includes(:user).select(:user_id).distinct.limit(3).each do |event| %>
+                <%= render "shared/avatar", user: event.user, css_class: "pulse-confirmed-avatar" %>
+              <% end %>
+              <% if read_count > 3 %>
+                <div class="pulse-confirmed-avatar">+<%= read_count - 3 %></div>
+              <% end %>
+            </div>
+            <span data-pulse-action-target="count"><%= read_count %> confirmed</span>
           </div>
-          <span><%= read_count %> confirmed</span>
         </div>
+      <% else %>
+        <%# Anonymous (login CTA) or already-confirmed: static count, no live update. %>
+        <% if @current_user.nil? %>
+          <a href="/login" data-redirect-to-resource="<%= @item.path %>" class="pulse-feed-action-btn-link"><%= helpers.octicon 'sign-in' %> Log in to confirm reading</a>
+        <% else %>
+          <button type="button" class="pulse-feed-action-btn pulse-feed-action-btn-disabled" disabled><%= helpers.octicon 'book' %> Confirmed</button>
+        <% end %>
+        <% if read_count > 0 %>
+          <div class="pulse-confirmed-reads">
+            <div class="pulse-confirmed-avatars">
+              <% read_confirmations_scope.includes(:user).select(:user_id).distinct.limit(3).each do |event| %>
+                <%= render "shared/avatar", user: event.user, css_class: "pulse-confirmed-avatar" %>
+              <% end %>
+              <% if read_count > 3 %>
+                <div class="pulse-confirmed-avatar">+<%= read_count - 3 %></div>
+              <% end %>
+            </div>
+            <span><%= read_count %> confirmed</span>
+          </div>
+        <% end %>
       <% end %>
     <% when 'Decision' %>
       <% if @item.closed? %>
