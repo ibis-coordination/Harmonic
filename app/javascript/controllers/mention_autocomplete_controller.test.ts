@@ -213,6 +213,44 @@ describe("MentionAutocompleteController", () => {
     expect(dropdownElement.style.display).toBe("none")
   })
 
+  it("renders group tags with a group glyph, sorted ahead of people", async () => {
+    // Server returns a person and a group tag for the query "rep".
+    const mockResults = [
+      { id: "1", handle: "reppy-person", display_name: "Reppy Person", avatar_url: null },
+      { id: "group:representatives", handle: "representatives", display_name: "Representatives", avatar_url: null, group: true },
+    ]
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockResults),
+    })
+    vi.stubGlobal("fetch", mockFetch)
+
+    const inputElement = document.querySelector("[data-mention-autocomplete-target='input']") as HTMLTextAreaElement
+    const dropdownElement = document.querySelector(
+      "[data-mention-autocomplete-target='dropdown']"
+    ) as HTMLElement
+
+    inputElement.value = "@rep"
+    inputElement.selectionStart = 4
+    inputElement.dispatchEvent(new Event("input"))
+
+    await vi.advanceTimersByTimeAsync(200)
+
+    await vi.waitFor(() => {
+      expect(dropdownElement.innerHTML).toContain("representatives")
+    })
+
+    // Group tag renders with the group avatar class and an svg glyph, not initials.
+    expect(dropdownElement.innerHTML).toContain("mention-avatar-group")
+    expect(dropdownElement.innerHTML).toContain("<svg")
+
+    // The group tag sorts ahead of the person, so it's the first (selected) item.
+    const items = dropdownElement.querySelectorAll(".mention-item")
+    expect(items[0].innerHTML).toContain("representatives")
+    expect(items[1].innerHTML).toContain("reppy-person")
+  })
+
   it("filters cached results immediately without waiting for server", async () => {
     const mockUsers = [
       { id: "1", handle: "alice", display_name: "Alice Smith", avatar_url: null },
