@@ -217,6 +217,48 @@ class CommitmentsControllerTest < ActionDispatch::IntegrationTest
     assert_nil @commitment.starts_at
   end
 
+  # === Optional Critical Mass ===
+
+  test "create commitment without critical mass (blank form field)" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/commit", params: {
+      title: "Just a task",
+      description: "No minimum needed.",
+      critical_mass: "",
+      subtype: "action",
+      deadline_option: "no_deadline",
+    }
+
+    commitment = Commitment.unscoped.find_by(title: "Just a task", collective: @collective)
+    assert_not_nil commitment, "Expected commitment to be created. Flash: #{flash.inspect}"
+    assert_nil commitment.critical_mass
+  end
+
+  test "creator can remove critical mass while no one has joined" do
+    sign_in_as(@user, tenant: @tenant)
+
+    post "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/settings", params: {
+      critical_mass: "",
+    }
+
+    assert_redirected_to @commitment.path
+    assert_nil @commitment.reload.critical_mass
+  end
+
+  test "creator cannot remove critical mass after participants have joined" do
+    sign_in_as(@user, tenant: @tenant)
+    @commitment.join_commitment!(@user)
+
+    post "/collectives/#{@collective.handle}/c/#{@commitment.truncated_id}/settings", params: {
+      critical_mass: "",
+    }
+
+    assert_redirected_to @commitment.path
+    assert flash[:alert].present?
+    assert_equal 5, @commitment.reload.critical_mass
+  end
+
   # === Join Tests ===
 
   test "user can join commitment" do

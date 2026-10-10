@@ -28,7 +28,11 @@ class Commitment < ApplicationRecord
   has_many :participants, class_name: "CommitmentParticipant", dependent: :destroy
   validates :title, presence: true, length: { maximum: MAX_TITLE_LENGTH }
   validates :description, length: { maximum: MAX_DESCRIPTION_LENGTH }
-  validates :critical_mass, presence: true, numericality: { greater_than: 0 }
+  # Optional: critical mass is not relevant to every commitment (a task
+  # someone just needs to do, an event happening regardless of RSVPs, a
+  # policy in effect regardless of signatories). nil means "no critical
+  # mass" — the commitment simply collects participants.
+  validates :critical_mass, numericality: { greater_than: 0 }, allow_nil: true
   validates :deadline, presence: true
   validates :subtype, inclusion: { in: SUBTYPES }
   validates :starts_at, presence: true, if: :is_calendar_event?
@@ -186,8 +190,17 @@ class Commitment < ApplicationRecord
     ""
   end
 
+  sig { returns(T::Boolean) }
+  def has_critical_mass?
+    !critical_mass.nil?
+  end
+
   sig { returns(String) }
   def status_message
+    unless has_critical_mass?
+      return closed? ? "Closed." : "Open"
+    end
+
     # critical mass achieved
     return "Critical mass achieved." if critical_mass_achieved?
     # critical mass not achieved
@@ -227,12 +240,18 @@ class Commitment < ApplicationRecord
 
   sig { returns(Integer) }
   def remaining_needed_for_critical_mass
-    [T.must(critical_mass) - participant_count, 0].max
+    cm = critical_mass
+    return 0 unless cm
+
+    [cm - participant_count, 0].max
   end
 
   sig { returns(T::Boolean) }
   def critical_mass_achieved?
-    participant_count >= T.must(critical_mass)
+    cm = critical_mass
+    return false unless cm
+
+    participant_count >= cm
   end
 
   sig { returns(T::Boolean) }
@@ -242,7 +261,9 @@ class Commitment < ApplicationRecord
 
   sig { returns(T::Boolean) }
   def close_at_critical_mass?
-    limit == critical_mass
+    # The nil-guard matters: with no critical mass and no limit, nil == nil
+    # must not read as "closes at critical mass".
+    !!(critical_mass && limit == critical_mass)
   end
 
   sig { returns(T::Boolean) }
@@ -288,6 +309,7 @@ class Commitment < ApplicationRecord
   sig { returns(Integer) }
   def progress_percentage
     return 100 if critical_mass_achieved?
+    return 0 unless has_critical_mass?
 
     [(participant_count.to_f / critical_mass.to_f * 100).round, 100].min
   end

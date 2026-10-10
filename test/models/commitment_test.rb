@@ -512,7 +512,7 @@ class CommitmentTest < ActiveSupport::TestCase
   # instead of "join", and the metric is "signatories" instead of
   # "participants".
 
-  test "Policy commitment requires deadline and critical_mass like actions" do
+  test "Policy commitment requires deadline like actions (critical_mass optional)" do
     tenant = create_tenant
     user = create_user
     collective = create_collective(tenant: tenant, created_by: user)
@@ -528,7 +528,7 @@ class CommitmentTest < ActiveSupport::TestCase
 
     assert_not commitment.valid?
     assert_includes commitment.errors[:deadline], "can't be blank"
-    assert_includes commitment.errors[:critical_mass], "can't be blank"
+    assert_empty commitment.errors[:critical_mass]
   end
 
   test "Policy commitment closes when deadline passes" do
@@ -730,5 +730,49 @@ class CommitmentTest < ActiveSupport::TestCase
     assert_equal "Room A", json[:location]
     assert json[:starts_at].present?
     assert json[:ends_at].present?
+  end
+
+  # === Optional critical mass ===
+
+  test "Commitment is valid without a critical mass" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "No minimum needed",
+      deadline: 1.week.from_now
+    )
+
+    assert commitment.persisted?
+    assert_nil commitment.critical_mass
+    assert_not commitment.has_critical_mass?
+  end
+
+  test "critical mass semantics with no critical mass set" do
+    tenant = create_tenant
+    user = create_user
+    collective = create_collective(tenant: tenant, created_by: user)
+
+    commitment = Commitment.create!(
+      tenant: tenant, collective: collective, created_by: user, updated_by: user,
+      title: "No minimum needed",
+      deadline: 1.week.from_now
+    )
+
+    assert_not commitment.critical_mass_achieved?
+    assert_equal 0, commitment.remaining_needed_for_critical_mass
+    assert_equal 0, commitment.progress_percentage
+    # nil limit == nil critical_mass must not read as "closes at critical mass"
+    assert_not commitment.close_at_critical_mass?
+    assert_equal "Open", commitment.status_message
+
+    commitment.join_commitment!(user)
+    assert_equal 1, commitment.participant_count
+    assert_not commitment.critical_mass_achieved?
+
+    commitment.deadline = 1.minute.ago
+    assert_equal "Closed.", commitment.status_message
   end
 end
