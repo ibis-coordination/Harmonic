@@ -1393,4 +1393,42 @@ class SearchQueryTest < ActiveSupport::TestCase
       file: blob, created_by: @user, updated_by: @user
     )
   end
+
+  # === Cycle window vs calendar events (issue #320) ===
+
+  test "upcoming calendar event stays in the cycle window after its RSVP deadline passes" do
+    event = Commitment.create!(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Upcoming retreat", subtype: "calendar_event",
+      critical_mass: 1,
+      deadline: 2.weeks.ago, # RSVP cutoff already passed
+      starts_at: 3.days.from_now, ends_at: 3.days.from_now + 2.hours
+    )
+    SearchIndexer.reindex(event)
+
+    search = SearchQuery.new(
+      tenant: @tenant, collective: @collective, current_user: @user,
+      raw_query: "cycle:this-week"
+    )
+
+    ids = search.results.map(&:item_id)
+    assert_includes ids, event.id, "event with passed RSVP deadline but future ends_at should stay in the feed window"
+  end
+
+  test "standard commitment whose deadline passed before the cycle drops out of the window" do
+    stale = Commitment.create!(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Old closed commitment", critical_mass: 1,
+      deadline: 2.weeks.ago
+    )
+    SearchIndexer.reindex(stale)
+
+    search = SearchQuery.new(
+      tenant: @tenant, collective: @collective, current_user: @user,
+      raw_query: "cycle:this-week"
+    )
+
+    ids = search.results.map(&:item_id)
+    assert_not_includes ids, stale.id
+  end
 end

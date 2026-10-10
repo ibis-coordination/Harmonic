@@ -53,6 +53,8 @@ class SearchIndexer
       created_at: @item.created_at,
       updated_at: @item.updated_at,
       deadline: deadline,
+      starts_at: @item.is_a?(Commitment) ? @item.starts_at : nil,
+      ends_at: @item.is_a?(Commitment) ? @item.ends_at : nil,
       created_by_id: @item.created_by_id,
       updated_by_id: @item.updated_by_id,
       link_count: link_count,
