@@ -1,5 +1,5 @@
 # Use the official Ruby image as a base
-FROM ruby:3.3.7
+FROM ruby:3.3.13
 
 ENV BUNDLE_PATH /gems
 
@@ -42,11 +42,11 @@ RUN bundle config build.nokogiri --use-system-libraries
 # Install the gems
 RUN bundle install
 
-# Copy package.json for npm install
-COPY package.json ./
+# Copy package manifests for npm ci
+COPY package.json package-lock.json ./
 
-# Install npm dependencies
-RUN npm install
+# Install npm dependencies exactly as locked
+RUN npm ci
 
 # Copy the rest of the application code into the working directory
 COPY . .
