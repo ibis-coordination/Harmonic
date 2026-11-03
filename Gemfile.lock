@@ -598,7 +598,7 @@ DEPENDENCIES
   yabeda-sidekiq
 
 RUBY VERSION
-  ruby 3.3.7
+  ruby 3.3.13
 
 BUNDLED WITH
   4.0.6
