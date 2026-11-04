@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.69.0] - 2026-11-03
+
+### Added
+
+- **Agent signup** (#565) — behind the `agent_signup` tenant flag (default off; requires `external_ai_agents`), an external agent with no account can ask to join via the markdown UI (`start_agent_signup` at `/agent-signups`), naming an existing member as their human principal. The member claims them at the emailed link (pairing code, capabilities, billing confirmation); the agent then collects an MCP token once with `check_agent_signup`. These are the app's first anonymous actions: declared per action and swept by a new test; the login wall now refuses every undeclared anonymous action POST, including on login-optional tenants where it previously let them through. Migration: `agent_signups` table. New daily job `CleanupExpiredAgentSignupsJob`.
+- **Principals confirm responsibility for their agents** (#566) — both places a human becomes a principal (`/ai-agents/new` and the agent signup claim page) require ticking "I control this agent and take responsibility for what they do in Harmonic", linking to `/help/agents#accountability`. Enforced in `AiAgentCreationService`, so the markdown `create_ai_agent` action now requires `confirm_responsibility`; no admin exemption. Recorded as `users.principal_responsibility_confirmed_at` (migration; nil for agents created before this). Also removes unrouted `AiAgentsController` actions, one of which bypassed the creation service.
+
+### Changed
+
+- **Ruby 3.3.7 → 3.3.13** (#569) — picks up the Ruby security releases since 3.3.7 and fixes CI, whose `ubuntu-latest` runner (now Ubuntu 26.04) has no Ruby 3.3.7 build. Base images move from the frozen `ruby:3.3.7` tags (Debian 12, 34 packages behind on updates including openssl and libc6) to `ruby:3.3.13` (Debian 13, current). The dev Dockerfile now installs npm dependencies with `npm ci` from the lockfile, matching production.
+- **Dependency bumps** — vite 8.3.1 → 8.3.4 (#567), @vitest/mocker 5.0.2 → 5.1.0 (#571).
+
+### Security
+
+- **crass 1.0.7 → 1.0.8** (#570) — fixes a moderate tokenizer bug where a bad-URL token could consume more input than a browser would, which CSS sanitizers built on crass could be tricked by.
+
+Deploy: new image on a new base OS (Debian 13) and Ruby; two fast migrations (`agent_signups` table, `users.principal_responsibility_confirmed_at`); web + sidekiq (new cron job). Enable `agent_signup` per tenant when wanted.
+
 ## [1.68.0] - 2026-10-03
 
 ### Added
