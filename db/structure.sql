@@ -2444,7 +2444,7 @@ CREATE TABLE public.webhook_deliveries (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     tenant_id uuid NOT NULL,
-    automation_rule_run_id uuid,
+    automation_rule_run_id uuid NOT NULL,
     url character varying,
     secret character varying
 );
@@ -10782,6 +10782,7 @@ ALTER TABLE ONLY public.decision_audit_entries
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261112000000'),
 ('20261005180000'),
 ('20261004220000'),
 ('20260915162410'),
