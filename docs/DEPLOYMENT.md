@@ -242,7 +242,7 @@ See `.env.example` for all required variables. Key ones:
 | `SECRET_KEY_BASE` | Rails secret (generate with `openssl rand -hex 64`) |
 | `HOSTNAME` | Your domain (e.g., `harmonic.example.com`) |
 | `PRIMARY_SUBDOMAIN` | Main app subdomain (e.g., `app`) |
-| `AUTH_SUBDOMAIN` | Authentication subdomain (e.g., `auth`) |
+| `AUTH_SUBDOMAIN` | Authentication subdomain (e.g., `auth`); OAuth requests on any other host fail with `invalid_host` |
 | `CADDYFILE_PATH` | Path to write generated Caddyfile (default: `/app/Caddyfile`) |
 | `CADDY_ADMIN_URL` | Caddy admin API URL (default: `http://caddy:2019`) |
 | `SENTRY_DSN` | Sentry error tracking DSN (optional, recommended) |

@@ -724,7 +724,7 @@ API routes:
 | Variable | Purpose |
 |----------|---------|
 | `AUTH_MODE` | `oauth` or `honor_system` |
-| `AUTH_SUBDOMAIN` | Subdomain for auth pages |
+| `AUTH_SUBDOMAIN` | Subdomain for auth pages; the only host OmniAuth accepts (`OmniAuth.config.allowed_hosts`) |
 | `HOSTNAME` | Base domain |
 | `PRIMARY_SUBDOMAIN` | Main tenant subdomain |
 | `OTHER_PUBLIC_TENANTS` | Comma-separated public subdomains |
