@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.69.1] - 2026-11-11
+
+### Security
+
+- **Rails 8.1.3.1 → 8.1.4.1** (#580) — security release with advisories across Action Pack, Active Support, Active Storage, and Action Mailbox. Same PR: nokogiri 1.19.4 → 1.19.5 (low-severity fixes, including a mutation XSS via `noscript` in sanitized HTML). Transitive bumps across these PRs include rails-html-sanitizer 1.7.2, loofah 2.25.3, net-imap 0.6.8, and uri 1.1.2.
+- **rack 3.2.6 → 3.2.8** (#573) — four advisories: invalid authorities returned raw by `Rack::Request#host_with_port`/`#base_url`/`#url`, multipart parser memory exhaustion, a multipart `boundary` guard bypass, and `Rack::Static` header rules bypassable with dot segments.
+- **omniauth 2.1.4 → 2.2.0** (#572) — adds `OmniAuth.config.allowed_hosts` to guard against forged hosts in OAuth callback URLs (GHSA-m27g-v28p-f9fx). Harmonic sets neither `allowed_hosts` nor `full_host` yet, so the gem logs a warning on each OAuth request phase; production's Caddy config routes only known tenant hostnames and overwrites `X-Forwarded-Host`, so forged hosts do not reach the app.
+
+### Changed
+
+- **Workflow actions pinned to commit SHAs** (#574) — every action in CI, image publishing, and bridge publishing is pinned to a commit rather than a movable tag, and a Dependabot config for the `github-actions` ecosystem keeps the pins current (minor/patch grouped weekly, majors individually). `ci.yml` moves to `actions/checkout` v4 and drops the `ruby-version-file` input setup-ruby never accepted.
+- **Action upgrades** — actions/setup-node 4 → 7 (#576), actions/upload-artifact 4 → 7 (#578), docker/metadata-action 5 → 6 (#577), docker/login-action 3 → 4 (#579), ruby/setup-ruby 1.336.0 → 1.338.0 (#575). This release's tag push is the first image build on the new docker actions.
+
+Deploy: web + sidekiq image update, no migrations.
+
 ## [1.69.0] - 2026-11-03
 
 ### Added
