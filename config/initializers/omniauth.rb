@@ -27,6 +27,26 @@ OmniAuth.config.allowed_request_methods = [:post]
 OmniAuth.config.silence_get_warning = true
 OmniAuth.config.failure_raise_out_environments = []
 
+# OmniAuth builds the callback URL it sends to the provider from the request's
+# host, which a client can forge. OAuth only runs on the auth host (HOSTNAME
+# itself in single-tenant mode), so that is the one host allowed; requests on
+# any other host fail with invalid_host. Without the env vars (e.g. during
+# asset precompilation) no host is allowed, so OAuth fails closed.
+module OmniAuthAllowedHosts
+  def self.for_env(env)
+    hostname = env["HOSTNAME"].to_s.split(":").first
+    return [] if hostname.blank?
+    return [hostname] if env["SINGLE_TENANT_MODE"] == "true"
+
+    auth_subdomain = env["AUTH_SUBDOMAIN"]
+    return [] if auth_subdomain.blank?
+
+    ["#{auth_subdomain}.#{hostname}"]
+  end
+end
+
+OmniAuth.config.allowed_hosts = OmniAuthAllowedHosts.for_env(ENV)
+
 if Rails.env.development?
   # OmniAuth.config.test_mode = true
   OmniAuth.config.add_mock(:developer, {
