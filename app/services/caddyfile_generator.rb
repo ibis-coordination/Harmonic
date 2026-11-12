@@ -86,7 +86,12 @@ class CaddyfileGenerator
       "\thandle /internal/* {",
       "\t\trespond 403",
       "\t}",
-      "\treverse_proxy web:3000",
+      # Rails raises IpSpoofAttackError (a 500) when a client-sent Client-IP
+      # disagrees with the X-Forwarded-For Caddy sets; clients have no reason
+      # to send it.
+      "\treverse_proxy web:3000 {",
+      "\t\theader_up -Client-IP",
+      "\t}",
       "}",
     ]
   end

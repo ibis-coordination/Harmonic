@@ -26,4 +26,16 @@ class CaddyfileGeneratorTest < ActiveSupport::TestCase
     assert_includes block, "reverse_proxy web:3000"
     assert_includes block, "handle /internal/* {"
   end
+
+  # A client-sent Client-IP that disagrees with the X-Forwarded-For Caddy
+  # sets makes ActionDispatch::RemoteIp raise IpSpoofAttackError (a 500).
+  # Clients never have a reason to send it, so the proxy drops it.
+  test "the web proxy strips the Client-IP request header" do
+    output = CaddyfileGenerator.new.generate
+    hostname = ENV.fetch("HOSTNAME")
+    primary = ENV.fetch("PRIMARY_SUBDOMAIN")
+
+    block = output[/^#{Regexp.escape(primary)}\.#{Regexp.escape(hostname)} \{.*?^\}/m]
+    assert_match(/reverse_proxy web:3000 \{\n\t\theader_up -Client-IP\n\t\}/, block)
+  end
 end
