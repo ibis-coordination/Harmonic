@@ -199,4 +199,49 @@ class WebhookDeliveryTest < ActiveSupport::TestCase
     assert_equal @automation_run, delivery.automation_rule_run
     assert_includes @automation_run.webhook_deliveries, delivery
   end
+
+  def create_pending_delivery
+    WebhookDelivery.create!(
+      tenant: @tenant,
+      automation_rule_run: @automation_run,
+      event: @event,
+      url: "https://example.com/webhook",
+      secret: "test_secret",
+      status: "pending",
+      attempt_count: 0,
+      request_body: '{"test":"data"}',
+    )
+  end
+
+  test "destroying a run destroys its deliveries" do
+    delivery = create_pending_delivery
+
+    @automation_run.destroy!
+
+    assert_not WebhookDelivery.exists?(delivery.id)
+  end
+
+  test "hard-destroying a rule destroys the deliveries of its runs" do
+    delivery = create_pending_delivery
+
+    @automation_rule.allow_hard_destroy = true
+    @automation_rule.destroy!
+
+    assert_not WebhookDelivery.exists?(delivery.id)
+  end
+
+  test "the database rejects a delivery without a run" do
+    delivery = create_pending_delivery
+
+    assert_raises(ActiveRecord::NotNullViolation) do
+      delivery.update_column(:automation_rule_run_id, nil)
+    end
+  end
+
+  test "a queued delivery job whose run was destroyed does nothing" do
+    delivery = create_pending_delivery
+    @automation_run.destroy!
+
+    assert_nothing_raised { WebhookDeliveryJob.perform_now(delivery.id) }
+  end
 end
