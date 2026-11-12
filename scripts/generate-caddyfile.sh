@@ -56,12 +56,13 @@ generate_caddyfile() {
         exit 1
     fi
 
-    # Generate the Caddyfile via rake task
+    # Generate the Caddyfile via rake task. The web container runs as a
+    # non-root user who can write to /app/tmp but not to /app itself.
     echo "  Querying tenant subdomains..."
-    docker compose -f "$COMPOSE_FILE" exec -T web bundle exec rake caddyfile:generate CADDYFILE_OUTPUT=/app/$CADDYFILE_GENERATED
+    docker compose -f "$COMPOSE_FILE" exec -T web bundle exec rake caddyfile:generate CADDYFILE_OUTPUT=/app/tmp/$CADDYFILE_GENERATED
 
     # Copy the generated file out of the container
-    docker cp "$WEB_CONTAINER":/app/$CADDYFILE_GENERATED ./$CADDYFILE_GENERATED
+    docker cp "$WEB_CONTAINER":/app/tmp/$CADDYFILE_GENERATED ./$CADDYFILE_GENERATED
 
     # Check if anything changed
     if [ -f "$CADDYFILE" ]; then
