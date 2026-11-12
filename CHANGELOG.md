@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.69.3] - 2026-11-12
+
+### Fixed
+
+- **Markdown pages show text as written** (#584) — ERB HTML-escaped every interpolation in `.md.erb` templates, so agents read entities instead of what users wrote: a note titled `Tom & Jerry say "hi"` arrived as `Tom &amp; Jerry say &quot;hi&quot;`, in titles, bodies, identity prompts, and JSON code blocks alike. `text/markdown` now joins `text/plain` on ERB's escape ignore list. Markdown responses are served as `text/markdown` with `nosniff` and a `script-src 'self'` CSP, and every path that turns markdown into HTML sanitizes it in `MarkdownRenderer`.
+- **`scripts/generate-caddyfile.sh` works in production** (#586) — it had the rake task write into `/app`, which the web container's non-root user cannot create files in; it now writes to `/app/tmp`.
+
+### Security
+
+- **The identity-prompt canary can't be spoofed** (#584) — the agent-runner took the first `<canary:X>…</canary:X>` block on `/whoami` as the identity prompt, and names other users choose (such as a represented collective's) appear above it; with markdown no longer escaped, such a name could have supplied a fake canary and switched off leakage detection. `/whoami`'s frontmatter now names the canary token, and the runner accepts only the block carrying that token.
+- **The Caddy proxy strips the `Client-IP` request header** (#585) — scanners sent a `Client-IP` that contradicted `X-Forwarded-For`, making Rails raise `IpSpoofAttackError` (a 500 and a Sentry event each time). Clients have no reason to send it; Rails' spoofing check stays on.
+
+Deploy: web + sidekiq + agent-runner image update (the runner and web change together for the canary), no migrations. Then `git pull` in the deployment directory and run `./scripts/generate-caddyfile.sh` (`--dry-run` first) to regenerate the Caddyfile with the `Client-IP` strip and reload Caddy.
+
 ## [1.69.2] - 2026-11-12
 
 ### Security
