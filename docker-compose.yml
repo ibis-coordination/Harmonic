@@ -69,9 +69,9 @@ services:
 
   # Local PostgreSQL database (production uses managed database)
   db:
-    image: postgres:13
+    image: postgres:17
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pg17_data:/var/lib/postgresql/data
     env_file:
       - .env
     networks:
@@ -262,7 +262,7 @@ networks:
     internal: true
 
 volumes:
-  pg_data:
+  pg17_data:
   redis_data:
   caddy_data:
   caddy_config:

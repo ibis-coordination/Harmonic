@@ -65,13 +65,13 @@ services:
     command: bash
 
   db:
-    image: postgres:13
+    image: postgres:17
     environment:
       POSTGRES_USER: decisiveteam
       POSTGRES_PASSWORD: decisiveteam
       POSTGRES_DB: decisive_team_test
     volumes:
-      - pg_data_dev:/var/lib/postgresql/data
+      - pg17_data_dev:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U decisiveteam -d decisive_team_test"]
       interval: 5s
@@ -89,4 +89,4 @@ services:
 volumes:
   node_modules:
   asset_builds:
-  pg_data_dev:
+  pg17_data_dev:

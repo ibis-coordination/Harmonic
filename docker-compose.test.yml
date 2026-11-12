@@ -57,7 +57,7 @@ services:
       AUTH_SUBDOMAIN: auth
 
   db:
-    image: postgres:13
+    image: postgres:17
     environment:
       POSTGRES_USER: decisiveteam
       POSTGRES_PASSWORD: decisiveteam
@@ -66,7 +66,7 @@ services:
     # `tmpfs: /var/lib/postgresql/data` to run the DB in RAM (faster, but adds a
     # few hundred MB of RAM pressure — drop it back on a tight box).
     volumes:
-      - pg_data_test:/var/lib/postgresql/data
+      - pg17_data_test:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U decisiveteam -d decisive_team_test"]
       interval: 5s
@@ -82,4 +82,4 @@ services:
       retries: 5
 
 volumes:
-  pg_data_test:
+  pg17_data_test:
