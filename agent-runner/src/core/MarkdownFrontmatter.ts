@@ -1,7 +1,8 @@
 /**
  * Parsers for the YAML frontmatter that Rails' markdown layout wraps every page
  * response in. Used by McpClient to extract the per-page action list and the
- * server-resolved path from a `fetch_page` result.
+ * server-resolved path from a `fetch_page` result, and by LeakageDetector to
+ * read /whoami's canary token.
  *
  * Rails emits this frontmatter with a standard YAML emitter (Psych) and it is
  * meant to be read by any standard YAML client, so we parse it with a real YAML
@@ -15,6 +16,7 @@ import { parse as parseYaml } from "yaml";
 interface Frontmatter {
   readonly path?: unknown;
   readonly actions?: unknown;
+  readonly canary?: unknown;
 }
 
 /**
@@ -70,4 +72,17 @@ export function parseResolvedPath(content: string): string | null {
   if (frontmatter === null) return null;
   const path: unknown = frontmatter.path;
   return typeof path === "string" && path.trim() !== "" ? path : null;
+}
+
+/**
+ * Extract the canary token from a markdown response's frontmatter. /whoami
+ * names the token of the `<canary:TOKEN>` block that wraps the identity prompt,
+ * so a block elsewhere in the page with any other token is never mistaken for
+ * it. Returns null unless `canary` is an alphanumeric string.
+ */
+export function parseCanaryToken(content: string): string | null {
+  const frontmatter = parseFrontmatter(content);
+  if (frontmatter === null) return null;
+  const canary: unknown = frontmatter.canary;
+  return typeof canary === "string" && /^[a-zA-Z0-9]+$/.test(canary) ? canary : null;
 }

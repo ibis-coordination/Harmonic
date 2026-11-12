@@ -49,6 +49,7 @@ module MarkdownHelper
       title: @page_title,
       timestamp: Time.now.utc,
       actions: available_actions_for_current_route,
+      canary: @page_canary,
     )
   end
 
@@ -62,13 +63,16 @@ module MarkdownHelper
   # there is no hand-rolled escaper to get wrong. Returns an html_safe string
   # (the response is text/markdown, not HTML, so YAML's `<`/`>`/`&` must pass
   # through unescaped).
-  def markdown_frontmatter_block(app:, host:, path:, title:, timestamp:, scope: nil, query: nil, actions: [])
+  def markdown_frontmatter_block(app:, host:, path:, title:, timestamp:, scope: nil, query: nil, actions: [], canary: nil)
     data = { "app" => app, "host" => host, "path" => path }
     data["scope"] = scope if scope.present?
     data["query"] = query if query.present?
     data["title"] = title
     data["timestamp"] = timestamp
     data["actions"] = actions.map { |action| frontmatter_action_entry(action) } if actions.any?
+    # Names the <canary:TOKEN> block on /whoami, so the agent-runner's leakage
+    # detector can tell it from a block planted in user-written page text.
+    data["canary"] = canary if canary.present?
 
     (YAML.dump(data) + "---").html_safe
   end
