@@ -95,6 +95,18 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_200_markdown_response("Actions | #{title}", "#{path}/actions")
   end
 
+  test "markdown pages show user-written text as written, not HTML-escaped" do
+    note = create_note(title: 'Tom & Jerry say "hi" <3', text: 'a & b "c" <d>')
+
+    get note.path, headers: @headers
+
+    assert_response :success
+    assert_includes response.body, '# Note: Tom & Jerry say "hi" <3'
+    assert_includes response.body, 'a & b "c" <d>'
+    assert_not_includes response.body, "&amp;"
+    assert_not_includes response.body, "&quot;"
+  end
+
   test "GET / returns 200 markdown with actions" do
     assert_200_markdown_page_with_actions("Home", "/")
   end
@@ -914,15 +926,17 @@ class MarkdownUiTest < ActionDispatch::IntegrationTest
     assert_equal "Updated description", commitment.description, "Commitment description should have been updated"
   end
 
-  # HTML entities are expected in markdown output for safety
-  test "note with apostrophe in title should be escaped in markdown" do
+  # Markdown responses are text/markdown with nosniff and a script-src 'self'
+  # CSP, and every path that turns markdown into HTML sanitizes it in
+  # MarkdownRenderer, so HTML entities would only garble what agents read.
+  test "note with apostrophe in title is not HTML-escaped in markdown" do
     note = create_note(collective: @collective, created_by: @user, title: "Test's apostrophe note")
     get "/collectives/#{@collective.handle}/n/#{note.truncated_id}", headers: @headers
     assert_equal 200, response.status
     assert is_markdown?
 
-    # Should contain the escaped apostrophe
-    assert_match(/Test&#39;s apostrophe/, response.body, "Title should contain escaped apostrophe")
+    assert_includes response.body, "# Note: Test's apostrophe note"
+    assert_not_includes response.body, "&#39;"
   end
 
   # Error page tests - should return markdown, not 500

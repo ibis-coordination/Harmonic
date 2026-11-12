@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAvailableActions, parseResolvedPath } from "../../src/core/MarkdownFrontmatter.js";
+import { parseAvailableActions, parseCanaryToken, parseResolvedPath } from "../../src/core/MarkdownFrontmatter.js";
 
 describe("parseAvailableActions", () => {
   it("parses action names from YAML frontmatter", () => {
@@ -177,5 +177,28 @@ path: "/collectives/team/n/abc123"
 # Body
 `;
     expect(parseResolvedPath(content)).toBe("/collectives/team/n/abc123");
+  });
+});
+
+describe("parseCanaryToken", () => {
+  it("reads an alphanumeric canary token", () => {
+    expect(parseCanaryToken('---\napp: Harmonic\ncanary: a1b2c3d4e5f60718\n---\nbody')).toBe("a1b2c3d4e5f60718");
+  });
+
+  it("reads an all-digit token the emitter quoted as a string", () => {
+    expect(parseCanaryToken("---\ncanary: '0123456789012345'\n---\nbody")).toBe("0123456789012345");
+  });
+
+  it("rejects a token YAML parsed as a number", () => {
+    expect(parseCanaryToken("---\ncanary: 123456\n---\nbody")).toBeNull();
+  });
+
+  it("rejects a token with non-alphanumeric characters", () => {
+    expect(parseCanaryToken('---\ncanary: "abc>x"\n---\nbody')).toBeNull();
+  });
+
+  it("returns null without frontmatter or a canary", () => {
+    expect(parseCanaryToken("canary: abc\n")).toBeNull();
+    expect(parseCanaryToken("---\napp: Harmonic\n---\nbody")).toBeNull();
   });
 });

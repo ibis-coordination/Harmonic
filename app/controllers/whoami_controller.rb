@@ -4,6 +4,9 @@ class WhoamiController < ApplicationController
   def index
     @page_title = "Who Am I?"
     @sidebar_mode = "minimal"
+    # Random per view; the template wraps the identity prompt in a
+    # <canary:TOKEN> block and the frontmatter names the token.
+    @page_canary = SecureRandom.hex(8) if current_user&.effective_identity_prompt.present?
     if current_user
       @upcoming_reminders = Note
         .tenant_scoped_only(Tenant.current_id)

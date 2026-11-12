@@ -485,7 +485,7 @@ describe("AgentLoop", () => {
 
   it("leakage detection runs on every LLM response", async () => {
     const state = createMockState();
-    const canaryContent = '<canary:SECRET42>I am a cooking assistant who loves pasta.</canary:SECRET42>';
+    const canaryContent = '---\ncanary: SECRET42\n---\n<canary:SECRET42>I am a cooking assistant who loves pasta.</canary:SECRET42>';
     await runWithMocks(
       makeTask(),
       state,

@@ -1,15 +1,13 @@
 /**
  * Identity prompt leakage detection — pure functions.
- * Ported from app/services/identity_prompt_leakage_detector.rb
  *
- * Must match Ruby implementation exactly:
- * - Canary regex: /<canary:([a-zA-Z0-9]+)>(.*?)<\/canary:\1>/m
+ * - Canary: the `<canary:TOKEN>` block whose TOKEN /whoami's frontmatter names
  * - Normalization: lowercase, collapse whitespace, strip
  * - LCS truncation: 2000 chars max per string
  * - Thresholds: 50 chars absolute OR 30% of prompt length
  */
+import { parseCanaryToken } from "./MarkdownFrontmatter.js";
 
-const CANARY_PATTERN = /<canary:([a-zA-Z0-9]+)>([\s\S]*?)<\/canary:\1>/;
 const SIMILARITY_THRESHOLD_CHARS = 50;
 const SIMILARITY_THRESHOLD_PERCENT = 0.3;
 const MAX_LCS_LENGTH = 2000;
@@ -33,15 +31,20 @@ export interface LeakageResult {
 
 /**
  * Extract canary token and identity prompt from /whoami content.
+ *
+ * The frontmatter names the token, and only the `<canary:TOKEN>` block with
+ * that token counts. Page text can include names and other content written by
+ * other users, so a block that merely appears first could be planted; the
+ * token is random per page view and only the real block carries it.
  */
 export function extractCanary(content: string): LeakageDetector {
-  const match = CANARY_PATTERN.exec(content);
-  if (match === null) {
+  const canary = parseCanaryToken(content);
+  if (canary === null) {
     return { active: false };
   }
-  const canary = match[1];
-  const identityPrompt = match[2]?.trim();
-  if (canary === undefined || identityPrompt === undefined || canary === "" || identityPrompt === "") {
+  const match = new RegExp(`<canary:${canary}>([\\s\\S]*?)</canary:${canary}>`).exec(content);
+  const identityPrompt = match?.[1]?.trim();
+  if (identityPrompt === undefined || identityPrompt === "") {
     return { active: false };
   }
   return { canary, identityPrompt, active: true };
