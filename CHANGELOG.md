@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.69.2] - 2026-11-12
+
+### Security
+
+- **OmniAuth accepts only the auth host** (#581) — OmniAuth builds the `redirect_uri` it sends to the OAuth provider from the request's `Host` or `X-Forwarded-Host`, so a forged header could point the callback at another host (GHSA-m27g-v28p-f9fx). `OmniAuth.config.allowed_hosts` is now the auth host (`AUTH_SUBDOMAIN.HOSTNAME`, or `HOSTNAME` in single-tenant mode); OAuth requests on any other host, tenant subdomains included, fail with `invalid_host`. Without those env vars no host is allowed, so OAuth fails closed rather than the app failing to boot. Production's Caddy config already kept forged hosts out; the app now enforces it too, and the omniauth 2.2.0 warning logged on every OAuth request stops.
+
+### Fixed
+
+- **Webhook deliveries are destroyed with their automation rule run** (#583) — destroying a run nullified its deliveries, though a delivery requires its run: a pending delivery whose run was gone still sent its webhook (with an empty `X-Harmonic-Automation-Run` header), then failed to save and landed in Sidekiq's dead set. Rule deletion is a soft delete, but the bridge-setup cleanup paths still hard-destroy rules through their runs. Migration: deletes deliveries already orphaned by the old behavior, then makes `webhook_deliveries.automation_rule_run_id` NOT NULL.
+
+### Changed
+
+- **PostgreSQL 17 in dev and CI** (#582) — dev, the test compose file, and CI move from `postgres:13` (end of life since November 2025) to `postgres:17`, matching production's 17.11. Fixes `db/structure.sql` failing to load after any migration, since the dev image's `pg_dump` 17 writes a setting PostgreSQL 13 rejects. Database volumes are renamed (`pg17_data`, `pg17_data_dev`, `pg17_data_test`); existing local data has to be dumped from the old volume and restored, or reseeded. No production change.
+
+Deploy: web + sidekiq image update; one migration (fast: a `DELETE` of orphaned `webhook_deliveries` rows and a NOT NULL constraint).
+
 ## [1.69.1] - 2026-11-11
 
 ### Security
