@@ -96,13 +96,25 @@ generate_caddyfile() {
         exit 0
     fi
 
-    # Apply the new Caddyfile
+    # Apply the new Caddyfile. Overwrite it in place rather than mv: caddy and
+    # sidekiq mount this single file, and on Linux a file mount stays bound to
+    # the original file, so a replaced file is never seen inside them.
     echo "  Applying new Caddyfile..."
-    mv "$CADDYFILE_GENERATED" "$CADDYFILE"
+    cat "$CADDYFILE_GENERATED" > "$CADDYFILE"
+    rm -f "$CADDYFILE_GENERATED"
 
     # Reload Caddy if running
     CADDY_CONTAINER=$(get_caddy_container)
     if [ -n "$CADDY_CONTAINER" ]; then
+        # A file replaced by an earlier mv leaves the mount stale; reloading
+        # would quietly keep the old config.
+        if ! docker exec "$CADDY_CONTAINER" cat /etc/caddy/Caddyfile | cmp -s - "$CADDYFILE"; then
+            echo -e "${RED}Error: Caddy's mounted Caddyfile differs from ./$CADDYFILE (stale mount).${NC}"
+            echo "Recreate the containers that mount it, then reload:"
+            echo "  docker compose -f $COMPOSE_FILE up -d --force-recreate caddy sidekiq"
+            exit 1
+        fi
+
         echo "  Reloading Caddy..."
         docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 
