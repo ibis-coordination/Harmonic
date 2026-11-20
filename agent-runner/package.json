@@ -16,9 +16,9 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "^3.21.0",
+    "effect": "^3.22.1",
     "ioredis": "^5.4.0",
-    "undici": "^8.10.2",
+    "undici": "^8.12.2",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
