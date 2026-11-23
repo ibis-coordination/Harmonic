@@ -792,6 +792,13 @@ ul.attachments-list {
   object-fit: cover;
 }
 
+/* Group tags (@everyone, @representatives, …) render a group glyph instead of
+   an avatar, tinted apart from a person's avatar so a broadcast mention reads
+   as a set of people (#465). */
+.mention-avatar-group {
+  background-color: var(--color-neutral-emphasis);
+}
+
 .mention-info {
   display: flex;
   flex-direction: column;
