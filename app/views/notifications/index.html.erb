@@ -10,6 +10,21 @@
 
   <%= render 'push_optin_banner' if @show_push_banner %>
 
+  <%# needs_action triage facet (issue #456): filter the feed to notifications
+      that call for a response/action. Always rendered so the "show all" escape
+      hatch is available even when the filtered feed is empty. %>
+  <% if @needs_action_only %>
+    <div class="pulse-notifications-summary" style="margin-bottom: 8px;">
+      <span class="pulse-notifications-count">Showing <strong>needs action</strong> only</span>
+      <a href="/notifications" class="pulse-action-btn-secondary">Show all</a>
+    </div>
+  <% elsif @needs_action_count.to_i > 0 %>
+    <div class="pulse-notifications-summary" style="margin-bottom: 8px;">
+      <span class="pulse-notifications-count"><strong><%= @needs_action_count %></strong> need action</span>
+      <a href="/notifications?needs_action=true" class="pulse-action-btn-secondary">Show only these</a>
+    </div>
+  <% end %>
+
   <div data-controller="notification-actions">
     <% if @notification_recipients.empty? %>
       <div class="pulse-notifications-empty">

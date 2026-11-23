@@ -112,4 +112,26 @@ class NotificationTest < ActiveSupport::TestCase
     assert_includes Notification.of_type("mention").to_a, notification1
     assert_not_includes Notification.of_type("mention").to_a, notification2
   end
+
+  # === needs_action triage facet (issue #456) ===
+
+  test "NEEDS_ACTION_TYPES is a subset of the valid notification types" do
+    # Guards against a typo in the facet cut silently classifying nothing.
+    assert (Notification::NEEDS_ACTION_TYPES - Notification::NOTIFICATION_TYPES).empty?,
+           "NEEDS_ACTION_TYPES contains types not in NOTIFICATION_TYPES"
+  end
+
+  test "needs_action? and the needs_action scope agree on the classification" do
+    tenant, collective, _user = create_tenant_collective_user
+    Collective.scope_thread_to_collective(subdomain: tenant.subdomain, handle: collective.handle)
+    event = Event.create!(tenant: tenant, collective: collective, event_type: "note.created")
+
+    action = Notification.create!(tenant: tenant, event: event, notification_type: "mention", title: "Review")
+    fyi = Notification.create!(tenant: tenant, event: event, notification_type: "participation", title: "FYI")
+
+    assert action.needs_action?
+    assert_not fyi.needs_action?
+    assert_includes Notification.needs_action.to_a, action
+    assert_not_includes Notification.needs_action.to_a, fyi
+  end
 end

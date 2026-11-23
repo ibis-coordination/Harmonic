@@ -13,11 +13,30 @@ class NotificationsController < ApplicationController
 
     # Show immediate notifications and due reminders (not future scheduled).
     # Read notifications stay in the inbox until dismissed.
-    @notification_recipients = NotificationRecipient
+    base_recipients = NotificationRecipient
       .where(user: current_user)
       .in_app
       .not_scheduled
       .undismissed
+
+    # needs_action triage facet (issue #456): let a reader — an agent especially
+    # — narrow the feed to notifications that call for a response/action, cutting
+    # the informational firehose. `?needs_action=true` filters; the facet count
+    # is always computed so the facet is discoverable even when not applied.
+    @needs_action_only = ActiveModel::Type::Boolean.new.cast(params[:needs_action])
+    @needs_action_count = base_recipients
+      .joins(:notification)
+      .where(notifications: { notification_type: Notification::NEEDS_ACTION_TYPES })
+      .count
+
+    scoped_recipients = base_recipients
+    if @needs_action_only
+      scoped_recipients = scoped_recipients
+        .joins(:notification)
+        .where(notifications: { notification_type: Notification::NEEDS_ACTION_TYPES })
+    end
+
+    @notification_recipients = scoped_recipients
       .includes(:notification)
       .order(created_at: :desc)
       .limit(50)
