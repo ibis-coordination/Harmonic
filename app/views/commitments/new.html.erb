@@ -127,9 +127,10 @@
         <div class="pulse-form-group">
           <div class="pulse-inline-field">
             <span>At least</span>
-            <%= form.number_field :critical_mass, value: 1, min: 1, class: 'pulse-form-input pulse-form-input-narrow' %>
+            <%= form.number_field :critical_mass, value: nil, min: 1, class: 'pulse-form-input pulse-form-input-narrow' %>
             <span data-commitment-subtype-target="criticalMassSuffix"><%= critical_mass_suffix %></span>
           </div>
+          <p class="pulse-form-hint">Optional — leave blank if a minimum isn't relevant.</p>
         </div>
       <% end %>
     </section>

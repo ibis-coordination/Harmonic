@@ -240,7 +240,8 @@ class FeedItemComponent < ViewComponent::Base
   def critical_mass
     return 0 unless @item.is_a?(Commitment)
 
-    T.must(@item.critical_mass)
+    # 0 stands in for "no critical mass" — the template branches on > 0.
+    @item.critical_mass || 0
   end
 
   sig { returns(Integer) }
