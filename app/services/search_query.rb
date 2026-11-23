@@ -894,10 +894,17 @@ class SearchQuery
     return if cycle_obj.blank?
 
     # Match the pattern from Cycle#resources:
-    # created_at < end_date AND deadline > start_date
+    # created_at < end_date AND deadline > start_date.
+    # Calendar events additionally stay in the window until the event itself
+    # has ended: their deadline is the RSVP cutoff, which can pass long
+    # before the event happens, and an upcoming event shouldn't vanish from
+    # the feed (#320). ends_at is only populated for calendar events.
     @relation = T.must(@relation)
       .where(search_index: { created_at: ...cycle_obj.end_date })
-      .where("search_index.deadline > ?", cycle_obj.start_date)
+      .where(
+        "search_index.deadline > :cycle_start OR search_index.ends_at > :cycle_start",
+        cycle_start: cycle_obj.start_date
+      )
   end
 
   sig { void }

@@ -53,6 +53,24 @@ class SearchIndexerTest < ActiveSupport::TestCase
     assert_equal commitment.title, search_index.title
     assert_equal commitment.description, search_index.body
     assert_equal commitment.truncated_id, search_index.truncated_id
+    assert_nil search_index.starts_at
+    assert_nil search_index.ends_at
+  end
+
+  test "reindex records event times for calendar events" do
+    starts = 3.days.from_now
+    event = Commitment.create!(
+      tenant: @tenant, collective: @collective, created_by: @user,
+      title: "Team offsite", subtype: "calendar_event",
+      critical_mass: 1,
+      deadline: starts, starts_at: starts, ends_at: starts + 2.hours
+    )
+
+    SearchIndexer.reindex(event)
+
+    search_index = SearchIndex.find_by(item_type: "Commitment", item_id: event.id)
+    assert_in_delta starts.to_f, search_index.starts_at.to_f, 1.0
+    assert_in_delta (starts + 2.hours).to_f, search_index.ends_at.to_f, 1.0
   end
 
   test "reindex creates search index for comments with subtype and replying_to_id" do
